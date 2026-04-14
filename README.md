@@ -19,9 +19,9 @@ and document OWASP Top 10 attack vectors and their mitigations.
 ## Getting Started
 Clone the repo and run with Docker Compose:
 
-git clone https://github.com/yourname/FauxVault.git
-cd FauxVault
-docker-compose up
+1. git clone https://github.com/yourname/FauxVault.git
+2. cd FauxVault
+3. docker-compose up
 
 ## Disclaimer
 This application is intentionally vulnerable and is for educational 
