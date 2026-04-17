@@ -10,9 +10,9 @@
     background: var(--color-bg-primary);
 }
 
-.app-layout__content {
+.main-content {
     grid-area: content;
-    padding: var(--space-xl);
+    padding: var(--space-xl) var(--space-2xl);
     overflow-y: auto;
     animation: fadeInUp 300ms ease;
 }
