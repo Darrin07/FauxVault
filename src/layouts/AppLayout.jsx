@@ -9,7 +9,7 @@ export default function AppLayout() {
             <main className="main-content">
                 <Outlet />
             </main>
-            /** Put sidebar menu here */
-        </div>
+           {/* Add sidebar page */}        
+           </div>
     )
 }

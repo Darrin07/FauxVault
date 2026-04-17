@@ -12,8 +12,8 @@ const NAV_LINKS = [
 export default function NavBar() {
     return (
         <nav className="navbar">
-            <div classname="navbar-logo">
-            <span classname="logo-text">FAUXVAULT</span>
+            <div className="navbar-logo">
+            <span className="logo-text">FAUXVAULT</span>
             </div>
             <ul className="navbar__links">
                 {NAV_LINKS.map((link) => (
