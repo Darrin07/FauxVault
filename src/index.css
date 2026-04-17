@@ -1,11 +1,51 @@
 /*Key Design Tokens*/
-/*Surfaces*/
-/*Borders*/
-/*Colors*/
-/*Text and Font*/
-/*Status Bar*/
+
+
+
 /*Spacing*/
 /*Transitions*/
 :root {
+/*Surfaces*/
+--color-bg-primary:       #121220;
+--color-bg-secondary:     #1a1a2e;
+--color-bg-card:          #222238;
+--color-bg-sidebar:       #2a2a2a;
+--color-bg-input:         #2a2a45;
+
+/*Borders*/
+--color-border:             rgba(255, 255, 255, 0.06);
+--color-border-hover:       rgba(255, 255, 255, 0.21); 
+
+/*Color Scheme*/
+--color-vulnerable:         #e74c3c;
+--color-hardened:           #1e934f;
+--color-warning:            #f39c12;
+--color-info:               #3498db;
+
+/*Text and Font*/
+--color-text-primary:       #f0f0f0;
+--color-text-secondary:     #a0a0b8;
+--color-text-muted:         #6c6c6a;
+
+--font-family:              'Inter', system-ui, sans-serif;
+--font-mono:                'JetBrains Mono', monospace;
+
+--font-size-xs:             0.75rem;
+--font-size-sm:             0.81rem;
+--font-size-base:           0.93rem;
+--font-size-md:             1rem;
+--font-size-lg:             1.12rem;
+--font-size-xl:             1.35rem;
+
+--font-weight-light:        300;
+--font-weight-normal:       400;
+--font-weight-semibold:     600;
+--font-weight-bold:         700;
+
+--line-height-tight:        1.2;
+--line-height-normal:       1.5;
+
+/*Status Bar*/
+
 
 }
