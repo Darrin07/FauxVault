@@ -1,0 +1,19 @@
+.app-layout {
+    display: grid;
+    grid-template-rows: auto auto 1fr;
+    grid-template-columns: 1fr var(--sidebar-width);
+    grid-template-areas:
+    "status  status"
+    "navbar  navbar"
+    "content  sidebar";
+    min-height: 100vh;
+    background: var(--color-bg-primary);
+}
+
+.app-layout__content {
+    grid-area: content;
+    padding: var(--space-xl);
+    overflow-y: auto;
+    animation: fadeInUp 300ms ease;
+}
+
