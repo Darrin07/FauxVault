@@ -21,11 +21,15 @@
   --color-hardened:           #1e934f;
   --color-warning:            #f39c12;
   --color-info:               #3498db;
+  --color-accent:             #6c5ce7;
+  --color-accent-hover:       #7d6ff0;
 
   /*Text and Font*/
   --color-text-primary:       #f0f0f0;
   --color-text-secondary:     #a0a0b8;
   --color-text-muted:         #6c6c6a;
+
+  --gradient-brand:           linear-gradient(135deg, #6c5ce7, #efe1e0);
 
   --font-family:              'Inter', system-ui, sans-serif;
   --font-mono:                'JetBrains Mono', monospace;
