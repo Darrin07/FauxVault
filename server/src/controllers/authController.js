@@ -1,9 +1,18 @@
+/** Auth Controller - registration, login and logout handlers */
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const config = require('../config');
 const { createUser, findUserByEmail } = require('../mock/users');
 const { createAccount } = require('../mock/accounts');
+ 
 
+/** 
+ * Creates a signed JWT with user claims. 
+ * Used by both register and login flow.
+ * @param {Object} user - the user record
+ * @returns {string} signed JWT token
+ * @requirement R1.1
+*/
 function generateToken(user){
     return jwt.sign(
         {userId: user.id, email: user.email, role: user.role },
@@ -12,11 +21,26 @@ function generateToken(user){
     );
 }
 
+/**
+    * Strips sensitive fields before sending user data to the client
+    * @param {Object} user - the full user record
+    * @returns {Object} user object without passwordHash
+ */
 function sanitizeUser(user){
     return{ id: user.id, email: user.email, name: user.name, role: user.role };
 }
 
-
+/**
+    * Registers a new user with hashed creds and a default acccount.
+    * Validates input, checks for duplicate emails, and initializes a $1000 balance 
+    * @param {Request} req - express request with email, password, name in body 
+    * @param {Response} res - express response
+    * @param {function} next - express next middleware
+    * @returns {Object} JWT token and sanitized user object
+    * @throws {400} missing requirements fields
+    * @throws {409} email already registered
+    * @requirement R1.1
+ */
 async function register(req, res, next){
     try{
         const {  email, password, name } = req.body;
@@ -44,7 +68,16 @@ async function register(req, res, next){
     }
 }
 
-
+/**
+ * Authenticates a user aganst stored bcrypt hash and returns a JWT
+ * @param {Request} req - express request with email, password in body
+ * @param {Response} res - express response 
+ * @param {Function} next - express next middleware
+ * @returns {Object} JWT token and sanitized user object
+ * @throws {400} missing required fields
+ * @throws {401} invalid email or password
+ * @requirement R1.1
+ */
 async function login(req, res, next){
     try{
         const { email, password } = req.body;
@@ -77,6 +110,12 @@ async function login(req, res, next){
 }
 
 
+/**
+ * logs out the current user
+ * @param {Request} req - express request
+ * @param {Response} res - express response
+ * @requirement R1.1
+ */
 function logout(req, res) {
     res.json({ message: 'Logged out'});
 }
