@@ -1,0 +1,37 @@
+version: '3.8'
+
+services:
+  app:
+    build: ./server
+    ports:
+      - "80:3001"
+    environment:
+      - PORT=3001
+      - NODE_ENV=development
+      - JWT_SECRET=change-me-in-production
+      - JWT_EXPIRES_IN=24h
+      - BCRYPT_SALT_ROUNDS=10
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_NAME=fauxvault
+      - DB_USER=fauxvault_user
+      - DB_PASSWORD=fauxvault_pass
+    depends_on:
+      - db
+    volumes:
+      - ./server:/app
+      - /app/node_modules
+
+  db:
+    image: postgres:15
+    environment:
+      - POSTGRES_DB=fauxvault
+      - POSTGRES_USER=fauxvault_user
+      - POSTGRES_PASSWORD=fauxvault_pass
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+volumes:
+  pgdata:
