@@ -1,6 +1,7 @@
 import { Outlet } from 'react-router-dom'
 import NavBar from '../components/common/NavBar'
 import './AppLayout.css';
+import VulnerabilityPanel from '../components/common/VulnerabilityPanel';
 
 export default function AppLayout() {
     return (
@@ -18,7 +19,7 @@ export default function AppLayout() {
                 <Outlet />
             </main>
             <aside className='sidebar-area'>
-                <h3>Vulnerabilities</h3>
+                <VulnerabilityPanel />
                 {/* Add sidebar page */}
             </aside>
            </div>
