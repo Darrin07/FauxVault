@@ -1,27 +1,36 @@
 import { Outlet } from 'react-router-dom'
+import { Box } from '@mui/material'
 import NavBar from '../components/common/NavBar'
-import './AppLayout.css';
-import VulnerabilityPanel from '../components/common/VulnerabilityPanel/VulnerabilityPanel';
+import VulnerabilityPanel from '../components/VulnerabilityPanel';
 
 export default function AppLayout() {
     return (
-        <div className="app-layout">
-            {/* Status Bar area */}
-            <div className="status-bar-area">
-                <div style={{ background: 'var(--color-vulnerable)', height: '100%', display: 'flex', alignItems: 'center', padding: '0 20px', fontSize: '12px', fontWeight: 'bold'}}>
-                    System Vulnerable
-                </div>
-            </div>
-            <div className='navbar-area'>
+        <Box sx={{ 
+            display: 'flex',
+            flexDirection: 'column',
+            minHeight: '100vh'
+        }}
+        >
             <NavBar />
-            </div>
-            <main className="main-content">
-                <Outlet />
-            </main>
-            <aside className='sidebar-area'>
+            <Box sx={{
+                display: 'flex',
+                flex: 1,
+                overflow: 'hidden'
+            }}
+            >
+                <Box
+                    compnent="main"
+                    sx={{
+                        flex: 1,
+                        overflowY: 'auto',
+                        p: { xs: 2, sm: 3, md: 4},
+                        maxHeight: 'calc(100vh - 104px)'
+                    }}
+                    >
+                        <Outlet />
+                </Box>
                 <VulnerabilityPanel />
-                {/* Add sidebar page */}
-            </aside>
-           </div>
+            </Box>
+        </Box>
     )
 }

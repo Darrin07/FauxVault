@@ -92,3 +92,6 @@ vite.config.ts.timestamp-*
 *.njsproj
 *.sln
 *.sw?
+
+# Local CSS Archive Files
+_archive_styles/

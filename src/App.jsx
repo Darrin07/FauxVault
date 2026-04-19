@@ -17,7 +17,7 @@ function App() {
         <Route path="/history" element={<HistoryPage />} />
         <Route path="/admin" element={<AdminPage />} />
       </Route>
-      /** Add catch for login page */
+      {/* Add login page */}
     </Routes>
     </BrowserRouter>
   )
