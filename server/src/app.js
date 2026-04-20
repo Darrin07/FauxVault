@@ -23,7 +23,7 @@ app.get('/api/health', (req, res) => {
 // app.use('/api/auth', require('./routes/auth'));
 // app.use('/api/accounts', require('./routes/accounts'));
 // app.use('/api/transfers', require('./routes/transfers'));
-// app.use('/api/settings', require('./routes/settings'));
+app.use('/api/settings', require('./routes/settings'));
 
 // Error handler (must be last)
 app.use(errorHandler);
