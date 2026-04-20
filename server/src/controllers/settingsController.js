@@ -1,6 +1,6 @@
 const { getAllSettings, updateSetting: updateSettingStored } = require('../mock/toggleState');
 
-// GET /api/settings - returns all module toggle states
+// GET /api/settings returns all module toggle states
 async function getSettings(req, res, next) {
     try {
         const settings = getAllSettings();
@@ -10,7 +10,7 @@ async function getSettings(req, res, next) {
     }
 }
 
-// POST /api/settings - updates a single module's toggle state
+// POST /api/settings updates a single module's toggle state
 async function updateSettingHandler(req, res, next) {
     try {
         const { module_name, is_vulnerable } = req.body;

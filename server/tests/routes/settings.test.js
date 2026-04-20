@@ -6,6 +6,7 @@ beforeEach(() => {
     resetSettings();
 });
 
+// test for returning settings module
 describe('GET /api/settings', () => {
     test('returns all settings modules', async () => {
         const res = await request(app)
@@ -20,6 +21,7 @@ describe('GET /api/settings', () => {
     });
 });
 
+// test for updating  module
 describe('POST /api/settings', () => {
     test('updates a module toggle state', async () => {
         const res = await request(app)
@@ -32,6 +34,7 @@ describe('POST /api/settings', () => {
         expect(res.body.updated_at).not.toBeNull();
     });
 
+    // test for missing module name
     test('missing module name', async () => {
         const res = await request(app)
             .post('/api/settings')
@@ -41,6 +44,7 @@ describe('POST /api/settings', () => {
         expect(res.body.error.code).toBe('VALIDATION_FAILED')
     });
 
+    // test for missing vulberable state
     test('missing is_vulnerable', async () => {
         const res = await request(app)
             .post('/api/settings')
@@ -50,6 +54,7 @@ describe('POST /api/settings', () => {
         expect(res.body.error.code).toBe('VALIDATION_FAILED')
     });
 
+    // test for unknown module
     test('module is not found', async () => {
         const res = await request(app)
             .post('/api/settings')
