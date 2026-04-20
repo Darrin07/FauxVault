@@ -1,7 +1,7 @@
 import { Outlet } from 'react-router-dom'
 import { Box } from '@mui/material'
-import NavBar from '../components/common/NavBar'
-import VulnerabilityPanel from '../components/VulnerabilityPanel';
+import NavBar from '../components/NavBar'
+import VulnerabilityPanel from '../components/VulnerabilityPanel'
 
 export default function AppLayout() {
     return (
