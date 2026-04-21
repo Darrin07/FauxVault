@@ -1,4 +1,4 @@
-let DEFAULT_SETTINGS = [
+const DEFAULT_SETTINGS = [
     { id: 1, module_name: 'sql_injection', is_vulnerable: true, updated_at: null },
     { id: 2, module_name: 'xss_stored', is_vulnerable: true, updated_at: null },
     { id: 3, module_name: 'xss_reflected', is_vulnerable: true, updated_at: null },
