@@ -10,6 +10,7 @@ let DEFAULT_SETTINGS = [
     { id: 9, module_name: 'privilege_escalation', is_vulnerable: true, updated_at: null },
     { id: 10, module_name: 'excessive_data_exposure', is_vulnerable: true, updated_at: null },
 ];
+let settings = DEFAULT_SETTINGS.map(s => ({ ...s }));
 
 // get settings data
 function getAllSettings() {
