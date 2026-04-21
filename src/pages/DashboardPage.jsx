@@ -41,50 +41,68 @@ function fmt(amount) {
     }).format(amount ?? 0)
 }
 
+//Modal for transfering funds: functions to open form on click, submit information, handle errors,
+//reset form on close (cancel or submission)
 function TransferModal({ isOpen, onClose }) {
+
+    // Initialize
     const [form, setForm] = useState({ recipientID: '', amount: '', memo: ''})
     const [loading, setLoading] = useState(false)
     const [success, setSuccess] = useState('')
     const [error, setError] = useState('')
 
+    // Helper function to handle changes within fields and setting values
     function handleChange(field) {
         return (e) => setForm((prev) => ({ ...prev, [field]: e.target.value }))
     }
 
+    //Returns form to original state for additional uses 
     function resetForm() {
         setForm({ recipientID: '', amount: '', memo: ''})
         setError('')
         setSuccess('')
     }
 
+    //Triggers resetting the form before closing
     function handleClose() {
         resetForm()
         onClose()
     }
 
+    //Function handles submitting transfer funds to others
     async function handleSubmit(e) {
         e.preventDefault()
         setError('')
         setSuccess('')
 
+        //Error case:  ID is not present 
     if (!form.recipientId.trim()) {
         setError('Recipient Account ID is required')
         return
     }
+
+        //Error case: adding negative numbers; may be case for exploitation later, will hardened as default
     if (!form.amount || Number(form.amount) <= 0) {
         setError('Invalid Amount')
         return
     }
 
+    //otherwise, attempt to load
     setLoading(true)
     try {
+
+        // attempts to send information to API over information
         const { transfer } = await transfersApi.sendTransfer({
             recipientId: form.recipientId,
             amount: Number(form.amount),
             memo: form.memo,
         })
+
+        //case:  success
         setSuccess(`Successfully transferred $${transfer.amount.toFixed(2)} to ${transfer.recipientName}`)
         setForm({ recipientId: '', amount: '', memo: '' })
+
+        //case: error
     } catch (err) {
         setError(err.message || 'Transfer failed')
     } finally {
@@ -92,7 +110,10 @@ function TransferModal({ isOpen, onClose }) {
     }
 }
 
+    //Build the Buttons for Transferring Funds and Form 
 return (
+
+    //Transfer Funds Button -> Form
     <Dialog open={isOpen} onClose={handleClose} maxWidth="sm" fullWidth>
         <DialogTitle sx={{ fontWeight: 700 }}>Transfer Funds</DialogTitle>
         <Box component="form" onSubmit={handleSubmit}>
@@ -100,12 +121,13 @@ return (
                 {error && <Alert severity="error">{error}</Alert>}
                 {success && <Alert severity="success" icon={<CheckIcon />}>{success}</Alert>}
 
+                {/* Form - Recipient Field */}
                 <TextField
                     id="transfer-recipient"
                     label="Recipient Account ID"
                     value={form.recipientId}
                     onChange={handleChange('recipientId')}
-                    placeholder="e.g. 00287"
+                    placeholder="e.g. 00777"
                     fullWidth
                     InputProps={{
                         startAdornment: (
@@ -115,6 +137,8 @@ return (
                         ),
                     }}
                 />
+
+                {/* Form - Amount Field */}
                 <TextField
                     id="transfer-amount"
                     label="Amount ($)"
@@ -132,6 +156,8 @@ return (
                         ),
                     }}
                 />
+
+                {/* Form - Memo Field */}
                 <TextField
                     id="transfer-memo"
                     label="Memo (optional)"
@@ -148,6 +174,8 @@ return (
                     }}
                 />
             </DialogContent>
+
+            {/* Form - Cancel Link/Button, Submit Button; handleClose() to reset form after click */}
             <DialogActions sx={{ px: 3, pb: 2 }}>
                 <Button onClick={handleClose} color="inherit">Cancel</Button>
                 <Button type="submit" variant="contained" disabled={loading}>
@@ -161,14 +189,17 @@ return (
 }
 
 
-/* ── Dashboard Page ── */
+/* ── Dashboard Page Layout ── */
 export default function DashboardPage() {
+
+    // Initialize
     const [balance, setBalance] = useState(null)
     const [deposits, setDeposits] = useState(null)
     const [withdrawals, setWithdrawals] = useState(null)
     const [showTransfer, setShowTransfer] = useState(false)
     const navigate = useNavigate()
 
+    //Call API for information 
     useEffect(() => {
         async function fetchData() {
             try {
@@ -180,6 +211,8 @@ export default function DashboardPage() {
                 setBalance(bal)
                 setDeposits(dep)
                 setWithdrawals(wdr)
+
+                //error case
             } catch (err) {
                 console.error('Failed to load dashboard data:', err)
             }
@@ -187,11 +220,14 @@ export default function DashboardPage() {
         fetchData()
     }, [])
 
+    //To update our balance label; adds last updated today 
     const updatedLabel = balance?.lastUpdated
         ? `last updated ${new Date(balance.lastUpdated).toLocaleDateString() === new Date().toLocaleDateString() ? 'today' : new Date(balance.lastUpdated).toLocaleDateString()}`
         : ''
 
     return (
+
+        //
         <Box>
             <Typography variant="h1" sx={{ fontSize: '1.75rem', mb: 3 }}>
                 Dashboard
@@ -205,7 +241,7 @@ export default function DashboardPage() {
                     gap: 3,
                 }}
             >
-                {/* Balance card */}
+                {/* Current Balance card - on top */}
                 <Card
                     sx={{
                         gridColumn: { md: '1 / -1' },
@@ -246,7 +282,8 @@ export default function DashboardPage() {
                     </CardContent>
                 </Card>
 
-                {/* Stat cards */}
+                {/* Stat Cards (for viewing security exploits) - should align central w/current balance */}
+                {/* Deposit Card */}
                 <Card>
                     <CardContent sx={{ p: 3 }}>
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
@@ -271,6 +308,7 @@ export default function DashboardPage() {
                     </CardContent>
                 </Card>
 
+                {/* Withdrawal Card */}
                 <Card>
                     <CardContent sx={{ p: 3 }}>
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
@@ -295,13 +333,15 @@ export default function DashboardPage() {
                     </CardContent>
                 </Card>
 
-                {/* Quick actions */}
+                {/* Quick Actions Card (Transfer Runds, Send to Transaction History) */}
                 <Card sx={{ gridColumn: { md: '1 / -1' } }}>
                     <CardContent sx={{ p: 3 }}>
                         <Typography variant="h4" sx={{ fontSize: '0.9rem', mb: 2 }}>
                             Quick actions
                         </Typography>
                         <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+
+                            {/* Transfer Funds Button */}
                             <Button
                                 variant="outlined"
                                 startIcon={<SendIcon />}
@@ -309,6 +349,9 @@ export default function DashboardPage() {
                             >
                                 Transfer funds
                             </Button>
+
+
+                            {/* Transaction History Button - Navigates to page*/}
                             <Button
                                 variant="outlined"
                                 startIcon={<HistoryIcon />}

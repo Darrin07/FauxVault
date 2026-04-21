@@ -22,6 +22,8 @@ import {
 } from '@mui/icons-material'
 import * as transfersApi from '../api/transfers'
 
+
+// Transfer Page Functions
 export default function TransferPage() {
     const [form, setForm] = useState({ recipientId: '', amount: '', memo: '' })
     const [error, setError] = useState('')
@@ -29,24 +31,30 @@ export default function TransferPage() {
     const [loading, setLoading] = useState(false)
     const [recentTransfers, setRecentTransfers] = useState([])
 
+    //updates values based on form
     function handleChange(field) {
         return (e) => setForm((prev) => ({ ...prev, [field]: e.target.value }))
     }
 
+    //handles submission s
     async function handleSubmit(e) {
         e.preventDefault()
         setError('')
         setSuccess(null)
 
+        //case 1:  no recipient id
         if (!form.recipientId.trim()) {
             setError('Please enter a recipient account ID')
             return
         }
+
+        //case 2:  amount is negative
         if (!form.amount || Number(form.amount) <= 0) {
             setError('Please enter a valid amount')
             return
         }
 
+        //Attempt Transfer
         setLoading(true)
         try {
             const { transfer } = await transfersApi.sendTransfer({
@@ -65,6 +73,8 @@ export default function TransferPage() {
     }
 
     return (
+
+        // Creates the Box that houses our form and Transfer Button; similar logic to Dashboard
         <Box>
             <Typography variant="h1" sx={{ fontSize: '1.75rem', mb: 0.5 }}>
                 Transfer Funds
@@ -84,6 +94,8 @@ export default function TransferPage() {
                 {/* Transfer form */}
                 <Card>
                     <CardContent sx={{ p: 3 }}>
+
+                        {/* Recipient Value */}
                         <Box component="form" onSubmit={handleSubmit} sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                             {error && <Alert severity="error">{error}</Alert>}
                             {success && (
@@ -108,6 +120,7 @@ export default function TransferPage() {
                                 }}
                             />
 
+                            {/* Amount Value */}
                             <TextField
                                 id="transfer-page-amount"
                                 label="Amount ($)"
@@ -126,6 +139,7 @@ export default function TransferPage() {
                                 }}
                             />
 
+                            {/* Memo Value */}
                             <TextField
                                 id="transfer-page-memo"
                                 label="Memo (optional)"
@@ -142,6 +156,7 @@ export default function TransferPage() {
                                 }}
                             />
 
+                            {/* Button attempts functions */}
                             <Button
                                 type="submit"
                                 variant="contained"
