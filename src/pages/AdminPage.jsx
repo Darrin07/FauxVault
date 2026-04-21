@@ -1,3 +1,9 @@
+// Page should allow users to make updates on their account; can be leveraged for injection
+// TODO:  Move common functions from Pages to be exported to clean code in final updates
+
+//AI Notification:  Claude Code helped me debug my theme slightly; edits are minimal (adjusting width, used an 
+//input adornment to fix an alignment issue).  Saved me probably 15-20 mins and taught me their proper usage.
+
 import { useState, useEffect } from 'react'
 import { useAuth } from '../hooks/useAuth'
 import {
@@ -20,7 +26,10 @@ import {
 } from '@mui/icons-material'
 import * as usersApi from '../api/users'
 
+
 export default function AdminPage() {
+
+    // Initialize
     const { user, updateProfile } = useAuth()
     const [loading, setLoading] = useState(false)
     const [form, setForm] = useState({
@@ -31,6 +40,7 @@ export default function AdminPage() {
     })
     const [saved, setSaved] = useState(false)
 
+    //Values from Form
     useEffect(() => {
         if (user) {
             setForm({
@@ -42,6 +52,7 @@ export default function AdminPage() {
         }
     }, [user])
 
+    //Update change
     function handleChange(field) {
         return (e) => {
             setForm((prev) => ({ ...prev, [field]: e.target.value }))
@@ -49,6 +60,7 @@ export default function AdminPage() {
         }
     }
 
+    //send information to update
     async function handleSubmit(e) {
         e.preventDefault()
         setLoading(true)
@@ -65,6 +77,8 @@ export default function AdminPage() {
     }
 
     return (
+
+        //Header Box with static page information, sub-header 
         <Box>
             <Typography variant="h1" sx={{ fontSize: '1.75rem', mb: 0.5 }}>
                 Administration
@@ -85,7 +99,7 @@ export default function AdminPage() {
                         </Alert>
                     )}
 
-                    {/* Read-only fields */}
+                    {/* Read-only fields - should appear after user logs in*/}
                     <Box
                         sx={{
                             display: 'flex',
@@ -121,7 +135,7 @@ export default function AdminPage() {
 
                     <Divider sx={{ mb: 3 }} />
 
-                    {/* Editable form */}
+                    {/* Editable form inputs: first name, last name, email, (? address) */}
                     <Box component="form" onSubmit={handleSubmit} sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                         <Box sx={{ display: 'flex', gap: 2 }}>
                             <TextField
