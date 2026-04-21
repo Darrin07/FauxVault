@@ -4,13 +4,13 @@ import { mockDelay } from './client'
 const MOCK_USERS = [
     {
         id: 1,
-        username: 'jdoe',
+        username: 'cardib',
         password: 'password123',
-        firstName: 'John',
-        lastName: 'Doe',
-        email: 'john.doe@email.com',
+        firstName: 'Belcalis',
+        lastName: 'Almanzar',
+        email: 'cardi.b@email.com',
         accountNumber: '00142',
-        address: '123 Main St, Anytown, USA 12345',
+        address: '123 Main St, New York City, USA 12345',
     },
     {
         id: 2,

@@ -10,6 +10,7 @@ import {
     Tooltip,
 } from '@mui/material'
 import { Logout as LogOutIcon } from '@mui/icons-material'
+import { useAuth } from '../hooks/useAuth'
 
 const NAV_LINKS = [
     { to: '/dashboard', label: 'Dashboard'},
@@ -19,6 +20,20 @@ const NAV_LINKS = [
 ]
 
 export default function NavBar() {
+
+    //initialize user
+    const { user, logout } = useAuth()
+    const navigate = useNavigate()
+    const initials = user
+        ? `${(user.firstName?.[0] || '').toUpperCase()}${(user.lastName?.[0] || '').toUpperCase()}`
+        : ''
+
+    //helper to logout
+    function handleLogout() {
+        logout()
+        navigate('/login')
+    }
+
     return (
         <AppBar
             position="static"
@@ -88,6 +103,47 @@ export default function NavBar() {
             {/* Create space */}
             <Box sx={{ flex: 1 }} />
             {/* Add user name, login link, icon */}
+                {user && (
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                        <Avatar
+                            sx={{
+                                width: 34,
+                                height: 34,
+                                bgcolor: 'primary.main',
+                                fontSize: '0.8rem',
+                                fontWeight: 700,
+                            }}
+                        >
+                            {initials}
+                        </Avatar>
+                        <Box sx={{ display: { xs: 'none', sm: 'flex' }, flexDirection: 'column' }}>
+                            <Typography variant="body2" sx={{ fontWeight: 600, lineHeight: 1.2 }}>
+                                {user.firstName} {user.lastName}
+                            </Typography>
+                            <Typography
+                                variant="caption"
+                                color="text.disabled"
+                                sx={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '0.65rem' }}
+                            >
+                                Acct #{user.accountNumber}
+                            </Typography>
+                        </Box>
+                        <Tooltip title="Log out">
+                            <IconButton
+                                onClick={handleLogout}
+                                size="small"
+                                aria-label="Log out"
+                                sx={{
+                                    color: 'text.secondary',
+                                    ml: 1,
+                                    '&:hover': { color: 'error.main', bgcolor: 'rgba(231,76,60,0.1)' },
+                                }}
+                            >
+                                <LogOutIcon fontSize="small" />
+                            </IconButton>
+                        </Tooltip>
+                    </Box>
+                )}
             </Toolbar>
         </AppBar>
     )  

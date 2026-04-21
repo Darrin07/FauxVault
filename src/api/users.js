@@ -24,7 +24,7 @@ export async function updateProfile(data) {
     /* In a real app this would persist. For now, echo back merged data. */
     return {
         id: 1,
-        username: 'jdoe',
+        username: 'cardib',
         accountNumber: '00142',
         ...data,
     }

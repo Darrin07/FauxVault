@@ -5,6 +5,7 @@ import DashboardPage from './pages/DashboardPage';
 import HistoryPage from './pages/HistoryPage';
 import TransferPage from './pages/TransferPage';
 import AdminPage from './pages/AdminPage';
+import LoginPage from './pages/LoginPage';
 
 function App() {
   return (
@@ -16,6 +17,7 @@ function App() {
         <Route path="/transfer" element={<TransferPage />} />
         <Route path="/history" element={<HistoryPage />} />
         <Route path="/admin" element={<AdminPage />} />
+        <Route path="/login" element={<LoginPage />} />
       </Route>
       {/* Add login page */}
     </Routes>
