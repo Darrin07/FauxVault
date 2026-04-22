@@ -2,6 +2,7 @@ import { Outlet } from 'react-router-dom'
 import { Box } from '@mui/material'
 import NavBar from '../components/NavBar'
 import VulnerabilityPanel from '../components/VulnerabilityPanel'
+import StatusBar from '../components/StatusBar'
 
 export default function AppLayout() {
     return (
@@ -11,6 +12,7 @@ export default function AppLayout() {
             minHeight: '100vh'
         }}
         >
+            <StatusBar />
             <NavBar />
             <Box sx={{
                 display: 'flex',

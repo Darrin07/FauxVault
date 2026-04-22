@@ -1,84 +1,99 @@
 import { mockDelay } from './client'
 
-/* ── Mock user database ── */
+/**
+ * Mock user store matching the real DB schema:
+ *   users(user_id, username, email, password_bcrypt, role)
+ *   accounts(account_id, user_id, account_number, balance, account_type)
+ *
+ * The server's sanitizeUser() returns: { id, email, name, role }
+ * We mirror that exact shape so the UI works against both mock and real API.
+ */
 const MOCK_USERS = [
     {
         id: 1,
-        username: 'cardib',
-        password: 'password123',
-        firstName: 'Belcalis',
-        lastName: 'Almanzar',
-        email: 'cardi.b@email.com',
+        name: 'John Doe',
+        email: 'john.doe@email.com',
+        passwordHash: 'password123',   // plaintext stand-in for mock only
+        role: 'user',
         accountNumber: '00142',
-        address: '123 Main St, New York City, USA 12345',
+        address: '123 Main St, Anytown, USA 12345',
     },
     {
         id: 2,
-        username: 'jsmith',
-        password: 'password456',
-        firstName: 'Jane',
-        lastName: 'Smith',
+        name: 'Jane Smith',
         email: 'jane.smith@email.com',
+        passwordHash: 'password456',
+        role: 'user',
         accountNumber: '00287',
         address: '456 Oak Ave, Somewhere, USA 67890',
     },
 ]
 
 /**
- * POST /api/auth/login
+ * Mirrors server's sanitizeUser() — strips passwordHash before returning to client.
  */
-export async function login(username, password) {
+function sanitizeUser(user) {
+    return { id: user.id, email: user.email, name: user.name, role: user.role }
+}
+
+/**
+ * POST /api/auth/login
+ * Body: { email, password }
+ * Returns: { token, user: { id, email, name, role } }
+ */
+export async function login(email, password) {
     await mockDelay()
 
     const user = MOCK_USERS.find(
-        (u) => u.username === username && u.password === password
+        (u) => u.email === email && u.passwordHash === password
     )
 
     if (!user) {
-        throw new Error('Invalid username or password')
+        throw new Error('Invalid email or password')
     }
 
-    /* Never send password back */
-    const { password: _, ...safeUser } = user
     return {
-        user: safeUser,
         token: `mock-jwt-${user.id}-${Date.now()}`,
+        user: sanitizeUser(user),
     }
 }
 
 /**
- * POST /api/auth/signup
+ * POST /api/auth/register
+ * Body: { email, password, name }
+ * Returns: { token, user: { id, email, name, role } }
  */
-export async function signup({ username, password, firstName, lastName, email }) {
+export async function register({ email, password, name }) {
     await mockDelay()
 
-    const exists = MOCK_USERS.find((u) => u.username === username)
+    const exists = MOCK_USERS.find((u) => u.email === email)
     if (exists) {
-        throw new Error('Username already taken')
+        throw new Error('Email already registered')
     }
 
     const newUser = {
         id: MOCK_USERS.length + 1,
-        username,
-        firstName,
-        lastName,
+        name,
         email,
+        passwordHash: password,
+        role: 'user',
         accountNumber: String(Math.floor(Math.random() * 90000) + 10000),
         address: '',
     }
 
-    MOCK_USERS.push({ ...newUser, password })
+    MOCK_USERS.push(newUser)
 
     return {
-        user: newUser,
         token: `mock-jwt-${newUser.id}-${Date.now()}`,
+        user: sanitizeUser(newUser),
     }
 }
 
 /**
  * POST /api/auth/logout
+ * Server simply returns { message: 'Logged out' }
  */
 export async function logout() {
     await mockDelay(100)
-    return { success: true }
+    return { message: 'Logged out' }
 }
