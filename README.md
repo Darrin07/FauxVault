@@ -14,7 +14,7 @@ and document OWASP Top 10 attack vectors and their mitigations.
 - AWS EC2
 ## Getting Started
 Clone the repo and run with Docker Compose:
-1. git clone https://github.com/yourname/FauxVault.git
+1. git clone https://github.com/Darrin07/FauxVault.git
 2. cd FauxVault
 3. docker-compose up
 ## Disclaimer
