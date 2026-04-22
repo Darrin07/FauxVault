@@ -15,7 +15,7 @@ let settings = DEFAULT_SETTINGS.map(s => ({ ...s }));
 // get settings data
 function getAllSettings() {
     return settings;
-};
+}
 
 // update the settings, toggle vulnerable or hardened according to user wishes
 function updateSetting(module_name, is_vulnerable) {
@@ -30,11 +30,11 @@ function updateSetting(module_name, is_vulnerable) {
     setting.updated_at = new Date().toISOString();
 
     return setting;
-};
+}
 
 // reset settings to original state
 function resetSettings() {
     settings = DEFAULT_SETTINGS.map(s => ({ ...s }));
-};
+}
 
-module.exports = { getAllSettings, updateSetting, resetSettings };
+module.exports = { getAllSettings, updateSetting, resetSettings }
