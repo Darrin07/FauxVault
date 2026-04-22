@@ -137,7 +137,7 @@ export default function LoginPage() {
             <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', mb: 2 }}>
                 Don&apos;t have an account?{' '}
 
-                <Box component={Link} to="/signup" sx={{ color: 'primary.main', fontWeight: 600, '&:hover': { textDecoration: 'underline' } }}>
+                <Box component={Link} to="/register" sx={{ color: 'primary.main', fontWeight: 600, '&:hover': { textDecoration: 'underline' } }}>
                     Sign Up
                 </Box>
             </Typography>
@@ -157,7 +157,7 @@ export default function LoginPage() {
                 <Typography variant="caption" color="text.secondary">
                     Demo credentials:{' '}
                     <Box component="code" sx={{ fontFamily: "'JetBrains Mono', monospace", color: 'primary.light' }}>
-                        scurry
+                        steph.curry@email.com
                     </Box>
                     {' / '}
                     <Box component="code" sx={{ fontFamily: "'JetBrains Mono', monospace", color: 'primary.light' }}>

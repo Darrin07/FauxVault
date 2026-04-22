@@ -15,7 +15,7 @@ const MOCK_USERS = [
         passwordHash: 'password123',
         role: 'user',
         accountNumber: 'FAUX-M3KQ8P1Z',
-        address: '123 Main St, Anytown, USA 12345',
+        address: '30 Main St, Oakland, USA 12345',
     },
     {
         id: 2,
@@ -24,7 +24,7 @@ const MOCK_USERS = [
         passwordHash: 'password456',
         role: 'user',
         accountNumber: 'FAUX-R7NW2D4X',
-        address: '456 Oak Ave, Somewhere, USA 67890',
+        address: '22 Oak Ave, Las Vegas, USA 67890',
     },
 ]
 
