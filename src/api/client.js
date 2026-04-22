@@ -5,7 +5,7 @@
  * automatic JSON handling, Auth header injection, and a mock fallback toggle.
  */
 
-export const BASE_URL = '/api'
+export const BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api'
 
 /**
  * Helper to perform authenticated API requests with a mock fallback.
@@ -38,7 +38,14 @@ export async function apiFetch(endpoint, options = {}, mockCallback = null) {
         headers,
     });
 
-    const data = await response.json();
+    // Guard against non-JSON responses (proxy errors, HTML 404 pages, backend down)
+    const text = await response.text();
+    let data;
+    try {
+        data = JSON.parse(text);
+    } catch {
+        throw new Error(text || `Request failed with status ${response.status}`);
+    }
 
     if (!response.ok) {
         // Bridges the gap between backend { error: { message } } and standard { message }

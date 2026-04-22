@@ -109,7 +109,7 @@ export default function TransferPage() {
                                 label="Recipient Account ID"
                                 value={form.recipientId}
                                 onChange={handleChange('recipientId')}
-                                placeholder="Enter account ID (e.g. 00287)"
+                                placeholder="Enter account ID (e.g. FAUX-R7NW2D4X)"
                                 fullWidth
                                 InputProps={{
                                     startAdornment: (

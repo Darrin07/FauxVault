@@ -11,7 +11,7 @@ export async function getProfile() {
         firstName: 'John',
         lastName: 'Doe',
         email: 'john.doe@email.com',
-        accountNumber: '00142',
+        accountNumber: 'FAUX-M3KQ8P1Z',
         address: '123 Main St, Anytown, USA 12345',
     }
 }
@@ -25,7 +25,7 @@ export async function updateProfile(data) {
     return {
         id: 1,
         username: 'cardib',
-        accountNumber: '00142',
+        accountNumber: 'FAUX-M3KQ8P1Z',
         ...data,
     }
 }

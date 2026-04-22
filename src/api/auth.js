@@ -15,7 +15,7 @@ const MOCK_USERS = [
         email: 'john.doe@email.com',
         passwordHash: 'password123',   // plaintext stand-in for mock only
         role: 'user',
-        accountNumber: '00142',
+        accountNumber: 'FAUX-M3KQ8P1Z',
         address: '123 Main St, Anytown, USA 12345',
     },
     {
@@ -24,7 +24,7 @@ const MOCK_USERS = [
         email: 'jane.smith@email.com',
         passwordHash: 'password456',
         role: 'user',
-        accountNumber: '00287',
+        accountNumber: 'FAUX-R7NW2D4X',
         address: '456 Oak Ave, Somewhere, USA 67890',
     },
 ]
@@ -81,7 +81,7 @@ export async function register({ email, password, name }) {
             email,
             passwordHash: password,
             role: 'user',
-            accountNumber: String(Math.floor(Math.random() * 90000) + 10000),
+            accountNumber: 'FAUX-' + Math.random().toString(36).substring(2, 10).toUpperCase(),
             address: '',
         }
         MOCK_USERS.push(newUser)
