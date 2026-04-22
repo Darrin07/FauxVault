@@ -1,30 +1,28 @@
 
 /**
  * Note on AI Usage:  Originally this app had CSS files for much of the App, which was detracting from the point
- * of the project.  I asked Claude Code to 'transfer' CSS code into a theme that could be used with Material UI.
- * I have had to re-add the components and check through the theme to verify Claude's choices.  This saved me probably
- * 6 hours (or more, CSS is a lot of tweaking in web apps).
- * 
+ * of the project.  I asked Claude Code to update the CSS into the theme with a proposed outline and then it helped me walk throug
+ * key changes.  I still had to write the code and the wording, but Claude easily saved me 10 hours, as I didn't have to
+ * look up everything or guess on my structure, and Claude was able to suggest common color codes for me to trial.
  * Model used:  Claude Code Sonnet 4.6 (Thinking)
- * Prompt:  Review the CSS files for this project and all JSX files.  Create a theme.js file and translate the CSS into a theme
- * that can be used as this app will now be using Material UI for React.  If you identify an issue that might break my
- * existing work, as there are key dependencies reliant on the CSS to work, highlight this in the notes of your theme.js
- * file for me to review.  Do not update or edit my existing code.  Do not create bugs or review CLIs for my existing code. 
- * Focus entirely on creating the theme.js file for Material UI to use within this app.
  */
 
 
 import { createTheme, alpha } from '@mui/material/styles'
 
 const theme = createTheme({
+
+    // Colors
     palette: {
         mode: 'dark',
+
         primary: {
             main: '#6c5ce7',
             light: '#7d6ff0',
             dark: '#5a4bd4',
             contrastText: '#f0f0f5',
         },
+
         secondary: {
             main: '#3498db',
             light: '#5dade2',
@@ -48,6 +46,7 @@ const theme = createTheme({
         info: {
             main: '#3498db',
         },
+        // Background is dark w/white text
         background: {
             default: '#121220',
             paper: '#1e1e34',
@@ -58,7 +57,8 @@ const theme = createTheme({
             disabled: '#6c6c8a',
         },
         divider: 'rgba(255, 255, 255, 0.06)',
-        /* Custom extensions for vulnerability status */
+
+        //Colors used for our modules being enabled or hardened
         vulnerable: {
             main: '#e74c3c',
             bg: 'rgba(231, 76, 60, 0.12)',
@@ -78,12 +78,16 @@ const theme = createTheme({
         },
     },
 
+    // Text
     typography: {
+        //fonts & weights
         fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
         fontWeightLight: 300,
         fontWeightRegular: 400,
         fontWeightMedium: 500,
         fontWeightBold: 700,
+
+        //Headers
         h1: {
             fontSize: '2.25rem',
             fontWeight: 700,
@@ -104,6 +108,8 @@ const theme = createTheme({
             fontWeight: 600,
             lineHeight: 1.3,
         },
+
+        //Body
         body1: {
             fontSize: '0.9375rem',
             lineHeight: 1.5,
@@ -112,6 +118,8 @@ const theme = createTheme({
             fontSize: '0.8125rem',
             lineHeight: 1.5,
         },
+
+        //Captions, Buttons, mono
         caption: {
             fontSize: '0.75rem',
             lineHeight: 1.5,
@@ -125,6 +133,7 @@ const theme = createTheme({
         },
     },
 
+    //Shapes & Shadows
     shape: {
         borderRadius: 10,
     },
@@ -140,6 +149,7 @@ const theme = createTheme({
         ...Array(19).fill('none'),                  // 7-24 (MUI expects 25)
     ],
 
+    //Transition information (Similar to React Labs)
     transitions: {
         duration: {
             shortest: 150,
@@ -153,9 +163,12 @@ const theme = createTheme({
         },
     },
 
+    //Components - overrides to components & webkit
     components: {
         MuiCssBaseline: {
             styleOverrides: {
+
+                //Scrollbar specifics
                 body: {
                     scrollbarWidth: 'thin',
                     scrollbarColor: 'rgba(255,255,255,0.1) transparent',
@@ -175,6 +188,8 @@ const theme = createTheme({
                 },
             },
         },
+
+        // Common overide on MuiButton to get the right sizing
         MuiButton: {
             styleOverrides: {
                 root: {
@@ -187,6 +202,8 @@ const theme = createTheme({
                 disableElevation: true,
             },
         },
+
+        // Remove background image on coponents
         MuiPaper: {
             styleOverrides: {
                 root: {
@@ -194,6 +211,8 @@ const theme = createTheme({
                 },
             },
         },
+
+        // Mui cards should have no background image, standard background
         MuiCard: {
             styleOverrides: {
                 root: {
@@ -204,12 +223,16 @@ const theme = createTheme({
                 },
             },
         },
+
+        //Mui text should be small on default, 
         MuiTextField: {
             defaultProps: {
                 variant: 'outlined',
                 size: 'small',
             },
             styleOverrides: {
+
+                //Update borders and background color on text fields
                 root: {
                     '& .MuiOutlinedInput-root': {
                         backgroundColor: '#2a2a45',
@@ -227,6 +250,8 @@ const theme = createTheme({
                 },
             },
         },
+
+        //Update Dialog theme, paper should be dark and not light
         MuiDialog: {
             styleOverrides: {
                 paper: {
@@ -237,6 +262,8 @@ const theme = createTheme({
                 },
             },
         },
+
+        // Tables should be light grey color for the dark theme
         MuiTableCell: {
             styleOverrides: {
                 root: {
@@ -251,6 +278,8 @@ const theme = createTheme({
                 },
             },
         },
+
+        // Switch override for sizing, get red/green on the track
         MuiSwitch: {
             styleOverrides: {
                 root: {
@@ -284,6 +313,8 @@ const theme = createTheme({
                 },
             },
         },
+
+        // Style MuiChip
         MuiChip: {
             styleOverrides: {
                 root: {
@@ -293,6 +324,8 @@ const theme = createTheme({
                 },
             },
         },
+
+        // Style MuiAppBar
         MuiAppBar: {
             styleOverrides: {
                 root: {

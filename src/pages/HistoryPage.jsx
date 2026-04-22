@@ -1,10 +1,9 @@
 // TODO:  Update Theme; clashes of colors w/Blue are poor in design; page does not feel accessible
-// Decision: Do we want to differentiate between transfer, deposit, withdrawal?  
+// Decision: Do we want to differentiate between transfer, deposit, withdrawal?
     // It may help for testing vulnerabilities, so I have kept it for now.
 
-//AI Usage:  Claude Code build the Table/Table Row/Cells across the parameters and requirements that I gave it,
-//for roughly 60 lines of straightfoward code/html.  I've checked each row as they are purely for display and made
-//my own edits.  Claude Code probably saved me 30 mins.
+// Dashboard was written independently, but informed by thematic implications from MUI official website to get styles on components
+// Dasbhoard: https://mui.com/material-ui/getting-started/templates/ and https://medium.com/@codenova/understanding-usememo-in-react-3224b8447a76
 
 import { useState, useEffect, useMemo } from 'react'
 import { useSearchParams } from 'react-router-dom'
@@ -65,10 +64,7 @@ export default function HistoryPage() {
     }
 
     function formatDate(dateStr) {
-        return new Date(dateStr + 'T00:00:00').toLocaleDateString('en-US', {
-            month: 'short',
-            day: 'numeric',
-            year: 'numeric',
+        return new Date(dateStr + 'T00:00:00').toLocaleDateString('en-US', {month: 'short', day: 'numeric', year: 'numeric',
         })
     }
 
@@ -141,7 +137,6 @@ export default function HistoryPage() {
                     placeholder="Search by description, type, amount…"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    aria-label="Search transactions"
                     size="small"
                     sx={{ minWidth: 280 }}
                     InputProps={{
@@ -161,17 +156,17 @@ export default function HistoryPage() {
                         <Skeleton key={i} variant="rounded" height={48} />
                     ))}
                 </Box>
+                //Case:  No matches
             ) : filtered.length === 0 ? (
                 <Box sx={{ textAlign: 'center', py: 6 }}>
-                    <Typography color="text.secondary">No transactions found</Typography>
+                    <Typography color="text.secondary">No matches found</Typography>
                 </Box>
             ) : (
                 <>
-                    <TableContainer
-                        component={Paper}
-                        elevation={0}
+                    <TableContainer component={Paper} elevation={0}
                         sx={{
                             bgcolor: 'background.paper',
+
                             border: '1px solid',
                             borderColor: 'divider',
                             borderRadius: 2,
@@ -179,6 +174,8 @@ export default function HistoryPage() {
                     >
                         <Table size="small">
                             <TableHead>
+
+                                {/* Table Headers */}
                                 <TableRow>
                                     <TableCell>Date</TableCell>
                                     <TableCell>Description</TableCell>
@@ -187,8 +184,13 @@ export default function HistoryPage() {
                                     <TableCell align="right">Balance</TableCell>
                                 </TableRow>
                             </TableHead>
+
+                        {/* Draft Rows via map: share date, descriptoin, type, amount, static balance */}
+                        {/* As balance data is static, will need to be updated with API and DB */}
                             <TableBody>
+
                                 {filtered.map((txn) => (
+                                    // Craft our Row
                                     <TableRow
                                         key={txn.id}
                                         hover
@@ -197,14 +199,18 @@ export default function HistoryPage() {
                                             transition: 'background 0.15s',
                                         }}
                                     >
+                                    {/* Table Cells:  date, description, type, amount, balance */}
                                         <TableCell>
                                             <Typography variant="body2" color="text.secondary" sx={{ whiteSpace: 'nowrap' }}>
                                                 {formatDate(txn.date)}
                                             </Typography>
                                         </TableCell>
+
                                         <TableCell>
                                             <Typography variant="body2">{txn.description}</Typography>
                                         </TableCell>
+
+                                        {/* React Chip used for UI purpose */}
                                         <TableCell>
                                             <Chip
                                                 label={typeLabel[txn.type] || txn.type}
@@ -214,6 +220,8 @@ export default function HistoryPage() {
                                                 sx={{ fontSize: '0.7rem' }}
                                             />
                                         </TableCell>
+
+                                        {/* Ammount */}
                                         <TableCell align="right">
                                             <Typography
                                                 variant="body2"
@@ -226,14 +234,16 @@ export default function HistoryPage() {
                                                 {formatCurrency(txn.amount)}
                                             </Typography>
                                         </TableCell>
+
+                                        {/* Balance */}
                                         <TableCell align="right">
                                             <Typography
                                                 variant="body2"
-                                                sx={{ fontFamily: "'JetBrains Mono', monospace", color: 'text.secondary' }}
-                                            >
+                                                sx={{ fontFamily: "'JetBrains Mono', monospace", color: 'text.secondary' }} >
                                                 {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(txn.balanceAfter)}
                                             </Typography>
                                         </TableCell>
+
                                     </TableRow>
                                 ))}
                             </TableBody>
@@ -244,8 +254,10 @@ export default function HistoryPage() {
                         {filtered.length} transaction{filtered.length !== 1 ? 's' : ''} found
                         {searchQuery && ` matching "${searchQuery}"`}
                     </Typography>
+                    
                 </>
             )}
+            
         </Box>
     )
 }

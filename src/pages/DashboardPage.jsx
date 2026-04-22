@@ -32,7 +32,12 @@ import {
 import * as accountsApi from '../api/accounts'
 import * as transfersApi from '../api/transfers'
 
-//Helper Function - Gives Currency Format
+// Page should allow users to see an overview of their pages
+// Dashboard was written independently, but informed by thematic implications from MUI official website to get styles on components
+// Dasbhoard: https://mui.com/material-ui/getting-started/templates/
+// TODO:  Test outside of static datea
+
+//Helper Function for currency - Gives Currency Format
 function fmt(amount) {
     return new Intl.NumberFormat('en-US', {
         style: 'currency',
@@ -45,7 +50,7 @@ function fmt(amount) {
 //reset form on close (cancel or submission)
 function TransferModal({ isOpen, onClose }) {
 
-    // Initialize
+    // Initialize with useState to manage
     const [form, setForm] = useState({ recipientID: '', amount: '', memo: ''})
     const [loading, setLoading] = useState(false)
     const [success, setSuccess] = useState('')
@@ -189,17 +194,18 @@ return (
 }
 
 
-/* ── Dashboard Page Layout ── */
+// Layout the dashboard page
 export default function DashboardPage() {
 
-    // Initialize
+    // Initialize values from useState
     const [balance, setBalance] = useState(null)
     const [deposits, setDeposits] = useState(null)
     const [withdrawals, setWithdrawals] = useState(null)
     const [showTransfer, setShowTransfer] = useState(false)
     const navigate = useNavigate()
 
-    //Call API for information 
+    //Call API for information on our user
+    //UPDATE AFTER API
     useEffect(() => {
         async function fetchData() {
             try {
@@ -212,12 +218,15 @@ export default function DashboardPage() {
                 setDeposits(dep)
                 setWithdrawals(wdr)
 
-                //error case
-            } catch (err) {
+                //error case no data
+            } 
+            catch (err) {
                 console.error('Failed to load dashboard data:', err)
             }
         }
+
         fetchData()
+
     }, [])
 
     //To update our balance label; adds last updated today 
@@ -227,7 +236,7 @@ export default function DashboardPage() {
 
     return (
 
-        //
+        //Title of Dashboard, grid for spacing, balance card on top, cards below for more detail
         <Box>
             <Typography variant="h1" sx={{ fontSize: '1.75rem', mb: 3 }}>
                 Dashboard
@@ -249,17 +258,20 @@ export default function DashboardPage() {
                         border: '1px solid rgba(108,92,231,0.2)',
                     }}
                 >
+                    {/* Balance Content */}
                     <CardContent sx={{ p: 3 }}>
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
                             <BalanceIcon sx={{ fontSize: 20, color: 'primary.main' }} />
+
                             <Typography variant="body2" color="text.secondary">
                                 Current balance
                             </Typography>
+
                         </Box>
+                        {/* Amount or nothing */}
                         {balance ? (
                             <>
-                                <Typography
-                                    variant="h1"
+                                <Typography variant="h1"
                                     sx={{
                                         fontSize: '2.5rem',
                                         fontWeight: 800,
@@ -269,29 +281,34 @@ export default function DashboardPage() {
                                 >
                                     {fmt(balance.balance)}
                                 </Typography>
+
                                 <Typography variant="caption" color="text.disabled">
                                     {balance.accountType}{updatedLabel ? ` — ${updatedLabel}` : ''}
                                 </Typography>
-                            </>
-                        ) : (
+
+                            </>) : (
                             <>
                                 <Skeleton variant="text" width={200} height={48} />
                                 <Skeleton variant="text" width={140} />
                             </>
                         )}
                     </CardContent>
+
                 </Card>
 
                 {/* Stat Cards (for viewing security exploits) - should align central w/current balance */}
                 {/* Deposit Card */}
                 <Card>
+                    {/* Deposit Icon +  Title */}
                     <CardContent sx={{ p: 3 }}>
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
                             <DepositIcon sx={{ fontSize: 18, color: 'success.main' }} />
                             <Typography variant="body2" color="text.secondary">
-                                Total deposits this month
+                                Deposits this Month
                             </Typography>
                         </Box>
+
+                        {/* Get Amount or nothing */}
                         {deposits ? (
                             <Typography
                                 variant="h3"
@@ -308,15 +325,19 @@ export default function DashboardPage() {
                     </CardContent>
                 </Card>
 
-                {/* Withdrawal Card */}
+                {/* withdrawal Icon +  Title */}
                 <Card>
                     <CardContent sx={{ p: 3 }}>
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+
                             <WithdrawalIcon sx={{ fontSize: 18, color: 'error.main' }} />
                             <Typography variant="body2" color="text.secondary">
                                 Total withdrawals this month
                             </Typography>
+
                         </Box>
+
+                        {/* Amount or nothing */}
                         {withdrawals ? (
                             <Typography
                                 variant="h3"
@@ -345,9 +366,8 @@ export default function DashboardPage() {
                             <Button
                                 variant="outlined"
                                 startIcon={<SendIcon />}
-                                onClick={() => setShowTransfer(true)}
-                            >
-                                Transfer funds
+                                onClick={() => setShowTransfer(true)}>
+                            Transfer funds
                             </Button>
 
 
@@ -355,11 +375,11 @@ export default function DashboardPage() {
                             <Button
                                 variant="outlined"
                                 startIcon={<HistoryIcon />}
-                                onClick={() => navigate('/history?type=transfers')}
-                            >
-                                Transaction history
+                                onClick={() => navigate('/history?type=transfers')}>
+                            Transaction history
                             </Button>
                         </Box>
+                        
                     </CardContent>
                 </Card>
             </Box>

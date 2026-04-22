@@ -18,15 +18,21 @@ import {
 } from '@mui/icons-material'
 import * as authApi from '../api/auth'
 
+
+// Login was written independently, but informed by thematic implications from MUI official website to get styles on components
+// https://mui.com/material-ui/getting-started/templates/
+
+
 //Functions for Login
 export default function LoginPage() {
-    //Initialize
+
+    //Initialize with use state
     const [username, setUsername] = useState('')
     const [password, setPassword] = useState('')
     const [error, setError] = useState('')
     const [loading, setLoading] = useState(false)
 
-    //Connect Login func to our hook
+    //Connect Login func to our hook for authentication
     const { login } = useAuth()
     const navigate = useNavigate()
 
@@ -59,10 +65,12 @@ export default function LoginPage() {
             <Typography variant="h2" sx={{ fontSize: '1.5rem', mb: 0.5 }}>
                 Welcome back
             </Typography>
+
             <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
                 Sign in to your account
             </Typography>
 
+            {/* Error Case */}
             {error && (
                 <Alert severity="error" sx={{ mb: 2 }}>
                     {error}
@@ -78,6 +86,7 @@ export default function LoginPage() {
                     onChange={(e) => setUsername(e.target.value)}
                     placeholder="Enter your username"
                     autoComplete="username"
+
                     fullWidth
                     InputProps={{
                         startAdornment: (
@@ -87,6 +96,7 @@ export default function LoginPage() {
                         ),
                     }}
                 />
+
                 <TextField
                     id="login-password"
                     label="Password"
@@ -95,6 +105,7 @@ export default function LoginPage() {
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="Enter your password"
                     autoComplete="current-password"
+
                     fullWidth
                     InputProps={{
                         startAdornment: (
@@ -110,22 +121,23 @@ export default function LoginPage() {
             <Button
                 type="submit"
                 variant="contained"
+                disabled={loading}
+
                 fullWidth
                 size="large"
-                disabled={loading}
-                sx={{ mb: 2, py: 1.3 }}
-            >
+                sx={{ mb: 2, py: 1.3 }}>
+
                 {loading ? (
                     <CircularProgress size={22} color="inherit" sx={{ mr: 1 }} />
                 ) : null}
                 {loading ? 'Signing in…' : 'Log In'}
             </Button>
 
+            {/* Give link to sign-up */}
             <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', mb: 2 }}>
                 Don&apos;t have an account?{' '}
-                <Box
-                    component={Link} to="/signup" sx={{ color: 'primary.main', fontWeight: 600, '&:hover': { textDecoration: 'underline' } }}
-                >
+
+                <Box component={Link} to="/signup" sx={{ color: 'primary.main', fontWeight: 600, '&:hover': { textDecoration: 'underline' } }}>
                     Sign Up
                 </Box>
             </Typography>
@@ -134,9 +146,10 @@ export default function LoginPage() {
                 sx={{
                     textAlign: 'center',
                     p: 1.5,
-                    borderRadius: 2,
-                    bgcolor: 'rgba(108, 92, 231, 0.08)',
                     border: '1px solid rgba(108, 92, 231, 0.15)',
+                    borderRadius: 2,
+
+                    bgcolor: 'rgba(108, 92, 231, 0.08)',
                 }}
             >
 
@@ -144,7 +157,7 @@ export default function LoginPage() {
                 <Typography variant="caption" color="text.secondary">
                     Demo credentials:{' '}
                     <Box component="code" sx={{ fontFamily: "'JetBrains Mono', monospace", color: 'primary.light' }}>
-                        cardib
+                        scurry
                     </Box>
                     {' / '}
                     <Box component="code" sx={{ fontFamily: "'JetBrains Mono', monospace", color: 'primary.light' }}>
