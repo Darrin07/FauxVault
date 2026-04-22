@@ -1,4 +1,4 @@
-import { mockDelay } from './client'
+import { apiFetch, mockDelay } from './client'
 
 /**
  * Mock user store matching the real DB schema:
@@ -42,20 +42,23 @@ function sanitizeUser(user) {
  * Returns: { token, user: { id, email, name, role } }
  */
 export async function login(email, password) {
-    await mockDelay()
+    const data = await apiFetch('/auth/login', {
+        method: 'POST',
+        body: JSON.stringify({ email, password }),
+    }, async () => {
+        await mockDelay()
+        const user = MOCK_USERS.find(
+            (u) => u.email === email && u.passwordHash === password
+        )
+        if (!user) throw new Error('Invalid email or password')
+        return {
+            token: `mock-jwt-${user.id}-${Date.now()}`,
+            user: sanitizeUser(user),
+        }
+    });
 
-    const user = MOCK_USERS.find(
-        (u) => u.email === email && u.passwordHash === password
-    )
-
-    if (!user) {
-        throw new Error('Invalid email or password')
-    }
-
-    return {
-        token: `mock-jwt-${user.id}-${Date.now()}`,
-        user: sanitizeUser(user),
-    }
+    if (data.token) localStorage.setItem('token', data.token);
+    return data;
 }
 
 /**
@@ -64,29 +67,32 @@ export async function login(email, password) {
  * Returns: { token, user: { id, email, name, role } }
  */
 export async function register({ email, password, name }) {
-    await mockDelay()
+    const data = await apiFetch('/auth/register', {
+        method: 'POST',
+        body: JSON.stringify({ email, password, name }),
+    }, async () => {
+        await mockDelay()
+        const exists = MOCK_USERS.find((u) => u.email === email)
+        if (exists) throw new Error('Email already registered')
 
-    const exists = MOCK_USERS.find((u) => u.email === email)
-    if (exists) {
-        throw new Error('Email already registered')
-    }
+        const newUser = {
+            id: MOCK_USERS.length + 1,
+            name,
+            email,
+            passwordHash: password,
+            role: 'user',
+            accountNumber: String(Math.floor(Math.random() * 90000) + 10000),
+            address: '',
+        }
+        MOCK_USERS.push(newUser)
+        return {
+            token: `mock-jwt-${newUser.id}-${Date.now()}`,
+            user: sanitizeUser(newUser),
+        }
+    });
 
-    const newUser = {
-        id: MOCK_USERS.length + 1,
-        name,
-        email,
-        passwordHash: password,
-        role: 'user',
-        accountNumber: String(Math.floor(Math.random() * 90000) + 10000),
-        address: '',
-    }
-
-    MOCK_USERS.push(newUser)
-
-    return {
-        token: `mock-jwt-${newUser.id}-${Date.now()}`,
-        user: sanitizeUser(newUser),
-    }
+    if (data.token) localStorage.setItem('token', data.token);
+    return data;
 }
 
 /**
@@ -94,6 +100,13 @@ export async function register({ email, password, name }) {
  * Server simply returns { message: 'Logged out' }
  */
 export async function logout() {
-    await mockDelay(100)
-    return { message: 'Logged out' }
+    const data = await apiFetch('/auth/logout', { 
+        method: 'POST' 
+    }, async () => {
+        await mockDelay(100)
+        return { message: 'Logged out' }
+    });
+
+    localStorage.removeItem('token');
+    return data;
 }

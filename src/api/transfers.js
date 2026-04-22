@@ -1,4 +1,4 @@
-import { mockDelay } from './client'
+import { apiFetch, mockDelay } from './client'
 
 /* ── In-memory transfer store ── */
 let nextId = 100
@@ -14,30 +14,40 @@ const MOCK_TRANSFERS = [
  * POST /api/transfers
  */
 export async function sendTransfer({ recipientId, amount, memo }) {
-    await mockDelay()
+    return await apiFetch('/transfers', {
+        method: 'POST',
+        body: JSON.stringify({ recipientId, amount, memo }),
+    }, async () => {
+        await mockDelay()
 
-    if (!recipientId || !amount || amount <= 0) {
-        throw new Error('Invalid transfer details')
-    }
+        if (!recipientId || !amount || amount <= 0) {
+            throw new Error('Invalid transfer details')
+        }
 
-    const transfer = {
-        id: nextId++,
-        date: new Date().toISOString().split('T')[0],
-        recipientId,
-        recipientName: `User #${recipientId}`,
-        amount: Number(amount),
-        memo: memo || '',
-        status: 'completed',
-    }
+        const transfer = {
+            id: nextId++,
+            date: new Date().toISOString().split('T')[0],
+            recipientId,
+            recipientName: `User #${recipientId}`,
+            amount: Number(amount),
+            memo: memo || '',
+            status: 'completed',
+        }
 
-    MOCK_TRANSFERS.unshift(transfer)
-    return { transfer }
+        MOCK_TRANSFERS.unshift(transfer)
+        return { transfer }
+    });
 }
 
 /**
  * GET /api/transfers
+ * Note: Still using mock until backend GET is ready.
  */
 export async function getTransfers() {
-    await mockDelay()
-    return [...MOCK_TRANSFERS]
+    return await apiFetch('/transfers', { 
+        method: 'GET' 
+    }, async () => {
+        await mockDelay()
+        return [...MOCK_TRANSFERS]
+    });
 }
