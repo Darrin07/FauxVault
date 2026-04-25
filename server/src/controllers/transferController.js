@@ -1,5 +1,5 @@
 /** Transfer Controller - handles fund transfer requests */
-const { findAccountByUserId, transfer } = require('../mock/accounts');
+const { findAccountByUserId, transfer, getTransactions } = require('../mock/accounts');
 
 /**
  * Transfers funds from the authenticated user's account to a destination account.
@@ -63,4 +63,39 @@ async function createTransfer(req, res, next){
     }
 }
 
-module.exports = { createTransfer };
+/**
+ * Returns transaction history for the authenticated user's account.
+ * Supports optional ?type=sent|received filter.
+ * @param {Request} req - express request (req.user set by auth middleware)
+ * @param {Response} res - express response
+ * @param {Function} next - express next middleware
+ * @returns {Array<Object>} array of transaction records
+ * @throws {404} no account found for the authenticated user
+ * @requirement R1.2.2
+ */
+function getTransferHistory(req, res, next) {
+    try {
+        const senderAccounts = findAccountByUserId(req.user.userId);
+        if (!senderAccounts.length) {
+            return res.status(404).json({
+                error: { status: 404, message: 'No account found for auth user', code: 'ACCOUNT_NOT_FOUND' },
+            });
+        }
+
+        const accountId = senderAccounts[0].id;
+        let history = getTransactions(accountId);
+
+        const { type } = req.query;
+        if (type === 'sent') {
+            history = history.filter(t => t.fromAccountId === accountId);
+        } else if (type === 'received') {
+            history = history.filter(t => t.toAccountId === accountId);
+        }
+
+        res.json({ transactions: history });
+    } catch (err) {
+        next(err);
+    }
+}
+
+module.exports = { createTransfer, getTransferHistory };

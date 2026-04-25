@@ -6,15 +6,16 @@ let users = [];
 
 /**
  * Creates a new user record in the in memory store
- * @param {Object} fields - user fields: email, passwordhash, name, role 
+ * @param {Object} fields - user fields: username, email, passwordHash, name (optional), role
  * @returns {Object} the created user with generated id and timestamps
  */
-function createUser({ email, passwordHash, name, role }){
+function createUser({ username, email, passwordHash, name, role }){
     const user = {
         id: crypto.randomUUID(),
+        username,
         email,
         passwordHash,
-        name,
+        name: name || '',
         role: role || 'user',
         createdAt: new Date().toISOString(),
     };
@@ -47,4 +48,13 @@ function resetUsers(){
     users = [];
 }
 
-module.exports = { createUser, findUserByEmail, findUserById, resetUsers };
+/**
+ * Looks up a user by username
+ * @param {string} username - the username to search for
+ * @returns {Object | null} the matching user or null
+ */
+function findUserByUsername(username) {
+    return users.find((u) => u.username === username) || null;
+}
+
+module.exports = { createUser, findUserByEmail, findUserByUsername, findUserById, resetUsers };
