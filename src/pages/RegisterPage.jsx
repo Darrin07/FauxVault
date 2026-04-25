@@ -38,13 +38,15 @@ export default function RegisterPage() {
     const navigate = useNavigate()
 
     function handleChange(field) {
-            return (e) => setForm((prev) => ({ ...prev, [field]: e.target.value }))
+        return (e) => {
+            setForm((prev) => ({ ...prev, [field]: e.target.value }))
 
             //If error, clear field on change to reset
             if (errors[field]) {
                 setErrors((prev) => ({...prev, [field]: ''}))
             }
         }
+    }
 
     //This function confirms that the information this user has given us is valid for registration
     //Can be used for exploitation in the future possibly
@@ -62,6 +64,7 @@ export default function RegisterPage() {
         else if (form.password.length < 5) errs.password = 'Minimum 5 characters'
         if (form.password !== form.confirmPassword) errs.confirmPassword = 'Passwords did not match'
 
+        return errs
     }
 
     async function handleSubmit(e) {
