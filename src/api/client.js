@@ -59,6 +59,6 @@ export async function apiFetch(endpoint, options = {}, mockCallback = null) {
  * Simulate network latency (200-500ms).
  */
 export function mockDelay(ms = null) {
-    const delay = ms ?? Math.floor(Math.random() * 300) + 200
+    const delay = ms ?? Math.floor(Math.random() * 330) + 220
     return new Promise((resolve) => setTimeout(resolve, delay))
 }

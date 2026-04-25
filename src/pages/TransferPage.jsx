@@ -22,6 +22,9 @@ import {
 } from '@mui/icons-material'
 import * as transfersApi from '../api/transfers'
 
+// Transfer was written independently, but informed by thematic implications from MUI official website to get styles on components
+// https://mui.com/material-ui/getting-started/templates/ and https://react.dev/learn/rendering-lists, uses similar build to Dashboard; 
+
 
 // Transfer Page Functions
 export default function TransferPage() {
@@ -168,6 +171,7 @@ export default function TransferPage() {
                                 {loading ? 'Sending…' : 'Send Transfer'}
                             </Button>
                         </Box>
+
                     </CardContent>
                 </Card>
 
@@ -178,6 +182,7 @@ export default function TransferPage() {
                             <Typography variant="h4" sx={{ fontSize: '0.9rem', mb: 2 }}>
                                 Recent Transfers
                             </Typography>
+
                             <List disablePadding>
                                 {recentTransfers.map((t) => (
                                     <ListItem
@@ -196,6 +201,7 @@ export default function TransferPage() {
                                             primaryTypographyProps={{ variant: 'body2', fontWeight: 600 }}
                                             secondaryTypographyProps={{ variant: 'caption' }}
                                         />
+
                                         <Typography
                                             variant="body2"
                                             sx={{
@@ -209,6 +215,7 @@ export default function TransferPage() {
                                     </ListItem>
                                 ))}
                             </List>
+
                         </CardContent>
                     </Card>
                 )}

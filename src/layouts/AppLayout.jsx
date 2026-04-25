@@ -1,11 +1,16 @@
 import { Outlet } from 'react-router-dom'
 import { Box } from '@mui/material'
+
+//Common Components for our Page
 import NavBar from '../components/NavBar'
 import VulnerabilityPanel from '../components/VulnerabilityPanel'
 import StatusBar from '../components/StatusBar'
 
+//Simple Layout:  Create space for Status Bar, Navigation Bar up top, vulnerability panel on right
 export default function AppLayout() {
     return (
+
+        //Up top components:
         <Box sx={{ 
             display: 'flex',
             flexDirection: 'column',
@@ -20,6 +25,7 @@ export default function AppLayout() {
                 overflow: 'hidden'
             }}
             >
+                {/* Use Outlet to serve as placeholder for child routes */}
                 <Box
                     compnent="main"
                     sx={{
@@ -28,11 +34,14 @@ export default function AppLayout() {
                         p: { xs: 2, sm: 3, md: 4},
                         maxHeight: 'calc(100vh - 104px)'
                     }}
-                    >
-                        <Outlet />
+                >
+                    <Outlet />
                 </Box>
+
                 <VulnerabilityPanel />
+                
             </Box>
+
         </Box>
     )
 }

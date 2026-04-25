@@ -37,4 +37,9 @@ function resetSettings() {
     settings = DEFAULT_SETTINGS.map(s => ({ ...s }));
 }
 
-module.exports = { getAllSettings, updateSetting, resetSettings }
+// look up a single module's toggle state by name
+function getSettingByModule(module_name) {
+    return settings.find((s) => s.module_name === module_name) || null;
+}
+
+module.exports = { getAllSettings, updateSetting, resetSettings, getSettingByModule }
