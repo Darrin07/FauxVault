@@ -1,3 +1,6 @@
+// Will create a Navbar at the top of our site
+// Note:  Claude Code helped build out an outline and provide support on how to get components to chanage
+
 import { NavLink, useNavigate } from "react-router-dom";
 import {
     AppBar,
@@ -12,6 +15,8 @@ import {
 import { Logout as LogOutIcon } from '@mui/icons-material'
 import { useAuth } from '../hooks/useAuth'
 
+
+//TODO:  Verify Routes
 const NAV_LINKS = [
     { to: '/dashboard', label: 'Dashboard'},
     { to: '/transfer', label: 'Transfer'},
@@ -19,11 +24,15 @@ const NAV_LINKS = [
     { to: '/admin', label: 'Admin'}
 ]
 
+
+//Functions under NavBar:  Initialize User, 
 export default function NavBar() {
 
     //initialize user
     const { user, logout } = useAuth()
     const navigate = useNavigate()
+
+    //Give visual signal that user is the correct person; for exploit later?
     const initials = user
         ? `${(user.firstName?.[0] || '').toUpperCase()}${(user.lastName?.[0] || '').toUpperCase()}`
         : ''
@@ -36,6 +45,7 @@ export default function NavBar() {
 
     return (
         <AppBar
+        // Place at top, does not move
             position="static"
             elevation={0}
             sx={{
@@ -45,26 +55,32 @@ export default function NavBar() {
             }}
             >
             <Toolbar sx={{ gap: 2 }}>
+
+                {/* replace with iconography */}
                 <Typography
                     variant="h6"
                     sx={{
                         fontWeight: 800,
-                        background: 'linear-gradient(135deg, #6c5ce7, #e74c3c)',
+                        background: 'rgba(221, 236, 234, 0.87)',
                         webkitBackgroundClip: 'text',
                         WebkitTextFillColor: 'transparent',
                         mr: 3,
                     }}
                     >
                         FauxVault
-                </Typography>
+                </Typography> 
 
-                {/* Navigation Links */}
+                {/* Navigation Links in the bar:  Map usage on links */}
                 <Box component="nav" sx={{ display: 'flex', gap: 0.5 }}>
                     {NAV_LINKS.map((link) => (
+                        //Buttons:  Key, Component = NavLink from React, link 
                         <Button
+                            //information on link
                             key={link.to}
                             component={NavLink}
                             to={link.to}
+
+                            //Looks
                             size="small"
                             sx={{
                                 color: 'text.secondary',
@@ -78,10 +94,11 @@ export default function NavBar() {
                                     color: 'text.primary',
                                     bgcolor: 'rgba(108, 92, 231, 0.08)',
                                 },
+                                //If page is active, make bigger to make it easier to see
                                 '&.active': {
                                     color: 'primary.main',
                                     bgcolor: 'rgba(108, 92, 231, 0.12)',
-                                    fontWeight: 600,
+                                    fontWeight: 600, 
                                     '&::after': {
                                         content: '""',
                                         position: 'absolute',
@@ -95,6 +112,7 @@ export default function NavBar() {
                                 },
                             }}
                             >
+                                {/* add label */}
                                 {link.label}
                             </Button>
                     ))}
@@ -105,6 +123,7 @@ export default function NavBar() {
             {/* Add user name, login link, icon */}
                 {user && (
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                        {/* Need indication that user could change; will leverage React Avatar */}
                         <Avatar
                             sx={{
                                 width: 34,
@@ -116,10 +135,14 @@ export default function NavBar() {
                         >
                             {initials}
                         </Avatar>
+
+                        {/* Add User's name for additional confirmation */}
                         <Box sx={{ display: { xs: 'none', sm: 'flex' }, flexDirection: 'column' }}>
                             <Typography variant="body2" sx={{ fontWeight: 600, lineHeight: 1.2 }}>
                                 {user.firstName} {user.lastName}
                             </Typography>
+
+                            {/* User's Account Number */}
                             <Typography
                                 variant="caption"
                                 color="text.disabled"
@@ -128,6 +151,8 @@ export default function NavBar() {
                                 Acct #{user.accountNumber}
                             </Typography>
                         </Box>
+
+                        {/* React's Tooltip for Logging out */}
                         <Tooltip title="Log out">
                             <IconButton
                                 onClick={handleLogout}

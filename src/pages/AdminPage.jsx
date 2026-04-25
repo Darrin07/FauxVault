@@ -1,8 +1,3 @@
-// Page should allow users to make updates on their account; can be leveraged for injection
-// TODO:  Move common functions from Pages to be exported to clean code in final updates
-
-//AI Notification:  Claude Code helped me debug my theme slightly; edits are minimal (adjusting width, used an 
-//input adornment to fix an alignment issue).  Saved me probably 15-20 mins and taught me their proper usage.
 
 import { useState, useEffect } from 'react'
 import { useAuth } from '../hooks/useAuth'
@@ -26,6 +21,9 @@ import {
 } from '@mui/icons-material'
 import * as usersApi from '../api/users'
 
+// Page should allow users to make updates on their account; can be leveraged for injection
+// TODO:  Move common functions from Pages to be exported to clean code in final updates
+
 
 export default function AdminPage() {
 
@@ -38,6 +36,8 @@ export default function AdminPage() {
         email: '',
         address: '',
     })
+
+    //useState to manage our state for saved changes
     const [saved, setSaved] = useState(false)
 
     //Values from Form
@@ -62,8 +62,13 @@ export default function AdminPage() {
 
     //send information to update
     async function handleSubmit(e) {
+        
+        //prevent default
         e.preventDefault()
+
         setLoading(true)
+
+        //Attempt to update
         try {
             const updatedUser = await usersApi.updateProfile(form)
             updateProfile(updatedUser)
@@ -81,18 +86,21 @@ export default function AdminPage() {
         //Header Box with static page information, sub-header 
         <Box>
             <Typography variant="h1" sx={{ fontSize: '1.75rem', mb: 0.5 }}>
-                Administration
+                Admin
             </Typography>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-                Manage your account settings and profile
+                Manage account settings
             </Typography>
 
             <Card sx={{ maxWidth: 640 }}>
+
+                {/* Account Information */}
                 <CardContent sx={{ p: 3 }}>
                     <Typography variant="h3" sx={{ fontSize: '1.1rem', mb: 2 }}>
                         Account Information
                     </Typography>
 
+                    {/* Profile is updated: */}
                     {saved && (
                         <Alert severity="success" sx={{ mb: 2 }}>
                             Profile updated successfully
@@ -106,24 +114,30 @@ export default function AdminPage() {
                             gap: 3,
                             mb: 3,
                             p: 2,
+                            
                             borderRadius: 2,
-                            bgcolor: 'rgba(255,255,255,0.02)',
                             border: '1px solid',
                             borderColor: 'divider',
+
+                            bgcolor: 'rgba(255,255,255,0.02)',
                         }}
                     >
                         <Box>
                             <Typography variant="caption" color="text.disabled">
                                 Username
                             </Typography>
+
+                            {/* If user: put username */}
                             <Typography variant="body2" sx={{ fontWeight: 600 }}>
                                 {user?.username}
                             </Typography>
                         </Box>
+
                         <Box>
                             <Typography variant="caption" color="text.disabled">
                                 Account Number
                             </Typography>
+                            {/* If User, account number */}
                             <Typography
                                 variant="body2"
                                 sx={{ fontWeight: 600, fontFamily: "'JetBrains Mono', monospace" }}
@@ -138,11 +152,15 @@ export default function AdminPage() {
                     {/* Editable form inputs: first name, last name, email, (? address) */}
                     <Box component="form" onSubmit={handleSubmit} sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                         <Box sx={{ display: 'flex', gap: 2 }}>
+
+                            {/* First Name */}
                             <TextField
                                 id="profile-first-name"
                                 label="First Name"
                                 value={form.firstName}
                                 onChange={handleChange('firstName')}
+
+                                // Design Changes
                                 fullWidth
                                 InputProps={{
                                     startAdornment: (
@@ -152,11 +170,14 @@ export default function AdminPage() {
                                     ),
                                 }}
                             />
+
                             <TextField
                                 id="profile-last-name"
                                 label="Last Name"
                                 value={form.lastName}
                                 onChange={handleChange('lastName')}
+
+                                //Design Changes (same as first name)
                                 fullWidth
                                 InputProps={{
                                     startAdornment: (
@@ -168,12 +189,15 @@ export default function AdminPage() {
                             />
                         </Box>
 
+                        {/* Email */}
                         <TextField
                             id="profile-email"
                             label="Email Address"
                             type="email"
                             value={form.email}
                             onChange={handleChange('email')}
+
+                            //Design Changes
                             fullWidth
                             InputProps={{
                                 startAdornment: (
@@ -184,12 +208,15 @@ export default function AdminPage() {
                             }}
                         />
 
+                        {/* Address */}
                         <TextField
                             id="profile-address"
                             label="Address"
                             value={form.address}
                             onChange={handleChange('address')}
                             placeholder="Street, City, State, ZIP"
+
+                            //Design Changes
                             fullWidth
                             InputProps={{
                                 startAdornment: (
@@ -200,6 +227,7 @@ export default function AdminPage() {
                             }}
                         />
 
+                        {/* Submit button, use contained variant */}
                         <Box sx={{ mt: 1 }}>
                             <Button
                                 type="submit"
@@ -207,12 +235,16 @@ export default function AdminPage() {
                                 startIcon={loading ? <CircularProgress size={18} color="inherit" /> : <SaveIcon />}
                                 disabled={loading}
                             >
+                                {/* Loading phases plausible: saving and save changes */}
                                 {loading ? 'Saving…' : 'Save Changes'}
                             </Button>
                         </Box>
+
                     </Box>
+
                 </CardContent>
             </Card>
+            
         </Box>
     )
 }

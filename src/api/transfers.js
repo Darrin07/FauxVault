@@ -10,9 +10,9 @@ const MOCK_TRANSFERS = [
     { id: 5, date: '2026-03-28', recipientId: 'FAUX-W8CP6L2J', recipientName: 'Alice Chen', amount: 250.00, memo: 'Freelance work', status: 'completed' },
 ]
 
-/**
- * POST /api/transfers
- */
+//TEST: POST /api/transfers
+
+//FUNCTION:  send amount, requires recipient id, an amount more than 0
 export async function sendTransfer({ recipientId, amount, memo }) {
     return await apiFetch('/transfers', {
         method: 'POST',

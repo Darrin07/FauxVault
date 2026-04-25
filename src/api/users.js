@@ -1,30 +1,30 @@
 import { mockDelay } from './client'
 
 /**
- * GET /api/users/profile
+ * For Test:  GET /api/users/profile
  */
 export async function getProfile() {
     await mockDelay()
     return {
         id: 1,
-        username: 'jdoe',
-        firstName: 'John',
-        lastName: 'Doe',
-        email: 'john.doe@email.com',
+        username: 'scurry',
+        firstName: 'Steph',
+        lastName: 'Curry',
+        email: 'steph.curry@email.com',
         accountNumber: 'FAUX-M3KQ8P1Z',
-        address: '123 Main St, Anytown, USA 12345',
+        address: '30 Main St, Oakland, USA 12345',
     }
 }
 
 /**
- * PUT /api/users/profile
+ * For Test:  PUT /api/users/profile
  */
 export async function updateProfile(data) {
     await mockDelay()
-    /* In a real app this would persist. For now, echo back merged data. */
+    // will not use persistence for testing
     return {
         id: 1,
-        username: 'cardib',
+        username: 'scurry',
         accountNumber: 'FAUX-M3KQ8P1Z',
         ...data,
     }
