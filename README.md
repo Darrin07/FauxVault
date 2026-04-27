@@ -66,8 +66,8 @@ JWT_SECRET=your_jwt_secret_here
 docker-compose up
 ```
 
-**Note:** If you encounter `exec format error` when running `docker-compose up --build`, 
-disable BuildKit:
+**Note:** If you encounter `exec format error` when building or starting the
+Docker stack, disable BuildKit:
 ```bash
 DOCKER_BUILDKIT=0 docker-compose up --build
 ```
