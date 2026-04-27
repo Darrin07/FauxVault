@@ -66,6 +66,12 @@ JWT_SECRET=your_jwt_secret_here
 docker-compose up
 ```
 
+**Note:** If you encounter `exec format error` when running `docker-compose up --build`, 
+disable BuildKit:
+```bash
+DOCKER_BUILDKIT=0 docker-compose up --build
+```
+
 This starts the Express API on `http://localhost:80` and PostgreSQL on port `5432`.
 
 ### 3b. Run manually (without Docker)
