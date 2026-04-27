@@ -9,8 +9,8 @@
   "scripts": {
     "start": "node src/server.js",
     "dev": "node --watch src/server.js",
-    "test": "jest --verbose",
-    "test:watch": "jest --watch --verbose"
+    "test": "jest --verbose --runInBand --forceExit",
+    "test:watch": "jest --watch --verbose --runInBand --forceExit"
   },
   "keywords": [],
   "author": "",
@@ -24,6 +24,9 @@
     "jsonwebtoken": "^9.0.3",
     "morgan": "^1.10.1",
     "pg": "^8.20.0"
+  },
+  "jest": {
+    "globalTeardown": "./tests/teardown.js"
   },
   "devDependencies": {
     "jest": "^30.3.0",

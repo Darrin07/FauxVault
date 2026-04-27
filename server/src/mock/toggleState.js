@@ -1,3 +1,9 @@
+/**
+ * ARCHIVED — kept for reference only, not in use.
+ * Replaced by ../models/toggleState.js (PostgreSQL queries via pg pool).
+ *
+ * Original: in-memory toggle state store, placeholder until PostgreSQL was connected.
+ */
 const DEFAULT_SETTINGS = [
     { id: 1, module_name: 'sql_injection', is_vulnerable: true, updated_at: null },
     { id: 2, module_name: 'xss_stored', is_vulnerable: true, updated_at: null },
