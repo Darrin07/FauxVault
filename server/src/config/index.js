@@ -7,10 +7,10 @@ module.exports = {
   bcryptSaltRounds: parseInt(process.env.BCRYPT_SALT_ROUNDS, 10) || 10,
   nodeEnv: process.env.NODE_ENV || 'development',
   db: {
-    user: process.env.DB_USER || 'fauxvault_user',
+    user: process.env.POSTGRES_USER || 'fauxvault_user',
     host: process.env.DB_HOST || 'localhost',
-    database: process.env.DB_NAME || 'fauxvault',
-    password: process.env.DB_PASSWORD || 'fauxvault_pass',
+    database: process.env.POSTGRES_DB || 'fauxvault',
+    password: process.env.POSTGRES_PASSWORD || 'fauxvault_pass',
     port: parseInt(process.env.DB_PORT, 10) || 5432,
   },
 };
