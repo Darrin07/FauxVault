@@ -1,5 +1,5 @@
 /** Account Controller - account lookup and balance handlers */
-const { findAccountByUserId, findAccountById, getTransactions } = require('../mock/accounts');
+const { findAccountByUserId, findAccountById, getTransactions } = require('../models/accounts');
 
 /**
  * Returns the authenticated user's account info and balance.
@@ -11,9 +11,9 @@ const { findAccountByUserId, findAccountById, getTransactions } = require('../mo
  * @throws {404} no account found for the authenticated user
  * @requirement R1.2.2
  */
-function getMyAccount(req, res, next) {
+async function getMyAccount(req, res, next) {
     try {
-        const accounts = findAccountByUserId(req.user.userId);
+        const accounts = await findAccountByUserId(req.user.userId);
 
         if (!accounts.length) {
             return res.status(404).json({
@@ -47,9 +47,9 @@ function getMyAccount(req, res, next) {
  * @throws {404} account not found
  * @requirement R1.2.2
  */
-function getAccountById(req, res, next) {
+async function getAccountById(req, res, next) {
     try {
-        const account = findAccountById(req.params.id);
+        const account = await findAccountById(req.params.id);
 
         if (!account) {
             return res.status(404).json({
