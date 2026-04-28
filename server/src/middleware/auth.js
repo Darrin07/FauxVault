@@ -29,7 +29,7 @@ function authenticate(req, res, next){
         const decoded = jwt.verify(token, config.jwtSecret);
         req.user = decoded;
         next();
-    } catch (err){
+    } catch (_err){
         return res.status(401).json({
             error: { status: 401, message: 'Invalid or expired token', code: 'INVALID_TOKEN' },
         });

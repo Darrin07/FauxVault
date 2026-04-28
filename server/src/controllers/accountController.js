@@ -1,5 +1,11 @@
 /** Account Controller - account lookup and balance handlers */
-const { findAccountByUserId, findAccountById, getTransactions } = require('../models/accounts');
+const {
+    findAccountByUserId,
+    findAccountById,
+    // getTransactions belongs in transfer history flows, not this controller.
+    // Keep it commented here to preserve the earlier intent without failing lint.
+    // getTransactions,
+} = require('../models/accounts');
 
 /**
  * Returns the authenticated user's account info and balance.
