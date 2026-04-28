@@ -89,6 +89,25 @@ dist/
 .env
 .DS_Store
 dist-ssr
+.env.*
+!.env.example
+
+# Framework caches
+.svelte-kit/
+**/.vitepress/dist
+**/.vitepress/cache
+.docusaurus
+.serverless/
+.fusebox/
+.dynamodb/
+.firebase/
+.tern-port
+.vscode-test
+
+# Vite
+.vite/
+vite.config.js.timestamp-*
+vite.config.ts.timestamp-*
 *.local
 
 # Editor directories and files
