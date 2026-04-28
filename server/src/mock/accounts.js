@@ -1,4 +1,9 @@
-/** in memory account store - placeholder until postgressql is connected */
+/**
+ * ARCHIVED — kept for reference only, not in use.
+ * Replaced by ../models/accounts.js (PostgreSQL queries via pg pool).
+ *
+ * Original: in-memory account store, placeholder until PostgreSQL was connected.
+ */
 const crypto = require('node:crypto');
 
 let accounts = [];

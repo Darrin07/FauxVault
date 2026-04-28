@@ -2,8 +2,8 @@
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const config = require('../config');
-const { createUser, findUserByEmail, findUserByUsername } = require('../mock/users');
-const { createAccount } = require('../mock/accounts');
+const { createUser, findUserByEmail, findUserByUsername } = require('../models/users');
+const { createAccount } = require('../models/accounts');
 
 
 /**
@@ -52,22 +52,22 @@ async function register(req, res, next){
             });
         }
 
-        if(findUserByEmail(email)){
+        if(await findUserByEmail(email)){
             return res.status(409).json({
                 error: { status: 409, message: 'Email already registered', code: 'EMAIL_EXISTS' },
             });
         }
 
-        if(findUserByUsername(username)){
+        if(await findUserByUsername(username)){
             return res.status(409).json({
                 error: { status: 409, message: 'Username already taken', code: 'USERNAME_EXISTS' },
             });
         }
 
         const passwordHash = await bcrypt.hash(password, config.bcryptSaltRounds);
-        const user = createUser({ username, email, passwordHash, role: 'user' });
+        const user = await createUser({ username, email, passwordHash, role: 'user' });
 
-        createAccount(user.id, 1000);
+        await createAccount(user.id, 1000);
 
         const token = generateToken(user);
         res.status(201).json({ token, user: sanitizeUser(user) });
@@ -99,8 +99,8 @@ async function login(req, res, next){
         }
 
         const user = identifier.includes('@')
-            ? findUserByEmail(identifier)
-            : findUserByUsername(identifier);
+            ? await findUserByEmail(identifier)
+            : await findUserByUsername(identifier);
 
         if(!user){
             return res.status(401).json({

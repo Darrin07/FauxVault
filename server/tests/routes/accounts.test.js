@@ -1,13 +1,13 @@
 const request = require('supertest');
 const app = require('../../src/app');
-const { resetUsers } = require('../../src/mock/users');
-const { resetAccounts } = require('../../src/mock/accounts');
+const { resetUsers } = require('../../src/models/users');
+const { resetAccounts } = require('../../src/models/accounts');
 
 let token;
 
 beforeEach(async () => {
-  resetUsers();
-  resetAccounts();
+  await resetUsers();
+  await resetAccounts();
 
   const res = await request(app)
     .post('/api/auth/register')

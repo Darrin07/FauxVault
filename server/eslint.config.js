@@ -2,12 +2,9 @@ const js = require('@eslint/js');
 const globals = require('globals');
 
 module.exports = [
+  js.configs.recommended,
   {
     files: ['**/*.js'],
-    plugins: {
-      js,
-    },
-    extends: [js.configs.recommended],
     languageOptions: {
       ecmaVersion: 2020,
       globals: {
@@ -16,7 +13,10 @@ module.exports = [
       sourceType: 'commonjs',
     },
     rules: {
-      'no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
+      'no-unused-vars': ['error', {
+        argsIgnorePattern: '^_',
+        caughtErrorsIgnorePattern: '^_',
+      }],
       'no-console': 'off',
     },
   },

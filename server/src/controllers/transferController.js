@@ -1,5 +1,5 @@
 /** Transfer Controller - handles fund transfer requests */
-const { findAccountByUserId, transfer, getTransactions } = require('../mock/accounts');
+const { findAccountByUserId, transfer, getTransactions } = require('../models/accounts');
 
 /**
  * Transfers funds from the authenticated user's account to a destination account.
@@ -34,7 +34,7 @@ async function createTransfer(req, res, next){
 
         // --- resolve sender account from JWT user ---
 
-        const senderAccounts = findAccountByUserId(req.user.userId);
+        const senderAccounts = await findAccountByUserId(req.user.userId);
         if(!senderAccounts.length){
             return res.status(404).json({
                 error: { status: 404, message: 'No account found for auth user', code: 'ACCOUNT_NOT_FOUND'},
@@ -45,7 +45,7 @@ async function createTransfer(req, res, next){
 
         // --- execute transfer ---
 
-        const transaction = transfer(fromAccountId, toAccountId, amount);
+        const transaction = await transfer(fromAccountId, toAccountId, amount);
         res.status(201).json({ transaction });
 
     } catch(err){
@@ -73,9 +73,9 @@ async function createTransfer(req, res, next){
  * @throws {404} no account found for the authenticated user
  * @requirement R1.2.2
  */
-function getTransferHistory(req, res, next) {
+async function getTransferHistory(req, res, next) {
     try {
-        const senderAccounts = findAccountByUserId(req.user.userId);
+        const senderAccounts = await findAccountByUserId(req.user.userId);
         if (!senderAccounts.length) {
             return res.status(404).json({
                 error: { status: 404, message: 'No account found for auth user', code: 'ACCOUNT_NOT_FOUND' },
@@ -83,7 +83,7 @@ function getTransferHistory(req, res, next) {
         }
 
         const accountId = senderAccounts[0].id;
-        let history = getTransactions(accountId);
+        let history = await getTransactions(accountId);
 
         const { type } = req.query;
         if (type === 'sent') {

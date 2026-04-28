@@ -1,0 +1,68 @@
+/** User model — PostgreSQL queries replacing the in-memory mock store */
+const { pool } = require('../config/db');
+
+/**
+ * Creates a new user record in the database.
+ * @param {Object} fields - user fields: username, email, passwordHash, name (optional), role
+ * @returns {Object} the created user with generated id and timestamps
+ */
+async function createUser({ username, email, passwordHash, name, role }) {
+  const result = await pool.query(
+    `INSERT INTO users (username, email, password_bcrypt, name, role)
+     VALUES ($1, $2, $3, $4, $5)
+     RETURNING user_id AS id, username, email, password_bcrypt AS "passwordHash", name, role, created_at AS "createdAt"`,
+    [username, email, passwordHash, name || '', role || 'user']
+  );
+  return result.rows[0];
+}
+
+/**
+ * Looks up a user by email address.
+ * @param {string} email - the email to search for
+ * @returns {Object|null} the matching user or null
+ */
+async function findUserByEmail(email) {
+  const result = await pool.query(
+    `SELECT user_id AS id, username, email, password_bcrypt AS "passwordHash", name, role, created_at AS "createdAt"
+     FROM users WHERE email = $1`,
+    [email]
+  );
+  return result.rows[0] || null;
+}
+
+/**
+ * Looks up a user by id.
+ * @param {string} id - the user UUID to search for
+ * @returns {Object|null} the matching user or null
+ */
+async function findUserById(id) {
+  const result = await pool.query(
+    `SELECT user_id AS id, username, email, password_bcrypt AS "passwordHash", name, role, created_at AS "createdAt"
+     FROM users WHERE user_id = $1`,
+    [id]
+  );
+  return result.rows[0] || null;
+}
+
+/**
+ * Looks up a user by username.
+ * @param {string} username - the username to search for
+ * @returns {Object|null} the matching user or null
+ */
+async function findUserByUsername(username) {
+  const result = await pool.query(
+    `SELECT user_id AS id, username, email, password_bcrypt AS "passwordHash", name, role, created_at AS "createdAt"
+     FROM users WHERE username = $1`,
+    [username]
+  );
+  return result.rows[0] || null;
+}
+
+/**
+ * Clears all users from the database. Used in test teardown.
+ */
+async function resetUsers() {
+  await pool.query('TRUNCATE users CASCADE');
+}
+
+module.exports = { createUser, findUserByEmail, findUserByUsername, findUserById, resetUsers };

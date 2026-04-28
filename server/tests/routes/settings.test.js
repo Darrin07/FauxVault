@@ -1,9 +1,9 @@
 const request = require('supertest');
 const app = require('../../src/app');
-const { resetSettings } = require('../../src/mock/toggleState');
+const { resetSettings } = require('../../src/models/toggleState');
 
-beforeEach(() => {
-    resetSettings();
+beforeEach(async () => {
+    await resetSettings();
 });
 
 // test for returning settings module
@@ -15,7 +15,7 @@ describe('GET /api/settings', () => {
         expect(res.status).toBe(200);
         expect(res.body).toBeInstanceOf(Array);
         expect(res.body.length).toBe(10);
-        expect(res.body[0]).toHaveProperty('id');
+        expect(res.body[0]).toHaveProperty('module_key');
         expect(res.body[0]).toHaveProperty('module_name');
         expect(res.body[0]).toHaveProperty('is_vulnerable');
     });

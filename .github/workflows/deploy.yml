@@ -11,7 +11,27 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
-    
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_DB: fauxvault
+          POSTGRES_USER: fauxvault_user
+          POSTGRES_PASSWORD: fauxvault_pass
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U fauxvault_user -d fauxvault"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      POSTGRES_DB: fauxvault
+      POSTGRES_USER: fauxvault_user
+      POSTGRES_PASSWORD: fauxvault_pass
+      DB_HOST: localhost
+      DB_PORT: 5432
+      JWT_SECRET: ci-test-secret
     defaults:
       run:
         working-directory: ./server
@@ -23,12 +43,22 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '20.19.0'
           cache: 'npm'
           cache-dependency-path: server/package-lock.json
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Apply database schema
+        run: psql -h "$DB_HOST" -U "$POSTGRES_USER" -d "$POSTGRES_DB" -f ../database/FauxVault_Schema.sql
+        env:
+          PGPASSWORD: ${{ env.POSTGRES_PASSWORD }}
+
+      - name: Seed database
+        run: psql -h "$DB_HOST" -U "$POSTGRES_USER" -d "$POSTGRES_DB" -f ../database/FauxVault_Seed.sql
+        env:
+          PGPASSWORD: ${{ env.POSTGRES_PASSWORD }}
 
       - name: Run linter
         run: npm run lint
