@@ -69,6 +69,7 @@ dist-ssr
 .vscode-test
 
 # Vite
+.vite/
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 *.local

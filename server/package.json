@@ -10,8 +10,11 @@
     "start": "node src/server.js",
     "dev": "node --watch src/server.js",
     "lint": "eslint src/",
-    "test": "jest --verbose --runInBand --forceExit",
-    "test:watch": "jest --watch --verbose --runInBand --forceExit"
+    "test": "npm run test:against-docker-db",
+    "test:base": "jest --verbose --runInBand --forceExit",
+    "test:against-docker-db": "DB_HOST=localhost npm run test:base",
+    "test:in-container": "docker compose -f ../docker-compose.yml run --rm -e DB_HOST=db app npm run test:base",
+    "test:watch": "DB_HOST=localhost jest --watch --verbose --runInBand --forceExit"
   },
   "keywords": [],
   "author": "",

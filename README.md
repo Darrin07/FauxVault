@@ -49,10 +49,16 @@ cp .env.example .env
 Add the following to your `.env` for the database connection:
 
 ```env
-# Database
-DB_USER=fauxvault_user
-DB_PASSWORD=fauxvault_pass
-DB_NAME=fauxvault
+# Frontend (Vite)
+VITE_USE_MOCK=true
+VITE_API_BASE_URL=/api
+
+# Docker / Postgres Initialization
+POSTGRES_USER=fauxvault_user
+POSTGRES_PASSWORD=fauxvault_pass
+POSTGRES_DB=fauxvault
+
+# App Database Connection
 DB_HOST=db
 DB_PORT=5432
 
@@ -113,6 +119,22 @@ psql -U fauxvault_user -d fauxvault -f database/FauxVault_Seed.sql
 cd server
 npm test
 ```
+
+`npm test` runs the backend test suite from the host machine against the
+Dockerized Postgres database on `localhost:5432`.
+
+Additional test workflows:
+
+```bash
+cd server
+npm run test:against-docker-db
+npm run test:in-container
+```
+
+- `npm test` and `npm run test:against-docker-db` run Jest on the host and
+  connect to the Docker Postgres instance with `DB_HOST=localhost`.
+- `npm run test:in-container` runs Jest in a one-off `app` container, where the
+  database host must be `db`.
 
 ## Disclaimer
 
