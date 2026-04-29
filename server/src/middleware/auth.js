@@ -1,3 +1,4 @@
+// VULN MODULE: Weak Session/Cookies (A07) — toggle cookie flags (httpOnly, secure, sameSite)
 /** JWT auth middleware for protected routes */
 const jwt = require('jsonwebtoken');
 const config = require('../config');

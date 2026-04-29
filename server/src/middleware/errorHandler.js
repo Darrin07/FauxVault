@@ -1,3 +1,4 @@
+// VULN MODULE: Verbose Errors (A05) — toggle full stack traces vs generic messages
 function errorHandler(err, req, res, _next) {
     const status = err.status || 500;
     const message = err.message || 'Internal server error';

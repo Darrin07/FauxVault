@@ -72,15 +72,30 @@ async function getBalance(accountId) {
 }
 
 /**
+ * Normalizes a transaction row from PostgreSQL into the API response shape.
+ * Exposes both reference and memo during the XSS module rollout.
+ * @param {Object} row - raw PostgreSQL transaction row
+ * @returns {Object} normalized transaction record
+ */
+function normalizeTransaction(row) {
+  return {
+    ...row,
+    amount: parseFloat(row.amount),
+    memo: row.reference,
+  };
+}
+
+/**
  * Transfer funds between accounts within a transaction.
  * Validates both accounts exist and that the sender has sufficient balance.
  * @param {string} fromAccountId - source account UUID
  * @param {string} toAccountId - destination account UUID
  * @param {number} amount - transfer amount in dollars (must be positive)
+ * @param {string|null} reference - optional free-text transfer note
  * @returns {Object} the created transaction record
  * @throws {Error} if either account is not found or balance is insufficient
  */
-async function transfer(fromAccountId, toAccountId, amount) {
+async function transfer(fromAccountId, toAccountId, amount, reference = null) {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
@@ -116,16 +131,14 @@ async function transfer(fromAccountId, toAccountId, amount) {
     );
 
     const txResult = await client.query(
-      `INSERT INTO transactions (sender_account_id, receiver_account_id, amount)
-       VALUES ($1, $2, $3)
-       RETURNING transaction_id AS id, sender_account_id AS "fromAccountId", receiver_account_id AS "toAccountId", amount, transaction_date AS "createdAt"`,
-      [fromAccountId, toAccountId, amount]
+      `INSERT INTO transactions (sender_account_id, receiver_account_id, amount, reference)
+       VALUES ($1, $2, $3, $4)
+       RETURNING transaction_id AS id, sender_account_id AS "fromAccountId", receiver_account_id AS "toAccountId", amount, reference, transaction_date AS "createdAt"`,
+      [fromAccountId, toAccountId, amount, reference]
     );
 
     await client.query('COMMIT');
-    const tx = txResult.rows[0];
-    tx.amount = parseFloat(tx.amount);
-    return tx;
+    return normalizeTransaction(txResult.rows[0]);
   } catch (err) {
     await client.query('ROLLBACK');
     throw err;
@@ -141,13 +154,45 @@ async function transfer(fromAccountId, toAccountId, amount) {
  */
 async function getTransactions(accountId) {
   const result = await pool.query(
-    `SELECT transaction_id AS id, sender_account_id AS "fromAccountId", receiver_account_id AS "toAccountId", amount, transaction_date AS "createdAt"
+    `SELECT transaction_id AS id, sender_account_id AS "fromAccountId", receiver_account_id AS "toAccountId", amount, reference, transaction_date AS "createdAt"
      FROM transactions
      WHERE sender_account_id = $1 OR receiver_account_id = $1
      ORDER BY transaction_date DESC`,
     [accountId]
   );
-  return result.rows.map(row => ({ ...row, amount: parseFloat(row.amount) }));
+  return result.rows.map(normalizeTransaction);
+}
+
+/**
+ * Returns the total deposits (incoming transfers) for an account in the current month.
+ * @param {string} accountId - the account's UUID
+ * @returns {number} total deposit amount
+ */
+async function getDepositSummary(accountId) {
+  const result = await pool.query(
+    `SELECT COALESCE(SUM(amount), 0) AS total
+     FROM transactions
+     WHERE receiver_account_id = $1
+       AND transaction_date >= date_trunc('month', CURRENT_DATE)`,
+    [accountId]
+  );
+  return parseFloat(result.rows[0].total);
+}
+
+/**
+ * Returns the total withdrawals (outgoing transfers) for an account in the current month.
+ * @param {string} accountId - the account's UUID
+ * @returns {number} total withdrawal amount
+ */
+async function getWithdrawalSummary(accountId) {
+  const result = await pool.query(
+    `SELECT COALESCE(SUM(amount), 0) AS total
+     FROM transactions
+     WHERE sender_account_id = $1
+       AND transaction_date >= date_trunc('month', CURRENT_DATE)`,
+    [accountId]
+  );
+  return parseFloat(result.rows[0].total);
 }
 
 /**
@@ -165,4 +210,6 @@ module.exports = {
   getBalance,
   transfer,
   getTransactions,
+  getDepositSummary,
+  getWithdrawalSummary,
 };

@@ -419,12 +419,16 @@ paths:
         Returns all transactions (sent and received) for the authenticated user's
         account. Supports an optional `type` query parameter to filter.
 
+        Stored XSS lab support: transaction records include `reference`, and the
+        API also returns `memo` as an alias of that same stored value so the
+        frontend can bind cleanly to a memo textbox.
+
         x-frontend-migration: Frontend has two files that fetch transactions:
         - `transfers.js` `getTransfers()` — uses `apiFetch('/transfers')` ✓ correct path
         - `transactions.js` `getTransactions(type)` — mock-only, wire to this endpoint
 
         Response shape differs from frontend mock. Backend returns:
-        `{ transactions: [{ id, fromAccountId, toAccountId, amount, createdAt }] }`
+        `{ transactions: [{ id, fromAccountId, toAccountId, amount, reference, memo, createdAt }] }`
         Frontend `transactions.js` mock uses:
         `[{ id, date, description, type, amount, balanceAfter }]`
         Frontend will need to adapt to the backend shape or the backend will need
@@ -458,6 +462,8 @@ paths:
                     fromAccountId: 660e8400-e29b-41d4-a716-446655440000
                     toAccountId: 880e8400-e29b-41d4-a716-446655440000
                     amount: 500.00
+                    reference: Rent for May
+                    memo: Rent for May
                     createdAt: '2026-04-27T15:30:00.000Z'
         '401':
           $ref: '#/components/responses/Unauthorized'
@@ -481,10 +487,14 @@ paths:
         Uses a database transaction with `FOR UPDATE` row locking to prevent
         race conditions.
 
+        Stored XSS lab support: callers may provide free-text `memo` content.
+        The backend stores that value in the `reference` column and returns both
+        `reference` and `memo` in API responses. `reference` is also accepted as
+        an input alias for compatibility.
+
         x-frontend-migration: Frontend `transfers.js` `sendTransfer()` sends
-        `{ recipientId, amount, memo }`. Must change to `{ toAccountId, amount }`.
-        The `memo` field is not yet supported (transactions table has a `reference`
-        column that could be used). `recipientId` → `toAccountId`.
+        `{ recipientId, amount, memo }`. Must change `recipientId` to `toAccountId`.
+        The `memo` field is now supported.
       operationId: createTransfer
       security:
         - bearerAuth: []
@@ -504,9 +514,16 @@ paths:
                   type: number
                   format: float
                   description: Amount in dollars (must be positive)
+                memo:
+                  type: string
+                  description: Optional transfer note for the stored XSS lab
+                reference:
+                  type: string
+                  description: Optional alias for memo; stored in the same DB column
             example:
               toAccountId: 880e8400-e29b-41d4-a716-446655440000
               amount: 100.50
+              memo: Rent for May
       responses:
         '201':
           description: Transfer completed
@@ -523,6 +540,8 @@ paths:
                   fromAccountId: 660e8400-e29b-41d4-a716-446655440000
                   toAccountId: 880e8400-e29b-41d4-a716-446655440000
                   amount: 100.50
+                  reference: Rent for May
+                  memo: Rent for May
                   createdAt: '2026-04-28T10:00:00.000Z'
         '400':
           description: Missing or invalid fields
@@ -542,6 +561,12 @@ paths:
                     error:
                       status: 400
                       message: Amount must be a positive number
+                      code: VALIDATION_FAILED
+                invalid_memo:
+                  value:
+                    error:
+                      status: 400
+                      message: memo/reference must be a string
                       code: VALIDATION_FAILED
         '401':
           $ref: '#/components/responses/Unauthorized'
@@ -891,6 +916,14 @@ components:
         amount:
           type: number
           format: float
+        reference:
+          type: string
+          nullable: true
+          description: Stored transfer note persisted in the transactions table
+        memo:
+          type: string
+          nullable: true
+          description: Alias of reference returned for frontend ergonomics
         createdAt:
           type: string
           format: date-time
