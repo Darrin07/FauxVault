@@ -14,6 +14,7 @@ const { findAccountByUserId, transfer, getTransactions } = require('../models/ac
  * @throws {422} insufficient funds
  * @requirement R1.2.2
  */
+// VULN MODULE: Stored XSS (A03) — add memo/reference field; toggle sanitization on output
 async function createTransfer(req, res, next){
     try{
         const{ toAccountId, amount } = req.body;

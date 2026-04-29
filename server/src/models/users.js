@@ -59,10 +59,26 @@ async function findUserByUsername(username) {
 }
 
 /**
+ * Updates whitelisted profile fields for a user.
+ * @param {string} id - the user's UUID
+ * @param {Object} fields - fields to update (name, email)
+ * @returns {Object|null} the updated user, or null if not found
+ */
+async function updateUser(id, { name, email }) {
+  const result = await pool.query(
+    `UPDATE users SET name = COALESCE($1, name), email = COALESCE($2, email)
+     WHERE user_id = $3
+     RETURNING user_id AS id, username, email, name, role, created_at AS "createdAt"`,
+    [name, email, id]
+  );
+  return result.rows[0] || null;
+}
+
+/**
  * Clears all users from the database. Used in test teardown.
  */
 async function resetUsers() {
   await pool.query('TRUNCATE users CASCADE');
 }
 
-module.exports = { createUser, findUserByEmail, findUserByUsername, findUserById, resetUsers };
+module.exports = { createUser, findUserByEmail, findUserByUsername, findUserById, updateUser, resetUsers };

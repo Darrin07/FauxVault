@@ -151,6 +151,38 @@ async function getTransactions(accountId) {
 }
 
 /**
+ * Returns the total deposits (incoming transfers) for an account in the current month.
+ * @param {string} accountId - the account's UUID
+ * @returns {number} total deposit amount
+ */
+async function getDepositSummary(accountId) {
+  const result = await pool.query(
+    `SELECT COALESCE(SUM(amount), 0) AS total
+     FROM transactions
+     WHERE receiver_account_id = $1
+       AND transaction_date >= date_trunc('month', CURRENT_DATE)`,
+    [accountId]
+  );
+  return parseFloat(result.rows[0].total);
+}
+
+/**
+ * Returns the total withdrawals (outgoing transfers) for an account in the current month.
+ * @param {string} accountId - the account's UUID
+ * @returns {number} total withdrawal amount
+ */
+async function getWithdrawalSummary(accountId) {
+  const result = await pool.query(
+    `SELECT COALESCE(SUM(amount), 0) AS total
+     FROM transactions
+     WHERE sender_account_id = $1
+       AND transaction_date >= date_trunc('month', CURRENT_DATE)`,
+    [accountId]
+  );
+  return parseFloat(result.rows[0].total);
+}
+
+/**
  * Clears all accounts and transactions. Used in test teardown.
  */
 async function resetAccounts() {
@@ -165,4 +197,6 @@ module.exports = {
   getBalance,
   transfer,
   getTransactions,
+  getDepositSummary,
+  getWithdrawalSummary,
 };

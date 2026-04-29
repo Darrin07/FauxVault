@@ -2,9 +2,8 @@
 const {
     findAccountByUserId,
     findAccountById,
-    // getTransactions belongs in transfer history flows, not this controller.
-    // Keep it commented here to preserve the earlier intent without failing lint.
-    // getTransactions,
+    getDepositSummary,
+    getWithdrawalSummary,
 } = require('../models/accounts');
 
 /**
@@ -76,4 +75,50 @@ async function getAccountById(req, res, next) {
     }
 }
 
-module.exports = { getMyAccount, getAccountById };
+/**
+ * Returns deposit summary (incoming transfers) for the current month.
+ * @param {Request} req - express request (req.user set by auth middleware)
+ * @param {Response} res - express response
+ * @param {Function} next - express next middleware
+ */
+async function getDeposits(req, res, next) {
+    try {
+        const accounts = await findAccountByUserId(req.user.userId);
+
+        if (!accounts.length) {
+            return res.status(404).json({
+                error: { status: 404, message: 'No account found for authenticated user', code: 'ACCOUNT_NOT_FOUND' },
+            });
+        }
+
+        const total = await getDepositSummary(accounts[0].id);
+        res.json({ total, period: 'this month' });
+    } catch (err) {
+        next(err);
+    }
+}
+
+/**
+ * Returns withdrawal summary (outgoing transfers) for the current month.
+ * @param {Request} req - express request (req.user set by auth middleware)
+ * @param {Response} res - express response
+ * @param {Function} next - express next middleware
+ */
+async function getWithdrawals(req, res, next) {
+    try {
+        const accounts = await findAccountByUserId(req.user.userId);
+
+        if (!accounts.length) {
+            return res.status(404).json({
+                error: { status: 404, message: 'No account found for authenticated user', code: 'ACCOUNT_NOT_FOUND' },
+            });
+        }
+
+        const total = await getWithdrawalSummary(accounts[0].id);
+        res.json({ total, period: 'this month' });
+    } catch (err) {
+        next(err);
+    }
+}
+
+module.exports = { getMyAccount, getAccountById, getDeposits, getWithdrawals };
