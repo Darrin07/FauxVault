@@ -1,3 +1,4 @@
+# CI/CD Pipeline, deploys to EC2
 name: CI/CD Pipeline
 
 on:
