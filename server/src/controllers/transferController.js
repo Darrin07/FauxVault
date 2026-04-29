@@ -17,7 +17,8 @@ const { findAccountByUserId, transfer, getTransactions } = require('../models/ac
 // VULN MODULE: Stored XSS (A03) — add memo/reference field; toggle sanitization on output
 async function createTransfer(req, res, next){
     try{
-        const{ toAccountId, amount } = req.body;
+        const{ toAccountId, amount, memo, reference } = req.body;
+        const transferReference = memo ?? reference ?? null;
 
         // --- input validation ---
 
@@ -30,6 +31,12 @@ async function createTransfer(req, res, next){
         if(typeof amount !== 'number' || amount <= 0){
             return res.status(400).json({
                 error: { status: 400, message: 'Amount must be a positive number', code: 'VALIDATION_FAILED'},
+            });
+        }
+
+        if(transferReference !== null && typeof transferReference !== 'string'){
+            return res.status(400).json({
+                error: { status: 400, message: 'memo/reference must be a string', code: 'VALIDATION_FAILED'},
             });
         }
 
@@ -46,7 +53,7 @@ async function createTransfer(req, res, next){
 
         // --- execute transfer ---
 
-        const transaction = await transfer(fromAccountId, toAccountId, amount);
+        const transaction = await transfer(fromAccountId, toAccountId, amount, transferReference);
         res.status(201).json({ transaction });
 
     } catch(err){
