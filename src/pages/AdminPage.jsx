@@ -19,7 +19,7 @@ import {
     LocationOn as MapIcon,
     Save as SaveIcon,
 } from '@mui/icons-material'
-import * as usersApi from '../api/users'
+import * as usersApi from '../services/users'
 
 // Page should allow users to make updates on their account; can be leveraged for injection
 // TODO:  Move common functions from Pages to be exported to clean code in final updates

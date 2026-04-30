@@ -29,8 +29,8 @@ import {
     ChatBubbleOutlined as MemoIcon,
     CheckCircleOutlined as CheckIcon,
 } from '@mui/icons-material'
-import * as accountsApi from '../api/accounts'
-import * as transfersApi from '../api/transfers'
+import * as accountsApi from '../services/accounts'
+import * as transfersApi from '../services/transfers'
 
 // Page should allow users to see an overview of their pages
 // Dashboard was written independently, but informed by thematic implications from MUI official website to get styles on components

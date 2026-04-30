@@ -20,7 +20,7 @@ import {
     ChatBubbleOutlined as MemoIcon,
     CheckCircleOutlined as CheckIcon,
 } from '@mui/icons-material'
-import * as transfersApi from '../api/transfers'
+import * as transfersApi from '../services/transfers'
 
 // Transfer was written independently, but informed by thematic implications from MUI official website to get styles on components
 // https://mui.com/material-ui/getting-started/templates/ and https://react.dev/learn/rendering-lists, uses similar build to Dashboard; 

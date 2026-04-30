@@ -16,7 +16,7 @@ import {
     Email as EmailIcon,
     Lock as LockIcon,
 } from '@mui/icons-material'
-import * as authAPI from '../api/auth'
+import * as authAPI from '../services/auth'
 
 //Registration Page.  Returns { token, user: {id, email, name, role } }
 //Based on MUI Free Templates over Sign-up, using similar logic for components

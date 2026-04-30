@@ -16,7 +16,7 @@ import {
     Person as UserIcon,
     Lock as LockIcon,
 } from '@mui/icons-material'
-import * as authApi from '../api/auth'
+import * as authApi from '../services/auth'
 
 
 // Login was written independently, but informed by thematic implications from MUI official website to get styles on components
