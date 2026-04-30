@@ -1,4 +1,10 @@
--- 1. Users Table
+-- Restart
+DROP TABLE IF EXISTS transactions CASCADE;
+DROP TABLE IF EXISTS accounts CASCADE;
+DROP TABLE IF EXISTS users CASCADE;
+DROP TABLE IF EXISTS vulnerability_settings CASCADE;
+
+-- Users Table
 CREATE TABLE users (
     user_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     username VARCHAR(50) UNIQUE NOT NULL,
@@ -11,7 +17,7 @@ CREATE TABLE users (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- 2. Accounts Table
+-- Accounts Table
 CREATE TABLE accounts (
     account_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID REFERENCES users(user_id) ON DELETE CASCADE,
@@ -21,7 +27,7 @@ CREATE TABLE accounts (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- 3. Transactions Table
+-- Transactions Table
 CREATE TABLE transactions (
     transaction_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     sender_account_id UUID NOT NULL REFERENCES accounts(account_id) ON DELETE CASCADE,
@@ -31,10 +37,32 @@ CREATE TABLE transactions (
     transaction_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- 4. Settings Table
+-- Settings Table
 CREATE TABLE vulnerability_settings (
     module_key VARCHAR(50) PRIMARY KEY,
     module_name VARCHAR(50) UNIQUE NOT NULL,
     is_vulnerable BOOLEAN DEFAULT TRUE,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+-- Enable RLS on sensitive tables
+ALTER TABLE accounts ENABLE ROW LEVEL SECURITY;
+ALTER TABLE transactions ENABLE ROW LEVEL SECURITY;
+
+ALTER TABLE accounts FORCE ROW LEVEL SECURITY;
+ALTER TABLE transactions FORCE ROW LEVEL SECURITY;
+
+-- Create isolation policy for accounts
+CREATE POLICY account_isolation_policy ON accounts
+    USING (
+        user_id = NULLIF(current_setting('app.current_user_id', TRUE), '')::uuid
+    );
+
+-- Create isolation policy for transactions
+-- A user sees a transaction if they own the sender OR receiver account
+CREATE POLICY transaction_isolation_policy ON transactions
+    USING (
+        sender_account_id IN (SELECT account_id FROM accounts WHERE user_id = NULLIF(current_setting('app.current_user_id', TRUE), '')::uuid)
+        OR 
+        receiver_account_id IN (SELECT account_id FROM accounts WHERE user_id = NULLIF(current_setting('app.current_user_id', TRUE), '')::uuid)
+    );

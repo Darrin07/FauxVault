@@ -6,6 +6,9 @@ const {
     getWithdrawalSummary,
 } = require('../models/accounts');
 
+// Import secure wrapper from db.js
+const { executeSecurely } = require('../db');
+
 /**
  * Returns the authenticated user's account info and balance.
  * Resolves the account from the JWT userId claim.
@@ -18,7 +21,9 @@ const {
  */
 async function getMyAccount(req, res, next) {
     try {
-        const accounts = await findAccountByUserId(req.user.userId);
+        const accounts = await executeSecurely(req.user.userId, async () => {
+            return await findAccountByUserId(req.user.userId);
+        });
 
         if (!accounts.length) {
             return res.status(404).json({
@@ -54,7 +59,9 @@ async function getMyAccount(req, res, next) {
  */
 async function getAccountById(req, res, next) {
     try {
-        const account = await findAccountById(req.params.id);
+        const account = await executeSecurely(req.user.userId, async () => {
+            return await findAccountById(req.params.id);
+        });
 
         if (!account) {
             return res.status(404).json({
@@ -83,16 +90,18 @@ async function getAccountById(req, res, next) {
  */
 async function getDeposits(req, res, next) {
     try {
-        const accounts = await findAccountByUserId(req.user.userId);
+        const result = await executeSecurely(req.user.userId, async () => {
+            const accounts = await findAccountByUserId(req.user.userId);
 
-        if (!accounts.length) {
-            return res.status(404).json({
-                error: { status: 404, message: 'No account found for authenticated user', code: 'ACCOUNT_NOT_FOUND' },
-            });
-        }
+            if (!accounts.length) {
+                return res.status(404).json({
+                    error: { status: 404, message: 'No account found for authenticated user', code: 'ACCOUNT_NOT_FOUND' },
+                });
+            }
 
-        const total = await getDepositSummary(accounts[0].id);
-        res.json({ total, period: 'this month' });
+            const total = await getDepositSummary(accounts[0].id);
+            res.json({ total, period: 'this month' });
+        });
     } catch (err) {
         next(err);
     }
@@ -106,16 +115,18 @@ async function getDeposits(req, res, next) {
  */
 async function getWithdrawals(req, res, next) {
     try {
-        const accounts = await findAccountByUserId(req.user.userId);
+        const result = await executeSecurely(req.user.userId, async () => {
+            const accounts = await findAccountByUserId(req.user.userId);
 
-        if (!accounts.length) {
-            return res.status(404).json({
-                error: { status: 404, message: 'No account found for authenticated user', code: 'ACCOUNT_NOT_FOUND' },
-            });
-        }
+            if (!accounts.length) {
+                return res.status(404).json({
+                    error: { status: 404, message: 'No account found for authenticated user', code: 'ACCOUNT_NOT_FOUND' },
+                });
+            }
 
-        const total = await getWithdrawalSummary(accounts[0].id);
-        res.json({ total, period: 'this month' });
+            const total = await getWithdrawalSummary(accounts[0].id);
+            res.json({ total, period: 'this month' });
+        });
     } catch (err) {
         next(err);
     }
