@@ -7,7 +7,7 @@ const {
 } = require('../models/accounts');
 
 // Import secure wrapper from db.js
-const { executeSecurely } = require('../db');
+const { executeSecurely } = require('../config/db');
 
 /**
  * Returns the authenticated user's account info and balance.
