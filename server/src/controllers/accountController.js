@@ -90,7 +90,7 @@ async function getAccountById(req, res, next) {
  */
 async function getDeposits(req, res, next) {
     try {
-        const result = await executeSecurely(req.user.userId, async () => {
+        await executeSecurely(req.user.userId, async () => {
             const accounts = await findAccountByUserId(req.user.userId);
 
             if (!accounts.length) {
@@ -115,7 +115,7 @@ async function getDeposits(req, res, next) {
  */
 async function getWithdrawals(req, res, next) {
     try {
-        const result = await executeSecurely(req.user.userId, async () => {
+        await executeSecurely(req.user.userId, async () => {
             const accounts = await findAccountByUserId(req.user.userId);
 
             if (!accounts.length) {
