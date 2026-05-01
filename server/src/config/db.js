@@ -18,13 +18,22 @@ async function executeSecurely(userId, callback) {
   try {
     // set_config avoids interpolating userId into raw SQL and keeps the secure
     // session context on this dedicated connection until we explicitly reset it.
+    // This matters because PostgreSQL RLS policies evaluate on the session
+    // that executes the query, not on whichever session happened to authenticate
+    // the request earlier in Express.
     await client.query(
       'SELECT set_config($1, $2, false)',
       ['app.current_user_id', userId]
     );
 
+    // The callback receives the exact client that now carries
+    // app.current_user_id. Any switch back to pool.query(...) inside that
+    // callback would risk using a different connection and bypassing the RLS
+    // context this helper just established.
     return await callback(client);
   } finally {
+    // Clear the session variable before releasing the client so a later request
+    // cannot inherit the previous user's security context from the pool.
     await client.query('RESET app.current_user_id');
     client.release();
   }

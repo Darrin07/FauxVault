@@ -80,6 +80,9 @@ async function updateProfile(req, res, next) {
         }
 
         const accounts = await executeSecurely(req.user.userId, async (client) => {
+            // The profile update itself happens in the users table, but the
+            // response still includes account data. That follow-up account read
+            // therefore needs the same RLS-aware client/session handling.
             return findAccountByUserId(updated.id, client);
         });
         const accountNumber = accounts.length ? accounts[0].accountNumber : null;

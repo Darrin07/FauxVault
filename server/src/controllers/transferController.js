@@ -91,6 +91,9 @@ async function createTransfer(req, res, next){
 async function getTransferHistory(req, res, next) {
     try {
         const response = await executeSecurely(req.user.userId, async (client) => {
+            // History is also RLS-sensitive because it reads both the user's
+            // account row and transaction rows. Keeping both reads on the same
+            // client ensures PostgreSQL evaluates them under one user context.
             const senderAccounts = await findAccountByUserId(req.user.userId, client);
             if (!senderAccounts.length) {
                 return res.status(404).json({

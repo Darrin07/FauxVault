@@ -10,6 +10,10 @@ const { pool } = require('../config/db');
  * @returns {Object} query runner with a query(...) method
  */
 function getQueryRunner(client) {
+  // When a controller is running inside executeSecurely(...), it passes the
+  // dedicated client here so every account/transaction query stays on the same
+  // PostgreSQL session. Falling back to pool preserves older call sites that
+  // do not depend on RLS session state.
   return client || pool;
 }
 
@@ -117,6 +121,9 @@ async function transfer(fromAccountId, toAccountId, amount, reference = null, cl
   const ownsClient = !client;
 
   try {
+    // Reuse the caller's client when provided. That keeps the transfer's
+    // transaction on the same session that already has app.current_user_id set,
+    // which is required once accounts/transactions are protected by RLS.
     await queryRunner.query('BEGIN');
 
     const fromResult = await queryRunner.query(
@@ -163,6 +170,9 @@ async function transfer(fromAccountId, toAccountId, amount, reference = null, cl
     throw err;
   } finally {
     if (ownsClient) {
+      // Only release when transfer(...) created its own client. If a controller
+      // passed us a request-scoped client, executeSecurely(...) still owns that
+      // lifecycle and must be the code that resets/releases it.
       queryRunner.release();
     }
   }

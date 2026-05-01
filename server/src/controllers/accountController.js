@@ -60,6 +60,9 @@ async function getMyAccount(req, res, next) {
 async function getAccountById(req, res, next) {
     try {
         const account = await executeSecurely(req.user.userId, async (client) => {
+            // Even a simple "lookup by account id" becomes RLS-sensitive after
+            // enabling policies on the accounts table, so the read must stay on
+            // the request-scoped client instead of falling back to pool.query.
             return findAccountById(req.params.id, client);
         });
 
@@ -91,6 +94,9 @@ async function getAccountById(req, res, next) {
 async function getDeposits(req, res, next) {
     try {
         const response = await executeSecurely(req.user.userId, async (client) => {
+            // Both the account lookup and the summary query touch RLS-protected
+            // tables, so they have to remain on this same client from start to
+            // finish.
             const accounts = await findAccountByUserId(req.user.userId, client);
 
             if (!accounts.length) {
@@ -118,6 +124,8 @@ async function getDeposits(req, res, next) {
 async function getWithdrawals(req, res, next) {
     try {
         const response = await executeSecurely(req.user.userId, async (client) => {
+            // Same reasoning as getDeposits(...): once RLS is on, the full
+            // request path has to share the same client/session context.
             const accounts = await findAccountByUserId(req.user.userId, client);
 
             if (!accounts.length) {
