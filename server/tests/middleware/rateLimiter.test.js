@@ -6,7 +6,6 @@ const { resetSettings, updateSetting } = require('../../src/models/toggleState')
 const { resetLimiters } = require('../../src/middleware/rateLimiter');
 
 beforeEach(async () => {
-  await resetLimiters();
   await resetUsers();
   await resetAccounts();
   await resetSettings();
