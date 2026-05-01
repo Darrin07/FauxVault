@@ -1,6 +1,7 @@
 /** User Controller - profile lookup and update handlers */
 const { findUserById, updateUser, findUserByEmail } = require('../models/users');
 const { findAccountByUserId } = require('../models/accounts');
+const { executeSecurely } = require('../config/db');
 
 /**
  * Returns profile info for the authenticated user, including account number.
@@ -19,7 +20,11 @@ async function getProfile(req, res, next) {
             });
         }
 
-        const accounts = await findAccountByUserId(user.id);
+        const accounts = await executeSecurely(req.user.userId, async (client) => {
+            // Profile reads still touch the accounts table, so they must use the
+            // RLS-bound client after enabling row-level security.
+            return findAccountByUserId(user.id, client);
+        });
         const accountNumber = accounts.length ? accounts[0].accountNumber : null;
 
         res.json({
@@ -74,7 +79,9 @@ async function updateProfile(req, res, next) {
             });
         }
 
-        const accounts = await findAccountByUserId(updated.id);
+        const accounts = await executeSecurely(req.user.userId, async (client) => {
+            return findAccountByUserId(updated.id, client);
+        });
         const accountNumber = accounts.length ? accounts[0].accountNumber : null;
 
         res.json({

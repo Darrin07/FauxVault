@@ -5,8 +5,6 @@ const {
     getDepositSummary,
     getWithdrawalSummary,
 } = require('../models/accounts');
-
-// Import secure wrapper from db.js
 const { executeSecurely } = require('../config/db');
 
 /**
@@ -21,8 +19,10 @@ const { executeSecurely } = require('../config/db');
  */
 async function getMyAccount(req, res, next) {
     try {
-        const accounts = await executeSecurely(req.user.userId, async () => {
-            return await findAccountByUserId(req.user.userId);
+        const accounts = await executeSecurely(req.user.userId, async (client) => {
+            // RLS only applies if the read uses the same client that holds the
+            // request's app.current_user_id session value.
+            return findAccountByUserId(req.user.userId, client);
         });
 
         if (!accounts.length) {
@@ -59,8 +59,8 @@ async function getMyAccount(req, res, next) {
  */
 async function getAccountById(req, res, next) {
     try {
-        const account = await executeSecurely(req.user.userId, async () => {
-            return await findAccountById(req.params.id);
+        const account = await executeSecurely(req.user.userId, async (client) => {
+            return findAccountById(req.params.id, client);
         });
 
         if (!account) {
@@ -90,18 +90,20 @@ async function getAccountById(req, res, next) {
  */
 async function getDeposits(req, res, next) {
     try {
-       const accounts = await executeSecurely(req.user.userId, () => 
-            findAccountByUserId(req.user.userId)
-        );
+        const response = await executeSecurely(req.user.userId, async (client) => {
+            const accounts = await findAccountByUserId(req.user.userId, client);
+
             if (!accounts.length) {
                 return res.status(404).json({
                     error: { status: 404, message: 'No account found for authenticated user', code: 'ACCOUNT_NOT_FOUND' },
                 });
             }
 
-            const total = await getDepositSummary(accounts[0].id);
-            res.json({ total, period: 'this month' });
-  
+            const total = await getDepositSummary(accounts[0].id, client);
+            return res.json({ total, period: 'this month' });
+        });
+
+        return response;
     } catch (err) {
         next(err);
     }
@@ -115,9 +117,8 @@ async function getDeposits(req, res, next) {
  */
 async function getWithdrawals(req, res, next) {
     try {
-        const accounts = await executeSecurely(req.user.userId, () => 
-            findAccountByUserId(req.user.userId)
-            );
+        const response = await executeSecurely(req.user.userId, async (client) => {
+            const accounts = await findAccountByUserId(req.user.userId, client);
 
             if (!accounts.length) {
                 return res.status(404).json({
@@ -125,9 +126,11 @@ async function getWithdrawals(req, res, next) {
                 });
             }
 
-            const total = await getWithdrawalSummary(accounts[0].id);
-            res.json({ total, period: 'this month' });
-  
+            const total = await getWithdrawalSummary(accounts[0].id, client);
+            return res.json({ total, period: 'this month' });
+        });
+
+        return response;
     } catch (err) {
         next(err);
     }

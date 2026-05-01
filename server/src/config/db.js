@@ -3,23 +3,31 @@ const config = require('./index');
 
 const pool = new Pool(config.db);
 
-
 /**
- * Executes a query within a secure session context for RLS.
- * @param {string} userId - The UUID of the logged-in user.
- * @param {Function} callback - An async function containing the database logic.
+ * Executes database work on a dedicated connection with the current user's
+ * identity set in PostgreSQL session state for row-level security checks.
+ * Every query inside the callback must use the provided client so the session
+ * variable and the SQL execute on the same connection.
+ * @param {string} userId - the UUID of the logged-in user
+ * @param {Function} callback - async function that receives the dedicated client
+ * @returns {Promise<*>} result returned by the callback
  */
 async function executeSecurely(userId, callback) {
-    const client = await pool.connect(); // Get a dedicated client
-    try {
-        await client.query(`SET app.current_user_id = '${userId}'`);
-        // Pass the client to the callback so it uses the same connection
-        return await callback(client); 
-    } finally {
-        // Always reset the variable and release the client
-        await client.query('RESET app.current_user_id');
-        client.release();
-    }
+  const client = await pool.connect();
+
+  try {
+    // set_config avoids interpolating userId into raw SQL and keeps the secure
+    // session context on this dedicated connection until we explicitly reset it.
+    await client.query(
+      'SELECT set_config($1, $2, false)',
+      ['app.current_user_id', userId]
+    );
+
+    return await callback(client);
+  } finally {
+    await client.query('RESET app.current_user_id');
+    client.release();
+  }
 }
 
 /**
