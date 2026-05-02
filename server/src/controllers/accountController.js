@@ -5,6 +5,7 @@ const {
     getDepositSummary,
     getWithdrawalSummary,
 } = require('../models/accounts');
+const { executeSecurely } = require('../config/db');
 
 /**
  * Returns the authenticated user's account info and balance.
@@ -18,7 +19,11 @@ const {
  */
 async function getMyAccount(req, res, next) {
     try {
-        const accounts = await findAccountByUserId(req.user.userId);
+        const accounts = await executeSecurely(req.user.userId, async (client) => {
+            // RLS only applies if the read uses the same client that holds the
+            // request's app.current_user_id session value.
+            return findAccountByUserId(req.user.userId, client);
+        });
 
         if (!accounts.length) {
             return res.status(404).json({
@@ -54,7 +59,12 @@ async function getMyAccount(req, res, next) {
  */
 async function getAccountById(req, res, next) {
     try {
-        const account = await findAccountById(req.params.id);
+        const account = await executeSecurely(req.user.userId, async (client) => {
+            // Even a simple "lookup by account id" becomes RLS-sensitive after
+            // enabling policies on the accounts table, so the read must stay on
+            // the request-scoped client instead of falling back to pool.query.
+            return findAccountById(req.params.id, client);
+        });
 
         if (!account) {
             return res.status(404).json({
@@ -83,16 +93,23 @@ async function getAccountById(req, res, next) {
  */
 async function getDeposits(req, res, next) {
     try {
-        const accounts = await findAccountByUserId(req.user.userId);
+        const response = await executeSecurely(req.user.userId, async (client) => {
+            // Both the account lookup and the summary query touch RLS-protected
+            // tables, so they have to remain on this same client from start to
+            // finish.
+            const accounts = await findAccountByUserId(req.user.userId, client);
 
-        if (!accounts.length) {
-            return res.status(404).json({
-                error: { status: 404, message: 'No account found for authenticated user', code: 'ACCOUNT_NOT_FOUND' },
-            });
-        }
+            if (!accounts.length) {
+                return res.status(404).json({
+                    error: { status: 404, message: 'No account found for authenticated user', code: 'ACCOUNT_NOT_FOUND' },
+                });
+            }
 
-        const total = await getDepositSummary(accounts[0].id);
-        res.json({ total, period: 'this month' });
+            const total = await getDepositSummary(accounts[0].id, client);
+            return res.json({ total, period: 'this month' });
+        });
+
+        return response;
     } catch (err) {
         next(err);
     }
@@ -106,16 +123,22 @@ async function getDeposits(req, res, next) {
  */
 async function getWithdrawals(req, res, next) {
     try {
-        const accounts = await findAccountByUserId(req.user.userId);
+        const response = await executeSecurely(req.user.userId, async (client) => {
+            // Same reasoning as getDeposits(...): once RLS is on, the full
+            // request path has to share the same client/session context.
+            const accounts = await findAccountByUserId(req.user.userId, client);
 
-        if (!accounts.length) {
-            return res.status(404).json({
-                error: { status: 404, message: 'No account found for authenticated user', code: 'ACCOUNT_NOT_FOUND' },
-            });
-        }
+            if (!accounts.length) {
+                return res.status(404).json({
+                    error: { status: 404, message: 'No account found for authenticated user', code: 'ACCOUNT_NOT_FOUND' },
+                });
+            }
 
-        const total = await getWithdrawalSummary(accounts[0].id);
-        res.json({ total, period: 'this month' });
+            const total = await getWithdrawalSummary(accounts[0].id, client);
+            return res.json({ total, period: 'this month' });
+        });
+
+        return response;
     } catch (err) {
         next(err);
     }

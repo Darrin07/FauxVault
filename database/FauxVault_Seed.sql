@@ -1,4 +1,8 @@
 -- 0. Restart
+-- Disable RLS temporarily to allow seeding
+ALTER TABLE accounts DISABLE ROW LEVEL SECURITY;
+ALTER TABLE transactions DISABLE ROW LEVEL SECURITY;
+-- Clean tables
 TRUNCATE users, accounts, transactions, vulnerability_settings CASCADE;
 
 -- 1. Seed Users
@@ -39,3 +43,7 @@ VALUES
 ('a07-brute-force', 'brute_force', TRUE),
 ('api3-excessive-data-exposure', 'excessive_data_exposure', TRUE),
 ('api5-broken-function-auth', 'privilege_escalation', TRUE);
+
+-- Re-enable RLS once seeding is complete
+ALTER TABLE accounts ENABLE ROW LEVEL SECURITY;
+ALTER TABLE transactions ENABLE ROW LEVEL SECURITY;

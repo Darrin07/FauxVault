@@ -2,6 +2,22 @@
 const { pool } = require('../config/db');
 
 /**
+ * Resolves which query runner to use for the current operation.
+ * RLS-aware controllers pass a dedicated client so every related query
+ * stays on the same PostgreSQL session. Callers that do not need that
+ * behavior can continue using the shared pool.
+ * @param {Object} [client] - optional pg client from executeSecurely
+ * @returns {Object} query runner with a query(...) method
+ */
+function getQueryRunner(client) {
+  // When a controller is running inside executeSecurely(...), it passes the
+  // dedicated client here so every account/transaction query stays on the same
+  // PostgreSQL session. Falling back to pool preserves older call sites that
+  // do not depend on RLS session state.
+  return client || pool;
+}
+
+/**
  * Generates a random account number in FAUX-xxxxxxxx format.
  * @returns {string} the generated account number
  */
@@ -31,10 +47,12 @@ async function createAccount(userId, initialBalance = 0) {
 /**
  * Finds all accounts belonging to a user.
  * @param {string} userId - the owning user's UUID
+ * @param {Object} [client] - optional pg client for RLS-safe reads
  * @returns {Array<Object>} array of account records (empty if none found)
  */
-async function findAccountByUserId(userId) {
-  const result = await pool.query(
+async function findAccountByUserId(userId, client) {
+  const queryRunner = getQueryRunner(client);
+  const result = await queryRunner.query(
     `SELECT account_id AS id, user_id AS "userId", account_number AS "accountNumber", balance, created_at AS "createdAt"
      FROM accounts WHERE user_id = $1`,
     [userId]
@@ -45,10 +63,12 @@ async function findAccountByUserId(userId) {
 /**
  * Finds a single account by its unique ID.
  * @param {string} id - the account's UUID
+ * @param {Object} [client] - optional pg client for RLS-safe reads
  * @returns {Object|undefined} the account record, or undefined if not found
  */
-async function findAccountById(id) {
-  const result = await pool.query(
+async function findAccountById(id, client) {
+  const queryRunner = getQueryRunner(client);
+  const result = await queryRunner.query(
     `SELECT account_id AS id, user_id AS "userId", account_number AS "accountNumber", balance, created_at AS "createdAt"
      FROM accounts WHERE account_id = $1`,
     [id]
@@ -92,15 +112,21 @@ function normalizeTransaction(row) {
  * @param {string} toAccountId - destination account UUID
  * @param {number} amount - transfer amount in dollars (must be positive)
  * @param {string|null} reference - optional free-text transfer note
+ * @param {Object} [client] - optional pg client with the caller's RLS context
  * @returns {Object} the created transaction record
  * @throws {Error} if either account is not found or balance is insufficient
  */
-async function transfer(fromAccountId, toAccountId, amount, reference = null) {
-  const client = await pool.connect();
-  try {
-    await client.query('BEGIN');
+async function transfer(fromAccountId, toAccountId, amount, reference = null, client) {
+  const queryRunner = client || await pool.connect();
+  const ownsClient = !client;
 
-    const fromResult = await client.query(
+  try {
+    // Reuse the caller's client when provided. That keeps the transfer's
+    // transaction on the same session that already has app.current_user_id set,
+    // which is required once accounts/transactions are protected by RLS.
+    await queryRunner.query('BEGIN');
+
+    const fromResult = await queryRunner.query(
       'SELECT account_id, balance FROM accounts WHERE account_id = $1 FOR UPDATE',
       [fromAccountId]
     );
@@ -108,7 +134,7 @@ async function transfer(fromAccountId, toAccountId, amount, reference = null) {
       throw new Error('Source account not found');
     }
 
-    const toResult = await client.query(
+    const toResult = await queryRunner.query(
       'SELECT account_id FROM accounts WHERE account_id = $1 FOR UPDATE',
       [toAccountId]
     );
@@ -121,39 +147,46 @@ async function transfer(fromAccountId, toAccountId, amount, reference = null) {
       throw new Error('Insufficient funds');
     }
 
-    await client.query(
+    await queryRunner.query(
       'UPDATE accounts SET balance = balance - $1 WHERE account_id = $2',
       [amount, fromAccountId]
     );
-    await client.query(
+    await queryRunner.query(
       'UPDATE accounts SET balance = balance + $1 WHERE account_id = $2',
       [amount, toAccountId]
     );
 
-    const txResult = await client.query(
+    const txResult = await queryRunner.query(
       `INSERT INTO transactions (sender_account_id, receiver_account_id, amount, reference)
        VALUES ($1, $2, $3, $4)
        RETURNING transaction_id AS id, sender_account_id AS "fromAccountId", receiver_account_id AS "toAccountId", amount, reference, transaction_date AS "createdAt"`,
       [fromAccountId, toAccountId, amount, reference]
     );
 
-    await client.query('COMMIT');
+    await queryRunner.query('COMMIT');
     return normalizeTransaction(txResult.rows[0]);
   } catch (err) {
-    await client.query('ROLLBACK');
+    await queryRunner.query('ROLLBACK');
     throw err;
   } finally {
-    client.release();
+    if (ownsClient) {
+      // Only release when transfer(...) created its own client. If a controller
+      // passed us a request-scoped client, executeSecurely(...) still owns that
+      // lifecycle and must be the code that resets/releases it.
+      queryRunner.release();
+    }
   }
 }
 
 /**
  * Returns all transactions involving a given account (as sender or receiver).
  * @param {string} accountId - the account's UUID
+ * @param {Object} [client] - optional pg client for RLS-safe reads
  * @returns {Array<Object>} array of transaction records (empty if none found)
  */
-async function getTransactions(accountId) {
-  const result = await pool.query(
+async function getTransactions(accountId, client) {
+  const queryRunner = getQueryRunner(client);
+  const result = await queryRunner.query(
     `SELECT transaction_id AS id, sender_account_id AS "fromAccountId", receiver_account_id AS "toAccountId", amount, reference, transaction_date AS "createdAt"
      FROM transactions
      WHERE sender_account_id = $1 OR receiver_account_id = $1
@@ -166,10 +199,12 @@ async function getTransactions(accountId) {
 /**
  * Returns the total deposits (incoming transfers) for an account in the current month.
  * @param {string} accountId - the account's UUID
+ * @param {Object} [client] - optional pg client for RLS-safe reads
  * @returns {number} total deposit amount
  */
-async function getDepositSummary(accountId) {
-  const result = await pool.query(
+async function getDepositSummary(accountId, client) {
+  const queryRunner = getQueryRunner(client);
+  const result = await queryRunner.query(
     `SELECT COALESCE(SUM(amount), 0) AS total
      FROM transactions
      WHERE receiver_account_id = $1
@@ -182,10 +217,12 @@ async function getDepositSummary(accountId) {
 /**
  * Returns the total withdrawals (outgoing transfers) for an account in the current month.
  * @param {string} accountId - the account's UUID
+ * @param {Object} [client] - optional pg client for RLS-safe reads
  * @returns {number} total withdrawal amount
  */
-async function getWithdrawalSummary(accountId) {
-  const result = await pool.query(
+async function getWithdrawalSummary(accountId, client) {
+  const queryRunner = getQueryRunner(client);
+  const result = await queryRunner.query(
     `SELECT COALESCE(SUM(amount), 0) AS total
      FROM transactions
      WHERE sender_account_id = $1

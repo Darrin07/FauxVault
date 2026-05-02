@@ -1,5 +1,6 @@
 /** Transfer Controller - handles fund transfer requests */
 const { findAccountByUserId, transfer, getTransactions } = require('../models/accounts');
+const { executeSecurely } = require('../config/db');
 
 /**
  * Transfers funds from the authenticated user's account to a destination account.
@@ -42,19 +43,25 @@ async function createTransfer(req, res, next){
 
         // --- resolve sender account from JWT user ---
 
-        const senderAccounts = await findAccountByUserId(req.user.userId);
-        if(!senderAccounts.length){
-            return res.status(404).json({
-                error: { status: 404, message: 'No account found for auth user', code: 'ACCOUNT_NOT_FOUND'},
-            });
-        }
+        const response = await executeSecurely(req.user.userId, async (client) => {
+            // The sender lookup and the transfer transaction must share the same
+            // client so RLS sees the authenticated user's session context.
+            const senderAccounts = await findAccountByUserId(req.user.userId, client);
+            if(!senderAccounts.length){
+                return res.status(404).json({
+                    error: { status: 404, message: 'No account found for auth user', code: 'ACCOUNT_NOT_FOUND'},
+                });
+            }
 
-        const fromAccountId = senderAccounts[0].id;
+            const fromAccountId = senderAccounts[0].id;
 
-        // --- execute transfer ---
+            // --- execute transfer ---
 
-        const transaction = await transfer(fromAccountId, toAccountId, amount, transferReference);
-        res.status(201).json({ transaction });
+            const transaction = await transfer(fromAccountId, toAccountId, amount, transferReference, client);
+            return res.status(201).json({ transaction });
+        });
+
+        return response;
 
     } catch(err){
       if(err.message === 'Destination account not found'){
@@ -83,24 +90,31 @@ async function createTransfer(req, res, next){
  */
 async function getTransferHistory(req, res, next) {
     try {
-        const senderAccounts = await findAccountByUserId(req.user.userId);
-        if (!senderAccounts.length) {
-            return res.status(404).json({
-                error: { status: 404, message: 'No account found for auth user', code: 'ACCOUNT_NOT_FOUND' },
-            });
-        }
+        const response = await executeSecurely(req.user.userId, async (client) => {
+            // History is also RLS-sensitive because it reads both the user's
+            // account row and transaction rows. Keeping both reads on the same
+            // client ensures PostgreSQL evaluates them under one user context.
+            const senderAccounts = await findAccountByUserId(req.user.userId, client);
+            if (!senderAccounts.length) {
+                return res.status(404).json({
+                    error: { status: 404, message: 'No account found for auth user', code: 'ACCOUNT_NOT_FOUND' },
+                });
+            }
 
-        const accountId = senderAccounts[0].id;
-        let history = await getTransactions(accountId);
+            const accountId = senderAccounts[0].id;
+            let history = await getTransactions(accountId, client);
 
-        const { type } = req.query;
-        if (type === 'sent') {
-            history = history.filter(t => t.fromAccountId === accountId);
-        } else if (type === 'received') {
-            history = history.filter(t => t.toAccountId === accountId);
-        }
+            const { type } = req.query;
+            if (type === 'sent') {
+                history = history.filter(t => t.fromAccountId === accountId);
+            } else if (type === 'received') {
+                history = history.filter(t => t.toAccountId === accountId);
+            }
 
-        res.json({ transactions: history });
+            return res.json({ transactions: history });
+        });
+
+        return response;
     } catch (err) {
         next(err);
     }
