@@ -66,8 +66,7 @@ function TransferModal({ isOpen, onClose }) {
         e.preventDefault()
         setError('')
         setSuccess('')
-    
-        
+            
         // Validation: amount must be a positive number 
         if (!form.amount || Number(form.amount) <= 0) { 
             setError('Please enter a valid amount') 
