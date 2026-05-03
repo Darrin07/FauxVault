@@ -50,12 +50,12 @@ function TransferModal({ isOpen, onClose }) {
     function handleChange(field) {
         return (e) => setForm((prev) => ({ ...prev, [field]: e.target.value }))
     }
-// Returns form to its original empty state 
-    function resetForm() { 
-        setForm({ toAccountId: '', amount: '', memo: '' }) 
-        setError('') 
-        setSuccess('') 
-    }    
+    // Returns form to its original empty state 
+    function resetForm() {
+        setForm({ toAccountId: '', amount: '', memo: '' })
+        setError('')
+        setSuccess('')
+    }
     // Reset before closing so next open starts clean
     function handleClose() {
         resetForm()
