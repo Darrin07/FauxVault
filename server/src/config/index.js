@@ -13,4 +13,10 @@ module.exports = {
     password: process.env.POSTGRES_PASSWORD || 'fauxvault_pass',
     port: parseInt(process.env.DB_PORT, 10) || 5432,
   },
+  rateLimit: {
+    safetyWindowMs: parseInt(process.env.RATE_LIMIT_SAFETY_WINDOW_MS, 10) || 60000,
+    safetyMax: parseInt(process.env.RATE_LIMIT_SAFETY_MAX, 10) || 100,
+    bruteWindowMs: parseInt(process.env.RATE_LIMIT_BRUTE_WINDOW_MS, 10) || 300000,
+    bruteMax: parseInt(process.env.RATE_LIMIT_BRUTE_MAX, 10) || 5,
+  },
 };
