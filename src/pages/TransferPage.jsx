@@ -21,63 +21,64 @@ import {
     CheckCircleOutlined as CheckIcon,
 } from '@mui/icons-material'
 import * as transfersApi from '../services/transfers'
+import { fmt } from '../utils/format'
 
-// Transfer was written independently, but informed by thematic implications from MUI official website to get styles on components
-// https://mui.com/material-ui/getting-started/templates/ and https://react.dev/learn/rendering-lists, uses similar build to Dashboard; 
+// TransferPage:  renders at /transfer
+// On success: green Alert confirms transfer, form clears, transaction added to Recent Transfers sidebar (max 5)
+// On failure: red Alert shows server error message; all fields stay populated so user can correct and retry
 
+// fmt imported from ../utils/format
 
-// Transfer Page Functions
 export default function TransferPage() {
-    const [form, setForm] = useState({ recipientId: '', amount: '', memo: '' })
+    const [form, setForm] = useState({ toAccountId: '', amount: '', memo: '' })
     const [error, setError] = useState('')
     const [success, setSuccess] = useState(null)
     const [loading, setLoading] = useState(false)
     const [recentTransfers, setRecentTransfers] = useState([])
 
-    //updates values based on form
     function handleChange(field) {
         return (e) => setForm((prev) => ({ ...prev, [field]: e.target.value }))
     }
 
-    //handles submission s
     async function handleSubmit(e) {
         e.preventDefault()
         setError('')
         setSuccess(null)
 
-        //case 1:  no recipient id
-        if (!form.recipientId.trim()) {
+        // Validation: recipient account ID required
+        if (!form.toAccountId.trim()) {
             setError('Please enter a recipient account ID')
             return
         }
 
-        //case 2:  amount is negative
+        // Validation: amount must be positive
         if (!form.amount || Number(form.amount) <= 0) {
             setError('Please enter a valid amount')
             return
         }
 
-        //Attempt Transfer
         setLoading(true)
         try {
-            const { transfer } = await transfersApi.sendTransfer({
-                recipientId: form.recipientId,
+            const { transaction } = await transfersApi.sendTransfer({
+                toAccountId: form.toAccountId,
                 amount: Number(form.amount),
                 memo: form.memo,
             })
-            setSuccess(transfer)
-            setRecentTransfers((prev) => [transfer, ...prev].slice(0, 5))
-            setForm({ recipientId: '', amount: '', memo: '' })
+
+            setSuccess(transaction)
+
+            // Prepend to recent transfers list and keep at most five
+            setRecentTransfers((prev) => [transaction, ...prev].slice(0, 5))
+            setForm({ toAccountId: '', amount: '', memo: '' })
+
         } catch (err) {
-            setError(err.message || 'Transfer failed')
+            setError(err.message || 'Transfer failed. Please try again.')
         } finally {
             setLoading(false)
         }
     }
 
     return (
-
-        // Creates the Box that houses our form and Transfer Button; similar logic to Dashboard
         <Box>
             <Typography variant="h1" sx={{ fontSize: '1.75rem', mb: 0.5 }}>
                 Transfer Funds
@@ -97,22 +98,23 @@ export default function TransferPage() {
                 {/* Transfer form */}
                 <Card>
                     <CardContent sx={{ p: 3 }}>
-
-                        {/* Recipient Value */}
                         <Box component="form" onSubmit={handleSubmit} sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+
                             {error && <Alert severity="error">{error}</Alert>}
+
                             {success && (
                                 <Alert severity="success" icon={<CheckIcon />}>
-                                    Successfully sent ${success.amount.toFixed(2)} to {success.recipientName}
+                                    Successfully sent {fmt(success.amount)} to account {success.toAccountId}
                                 </Alert>
                             )}
 
+                            {/* Recipient Account ID */}
                             <TextField
                                 id="transfer-page-recipient"
                                 label="Recipient Account ID"
-                                value={form.recipientId}
-                                onChange={handleChange('recipientId')}
-                                placeholder="Enter account ID (e.g. FAUX-R7NW2D4X)"
+                                value={form.toAccountId}
+                                onChange={handleChange('toAccountId')}
+                                placeholder="e.g. 660e8400-e29b-41d4-a716-446655440000"
                                 fullWidth
                                 InputProps={{
                                     startAdornment: (
@@ -123,7 +125,7 @@ export default function TransferPage() {
                                 }}
                             />
 
-                            {/* Amount Value */}
+                            {/* Amount */}
                             <TextField
                                 id="transfer-page-amount"
                                 label="Amount ($)"
@@ -142,7 +144,7 @@ export default function TransferPage() {
                                 }}
                             />
 
-                            {/* Memo Value */}
+                            {/* Memo (optional) */}
                             <TextField
                                 id="transfer-page-memo"
                                 label="Memo (optional)"
@@ -159,7 +161,6 @@ export default function TransferPage() {
                                 }}
                             />
 
-                            {/* Button attempts functions */}
                             <Button
                                 type="submit"
                                 variant="contained"
@@ -171,11 +172,10 @@ export default function TransferPage() {
                                 {loading ? 'Sending…' : 'Send Transfer'}
                             </Button>
                         </Box>
-
                     </CardContent>
                 </Card>
 
-                {/* Recent transfers */}
+                {/* Recent transfers sidebar — appears after first successful transfer */}
                 {recentTransfers.length > 0 && (
                     <Card>
                         <CardContent sx={{ p: 3 }}>
@@ -196,8 +196,10 @@ export default function TransferPage() {
                                         }}
                                     >
                                         <ListItemText
-                                            primary={t.recipientName}
-                                            secondary={t.date}
+                                            primary={`Account ${t.toAccountId}`}
+                                            secondary={new Date(t.createdAt).toLocaleDateString('en-US', {
+                                                month: 'short', day: 'numeric', year: 'numeric',
+                                            })}
                                             primaryTypographyProps={{ variant: 'body2', fontWeight: 600 }}
                                             secondaryTypographyProps={{ variant: 'caption' }}
                                         />
@@ -210,12 +212,11 @@ export default function TransferPage() {
                                                 fontFamily: "'JetBrains Mono', monospace",
                                             }}
                                         >
-                                            -${t.amount.toFixed(2)}
+                                            -{fmt(t.amount)}
                                         </Typography>
                                     </ListItem>
                                 ))}
                             </List>
-
                         </CardContent>
                     </Card>
                 )}
