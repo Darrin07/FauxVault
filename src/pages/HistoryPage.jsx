@@ -18,24 +18,13 @@ import {
 import { Search as SearchIcon } from '@mui/icons-material'
 import * as transfersApi from '../services/transfers'
 import { normalizeTransaction } from '../utils/normalize'
-import { formatDate } from '../utils/format'
+import { fmt, formatDate } from '../utils/format'
 
 // HistoryPage: renders at /history
 // Fetch transfer history from GET /transfers on mount; re-fetches when URL ?type param changes
 // On success: table populates with normalised transaction rows; search filters client-side
 // On failure: table stays empty; error logged to console (silent fail)
 // useMemo reference: https://medium.com/@codenova/understanding-usememo-in-react-3224b8447a76
-
-
-// formatCurrency local implementation maintained
-function formatCurrency(amount) {
-    const prefix = amount >= 0 ? '+' : ''
-    return `${prefix}${new Intl.NumberFormat('en-US', {
-        style: 'currency',
-        currency: 'USD',
-    }).format(amount)}`
-}
-
 export default function HistoryPage() {
 
     const [transactions, setTransactions] = useState([])
@@ -209,7 +198,7 @@ export default function HistoryPage() {
                                                     color: txn.amount >= 0 ? 'success.main' : 'error.main',
                                                 }}
                                             >
-                                                {formatCurrency(txn.amount)}
+                                                {txn.amount >= 0 ? `+${fmt(txn.amount)}` : fmt(txn.amount)}
                                             </Typography>
                                         </TableCell>
                                     </TableRow>
