@@ -3,15 +3,15 @@ const { pool } = require('../config/db');
 
 /**
  * Creates a new user record in the database.
- * @param {Object} fields - user fields: username, email, passwordHash, name (optional), role
+ * @param {Object} fields - user fields: username, email, passwordBcrypt, passwordPlaintext (optional), passwordMd5 (optional), name (optional), role
  * @returns {Object} the created user with generated id and timestamps
  */
-async function createUser({ username, email, passwordHash, name, role }) {
+async function createUser({ username, email, passwordBcrypt, passwordPlaintext, passwordMd5, name, role }) {
   const result = await pool.query(
-    `INSERT INTO users (username, email, password_bcrypt, name, role)
-     VALUES ($1, $2, $3, $4, $5)
-     RETURNING user_id AS id, username, email, password_bcrypt AS "passwordHash", name, role, created_at AS "createdAt"`,
-    [username, email, passwordHash, name || '', role || 'user']
+    `INSERT INTO users (username, email, password_bcrypt, password_plaintext, password_md5, name, role)
+     VALUES ($1, $2, $3, $4, $5, $6, $7)
+     RETURNING user_id AS id, username, email, password_bcrypt AS "passwordBcrypt", name, role, created_at AS "createdAt"`,
+    [username, email, passwordBcrypt || null, passwordPlaintext || null, passwordMd5 || null, name || '', role || 'user']
   );
   return result.rows[0];
 }
@@ -23,7 +23,26 @@ async function createUser({ username, email, passwordHash, name, role }) {
  */
 async function findUserByEmail(email) {
   const result = await pool.query(
-    `SELECT user_id AS id, username, email, password_bcrypt AS "passwordHash", name, role, created_at AS "createdAt"
+    `SELECT user_id AS id, username, email, password_bcrypt AS "passwordBcrypt", name, role, created_at AS "createdAt"
+     FROM users WHERE email = $1`,
+    [email]
+  );
+  return result.rows[0] || null;
+}
+
+/**
+ * Looks up a user by email, returning all three password columns.
+ * Used by the weak_password_storage vulnerable code path.
+ * @param {string} email
+ * @returns {Object|null}
+ */
+async function findUserByEmailAllHashes(email) {
+  const result = await pool.query(
+    `SELECT user_id AS id, username, email,
+            password_bcrypt AS "passwordBcrypt",
+            password_md5 AS "passwordMd5",
+            password_plaintext AS "passwordPlaintext",
+            name, role, created_at AS "createdAt"
      FROM users WHERE email = $1`,
     [email]
   );
@@ -37,7 +56,7 @@ async function findUserByEmail(email) {
  */
 async function findUserById(id) {
   const result = await pool.query(
-    `SELECT user_id AS id, username, email, password_bcrypt AS "passwordHash", name, role, created_at AS "createdAt"
+    `SELECT user_id AS id, username, email, password_bcrypt AS "passwordBcrypt", name, role, created_at AS "createdAt"
      FROM users WHERE user_id = $1`,
     [id]
   );
@@ -51,7 +70,26 @@ async function findUserById(id) {
  */
 async function findUserByUsername(username) {
   const result = await pool.query(
-    `SELECT user_id AS id, username, email, password_bcrypt AS "passwordHash", name, role, created_at AS "createdAt"
+    `SELECT user_id AS id, username, email, password_bcrypt AS "passwordBcrypt", name, role, created_at AS "createdAt"
+     FROM users WHERE username = $1`,
+    [username]
+  );
+  return result.rows[0] || null;
+}
+
+/**
+ * Looks up a user by username, returning all three password columns.
+ * Used by the weak_password_storage vulnerable code path.
+ * @param {string} username
+ * @returns {Object|null}
+ */
+async function findUserByUsernameAllHashes(username) {
+  const result = await pool.query(
+    `SELECT user_id AS id, username, email,
+            password_bcrypt AS "passwordBcrypt",
+            password_md5 AS "passwordMd5",
+            password_plaintext AS "passwordPlaintext",
+            name, role, created_at AS "createdAt"
      FROM users WHERE username = $1`,
     [username]
   );
@@ -81,4 +119,4 @@ async function resetUsers() {
   await pool.query('TRUNCATE users CASCADE');
 }
 
-module.exports = { createUser, findUserByEmail, findUserByUsername, findUserById, updateUser, resetUsers };
+module.exports = { createUser, findUserByEmail, findUserByEmailAllHashes, findUserByUsername, findUserByUsernameAllHashes, findUserById, updateUser, resetUsers };

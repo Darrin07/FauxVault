@@ -1,10 +1,14 @@
 /** Auth Controller - registration, login and logout handlers */
+const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const config = require('../config');
-const { createUser, findUserByEmail, findUserByUsername } = require('../models/users');
+const { createUser, findUserByEmail, findUserByEmailAllHashes, findUserByUsername, findUserByUsernameAllHashes } = require('../models/users');
 const { createAccount } = require('../models/accounts');
 
+function md5(str) {
+  return crypto.createHash('md5').update(str).digest('hex');
+}
 
 /**
  * Creates a signed JWT with user claims.
@@ -24,25 +28,25 @@ function generateToken(user){
 /**
     * Strips sensitive fields before sending user data to the client
     * @param {Object} user - the full user record
-    * @returns {Object} user object without passwordHash
+    * @returns {Object} user object without password fields
  */
 function sanitizeUser(user){
     return { id: user.id, username: user.username, email: user.email, role: user.role };
 }
 
 /**
-    * Registers a new user with hashed creds and a default account.
-    * Validates input, checks for duplicate emails and usernames,
-    * and initializes a $1000 balance.
+    * Registers a new user.
+    * VULN MODULE: weak_password_storage (A02/A04)
+    *   Vulnerable:  stores password_plaintext + password_md5; response includes hashInfo
+    *   Hardened:    stores only password_bcrypt; plaintext/md5 columns set to NULL
     * @param {Request} req - express request with username, email, password in body
     * @param {Response} res - express response
     * @param {function} next - express next middleware
-    * @returns {Object} JWT token and sanitized user object
+    * @returns {Object} JWT token, sanitized user object, and (vulnerable only) hashInfo
     * @throws {400} missing required fields
     * @throws {409} email or username already registered
-    * @requirement R1.1
+    * @requirement R1.1, R2.3.1
  */
-// VULN MODULE: Weak Passwords (A02) — toggle which hash algorithm is used to store password
 async function register(req, res, next){
     try{
         const { username, email, password } = req.body;
@@ -65,31 +69,54 @@ async function register(req, res, next){
             });
         }
 
-        const passwordHash = await bcrypt.hash(password, config.bcryptSaltRounds);
-        const user = await createUser({ username, email, passwordHash, role: 'user' });
+        const passwordBcrypt = await bcrypt.hash(password, config.bcryptSaltRounds);
 
+        let userFields;
+        let hashInfo;
+
+        if (req.vuln_weak_password_storage) {
+            // VULN MODULE: weak_password_storage — store plaintext and MD5 alongside bcrypt
+            const passwordMd5 = md5(password);
+            userFields = { username, email, passwordBcrypt, passwordPlaintext: password, passwordMd5, role: 'user' };
+            hashInfo = {
+                vulnerableMode: true,
+                storedFormats: ['plaintext', 'md5', 'bcrypt'],
+                plaintext: password,
+                md5: passwordMd5,
+                bcrypt: passwordBcrypt,
+            };
+        } else {
+            // Hardened — bcrypt only; clear any previously stored weak hashes
+            userFields = { username, email, passwordBcrypt, passwordPlaintext: null, passwordMd5: null, role: 'user' };
+        }
+
+        const user = await createUser(userFields);
         await createAccount(user.id, 1000);
 
         const token = generateToken(user);
-        res.status(201).json({ token, user: sanitizeUser(user) });
+        const body = { token, user: sanitizeUser(user) };
+        if (hashInfo) body.hashInfo = hashInfo;
+
+        res.status(201).json(body);
     } catch (err) {
         next(err);
     }
 }
 
 /**
- * Authenticates a user against stored bcrypt hash and returns a JWT.
- * Accepts email or username as the identifier — if it contains @,
- * looks up by email, otherwise by username.
+ * Authenticates a user and returns a JWT.
+ * VULN MODULE: weak_password_storage (A02/A04)
+ *   Vulnerable:  compares submitted password against stored MD5 hash; response includes hashInfo
+ *   Hardened:    compares against bcrypt hash
+ * Accepts email or username as identifier.
  * @param {Request} req - express request with identifier, password in body
  * @param {Response} res - express response
  * @param {Function} next - express next middleware
- * @returns {Object} JWT token and sanitized user object
+ * @returns {Object} JWT token, sanitized user object, and (vulnerable only) hashInfo
  * @throws {400} missing required fields
  * @throws {401} invalid credentials
- * @requirement R1.1
+ * @requirement R1.1, R4.2.1, R4.2.2
  */
-// VULN MODULE: Weak Passwords (A02) — toggle hash comparison (plaintext/MD5 vs bcrypt)
 async function login(req, res, next){
     try{
         const { identifier, password } = req.body;
@@ -100,17 +127,47 @@ async function login(req, res, next){
             });
         }
 
-        const user = identifier.includes('@')
-            ? await findUserByEmail(identifier)
-            : await findUserByUsername(identifier);
+        const byEmail = identifier.includes('@');
 
-        if(!user){
-            return res.status(401).json({
-                error: { status: 401, message: 'Invalid credentials', code: 'INVALID_CREDENTIALS' },
-            });
+        let user;
+        let valid;
+        let hashInfo;
+
+        if (req.vuln_weak_password_storage) {
+            // VULN MODULE: weak_password_storage — look up all hash columns, compare via MD5
+            user = byEmail
+                ? await findUserByEmailAllHashes(identifier)
+                : await findUserByUsernameAllHashes(identifier);
+
+            if (!user) {
+                return res.status(401).json({
+                    error: { status: 401, message: 'Invalid credentials', code: 'INVALID_CREDENTIALS' },
+                });
+            }
+
+            const submittedMd5 = md5(password);
+            valid = submittedMd5 === user.passwordMd5;
+            hashInfo = {
+                vulnerableMode: true,
+                comparisonMethod: 'md5',
+                submittedMd5,
+                storedMd5: user.passwordMd5,
+                storedPlaintext: user.passwordPlaintext,
+            };
+        } else {
+            user = byEmail
+                ? await findUserByEmail(identifier)
+                : await findUserByUsername(identifier);
+
+            if (!user) {
+                return res.status(401).json({
+                    error: { status: 401, message: 'Invalid credentials', code: 'INVALID_CREDENTIALS' },
+                });
+            }
+
+            valid = await bcrypt.compare(password, user.passwordBcrypt);
         }
 
-        const valid = await bcrypt.compare(password, user.passwordHash);
         if(!valid){
             return res.status(401).json({
                 error: { status: 401, message: 'Invalid credentials', code: 'INVALID_CREDENTIALS' },
@@ -118,7 +175,10 @@ async function login(req, res, next){
         }
 
         const token = generateToken(user);
-        res.json({ token, user: sanitizeUser(user) });
+        const body = { token, user: sanitizeUser(user) };
+        if (hashInfo) body.hashInfo = hashInfo;
+
+        res.json(body);
     } catch (err) {
         next(err);
     }
