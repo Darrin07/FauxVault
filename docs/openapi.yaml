@@ -1,0 +1,981 @@
+openapi: 3.0.3
+info:
+  title: FauxVault API
+  description: |
+    REST API for FauxVault — a purposefully vulnerable web banking application
+    for CS467 (Spring 2026). Demonstrates OWASP Top 10 attack vectors with
+    toggleable vulnerable/hardened states.
+
+    ## Endpoint Status
+    - **Implemented** — working and tested against PostgreSQL
+    - **Planned** — not yet built; included so the frontend team knows the
+      target contract
+
+    ## Authentication
+    Protected endpoints require a Bearer JWT in the Authorization header:
+    ```
+    Authorization: Bearer <token>
+    ```
+    Tokens are returned by the login and register endpoints.
+
+    ## Error Format
+    All errors follow a consistent shape:
+    ```json
+    {
+      "error": {
+        "status": 400,
+        "message": "Human-readable message",
+        "code": "MACHINE_READABLE_CODE"
+      }
+    }
+    ```
+  version: 1.0.0
+  contact:
+    name: FauxVault Team
+
+servers:
+  - url: http://localhost:3001/api
+    description: Local development (host machine)
+  - url: http://localhost:80/api
+    description: Docker Compose
+
+tags:
+  - name: Auth
+    description: Registration, login, and logout
+  - name: Accounts
+    description: Account lookup and balance
+  - name: Transfers
+    description: Fund transfers and transaction history
+  - name: Settings
+    description: Vulnerability toggle management
+  - name: Users
+    description: User profile management
+  - name: Health
+    description: Health checks
+
+paths:
+  # ─────────────────────────────────────────────
+  # Auth
+  # ─────────────────────────────────────────────
+
+  /auth/register:
+    post:
+      tags: [Auth]
+      summary: Register a new user
+      description: |
+        **Status: Implemented**
+
+        Creates a new user with a bcrypt-hashed password and a default checking
+        account with $1,000 balance. Returns a signed JWT.
+
+        x-frontend-migration: Frontend `auth.js` sends `{ email, password, name }`.
+        Must change to `{ username, email, password }`. The `name` field is optional
+        and stored separately from `username`.
+      operationId: register
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [username, email, password]
+              properties:
+                username:
+                  type: string
+                  example: scurry
+                email:
+                  type: string
+                  format: email
+                  example: steph.curry@email.com
+                password:
+                  type: string
+                  format: password
+                  example: Password123
+            example:
+              username: scurry
+              email: steph.curry@email.com
+              password: Password123
+      responses:
+        '201':
+          description: User created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  token:
+                    type: string
+                    description: Signed JWT
+                  user:
+                    $ref: '#/components/schemas/SanitizedUser'
+              example:
+                token: eyJhbGciOiJIUzI1NiIs...
+                user:
+                  id: 550e8400-e29b-41d4-a716-446655440000
+                  username: scurry
+                  email: steph.curry@email.com
+                  role: user
+        '400':
+          description: Missing required fields
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error:
+                  status: 400
+                  message: Username, email, and password are required
+                  code: VALIDATION_FAILED
+        '409':
+          description: Email or username already registered
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error:
+                  status: 409
+                  message: Email already registered
+                  code: EMAIL_EXISTS
+
+  /auth/login:
+    post:
+      tags: [Auth]
+      summary: Authenticate a user
+      description: |
+        **Status: Implemented**
+
+        Accepts an identifier (email or username) and password. If the identifier
+        contains `@`, looks up by email; otherwise by username. Returns a signed JWT.
+
+        x-frontend-migration: Frontend `auth.js` sends `{ email, password }`.
+        Must change to `{ identifier, password }`. The `identifier` field accepts
+        either an email address or a username.
+      operationId: login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [identifier, password]
+              properties:
+                identifier:
+                  type: string
+                  description: Email address or username
+                  example: steph.curry@email.com
+                password:
+                  type: string
+                  format: password
+                  example: Password123
+            example:
+              identifier: steph.curry@email.com
+              password: Password123
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  token:
+                    type: string
+                  user:
+                    $ref: '#/components/schemas/SanitizedUser'
+              example:
+                token: eyJhbGciOiJIUzI1NiIs...
+                user:
+                  id: 550e8400-e29b-41d4-a716-446655440000
+                  username: scurry
+                  email: steph.curry@email.com
+                  role: user
+        '400':
+          description: Missing required fields
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error:
+                  status: 400
+                  message: Identifier and password are required
+                  code: VALIDATION_FAILED
+        '401':
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error:
+                  status: 401
+                  message: Invalid credentials
+                  code: INVALID_CREDENTIALS
+
+  /auth/logout:
+    post:
+      tags: [Auth]
+      summary: Log out the current user
+      description: |
+        **Status: Implemented**
+
+        Stateless logout — the server acknowledges the request but does not
+        invalidate the token. The client is responsible for discarding it.
+      operationId: logout
+      responses:
+        '200':
+          description: Logout acknowledged
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+              example:
+                message: Logged out
+
+  # ─────────────────────────────────────────────
+  # Accounts
+  # ─────────────────────────────────────────────
+
+  /accounts/me:
+    get:
+      tags: [Accounts]
+      summary: Get the authenticated user's account
+      description: |
+        **Status: Implemented**
+
+        Returns the account info and balance for the user identified by the JWT.
+
+        x-frontend-migration: Frontend `accounts.js` `getBalance()` is mock-only.
+        Wire it to this endpoint. Response shape is `{ account: { id, accountNumber,
+        balance, createdAt } }` — frontend expects `{ balance, accountType,
+        lastUpdated }` and will need to adapt.
+      operationId: getMyAccount
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Account found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  account:
+                    $ref: '#/components/schemas/Account'
+              example:
+                account:
+                  id: 660e8400-e29b-41d4-a716-446655440000
+                  accountNumber: FAUX-M3KQ8P1Z
+                  balance: 1000.00
+                  createdAt: '2026-04-27T12:00:00.000Z'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: No account found for authenticated user
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error:
+                  status: 404
+                  message: No account found for authenticated user
+                  code: ACCOUNT_NOT_FOUND
+
+  /accounts/{id}:
+    get:
+      tags: [Accounts]
+      summary: Get an account by ID
+      description: |
+        **Status: Implemented**
+
+        Returns an account by its UUID. Currently does NOT enforce ownership —
+        any authenticated user can look up any account. The BOLA/IDOR vulnerability
+        module will add a toggle: vulnerable mode skips the ownership check,
+        hardened mode enforces it.
+
+        x-frontend-migration: No frontend caller yet. This endpoint will be used
+        by the BOLA/IDOR module demo.
+      operationId: getAccountById
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          example: 660e8400-e29b-41d4-a716-446655440000
+      responses:
+        '200':
+          description: Account found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  account:
+                    $ref: '#/components/schemas/Account'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: Account not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error:
+                  status: 404
+                  message: Account not found
+                  code: ACCOUNT_NOT_FOUND
+
+  /accounts/deposits:
+    get:
+      tags: [Accounts]
+      summary: "[PLANNED] Get deposit summary for the authenticated user"
+      x-status: planned
+      description: |
+        **Status: PLANNED — not yet implemented**
+
+        Returns aggregate deposit total for the authenticated user's account.
+        The frontend dashboard (`accounts.js` `getDeposits()`) expects this.
+
+        Planned response shape based on frontend mock:
+        `{ total: 3200.00, period: "this month" }`
+      operationId: getDeposits
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Deposit summary
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total:
+                    type: number
+                    format: float
+                  period:
+                    type: string
+              example:
+                total: 3200.00
+                period: this month
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /accounts/withdrawals:
+    get:
+      tags: [Accounts]
+      summary: "[PLANNED] Get withdrawal summary for the authenticated user"
+      x-status: planned
+      description: |
+        **Status: PLANNED — not yet implemented**
+
+        Returns aggregate withdrawal total for the authenticated user's account.
+        The frontend dashboard (`accounts.js` `getWithdrawals()`) expects this.
+
+        Planned response shape based on frontend mock:
+        `{ total: 1320.00, period: "this month" }`
+      operationId: getWithdrawals
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Withdrawal summary
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total:
+                    type: number
+                    format: float
+                  period:
+                    type: string
+              example:
+                total: 1320.00
+                period: this month
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  # ─────────────────────────────────────────────
+  # Transfers
+  # ─────────────────────────────────────────────
+
+  /transfers:
+    get:
+      tags: [Transfers]
+      summary: Get transaction history for the authenticated user
+      description: |
+        **Status: Implemented**
+
+        Returns all transactions (sent and received) for the authenticated user's
+        account. Supports an optional `type` query parameter to filter.
+
+        Stored XSS lab support: transaction records include `reference`, and the
+        API also returns `memo` as an alias of that same stored value so the
+        frontend can bind cleanly to a memo textbox.
+
+        x-frontend-migration: Frontend has two files that fetch transactions:
+        - `transfers.js` `getTransfers()` — uses `apiFetch('/transfers')` ✓ correct path
+        - `transactions.js` `getTransactions(type)` — mock-only, wire to this endpoint
+
+        Response shape differs from frontend mock. Backend returns:
+        `{ transactions: [{ id, fromAccountId, toAccountId, amount, reference, memo, createdAt }] }`
+        Frontend `transactions.js` mock uses:
+        `[{ id, date, description, type, amount, balanceAfter }]`
+        Frontend will need to adapt to the backend shape or the backend will need
+        a richer response (description, running balance are not currently stored).
+      operationId: getTransferHistory
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: type
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [sent, received]
+          description: Filter by transaction direction
+      responses:
+        '200':
+          description: Transaction list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  transactions:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Transaction'
+              example:
+                transactions:
+                  - id: 770e8400-e29b-41d4-a716-446655440000
+                    fromAccountId: 660e8400-e29b-41d4-a716-446655440000
+                    toAccountId: 880e8400-e29b-41d4-a716-446655440000
+                    amount: 500.00
+                    reference: Rent for May
+                    memo: Rent for May
+                    createdAt: '2026-04-27T15:30:00.000Z'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: No account found for authenticated user
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    post:
+      tags: [Transfers]
+      summary: Transfer funds to another account
+      description: |
+        **Status: Implemented**
+
+        Transfers funds from the authenticated user's account to a destination
+        account. The sender is resolved from the JWT — you cannot send from
+        someone else's account.
+
+        Uses a database transaction with `FOR UPDATE` row locking to prevent
+        race conditions.
+
+        Stored XSS lab support: callers may provide free-text `memo` content.
+        The backend stores that value in the `reference` column and returns both
+        `reference` and `memo` in API responses. `reference` is also accepted as
+        an input alias for compatibility.
+
+        x-frontend-migration: Frontend `transfers.js` `sendTransfer()` sends
+        `{ recipientId, amount, memo }`. Must change `recipientId` to `toAccountId`.
+        The `memo` field is now supported.
+      operationId: createTransfer
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [toAccountId, amount]
+              properties:
+                toAccountId:
+                  type: string
+                  format: uuid
+                  description: Destination account UUID
+                amount:
+                  type: number
+                  format: float
+                  description: Amount in dollars (must be positive)
+                memo:
+                  type: string
+                  description: Optional transfer note for the stored XSS lab
+                reference:
+                  type: string
+                  description: Optional alias for memo; stored in the same DB column
+            example:
+              toAccountId: 880e8400-e29b-41d4-a716-446655440000
+              amount: 100.50
+              memo: Rent for May
+      responses:
+        '201':
+          description: Transfer completed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  transaction:
+                    $ref: '#/components/schemas/Transaction'
+              example:
+                transaction:
+                  id: 770e8400-e29b-41d4-a716-446655440000
+                  fromAccountId: 660e8400-e29b-41d4-a716-446655440000
+                  toAccountId: 880e8400-e29b-41d4-a716-446655440000
+                  amount: 100.50
+                  reference: Rent for May
+                  memo: Rent for May
+                  createdAt: '2026-04-28T10:00:00.000Z'
+        '400':
+          description: Missing or invalid fields
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                missing_fields:
+                  value:
+                    error:
+                      status: 400
+                      message: toAccountId and amount are required
+                      code: VALIDATION_FAILED
+                invalid_amount:
+                  value:
+                    error:
+                      status: 400
+                      message: Amount must be a positive number
+                      code: VALIDATION_FAILED
+                invalid_memo:
+                  value:
+                    error:
+                      status: 400
+                      message: memo/reference must be a string
+                      code: VALIDATION_FAILED
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: Sender or destination account not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Insufficient funds
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error:
+                  status: 422
+                  message: Insufficient funds
+                  code: INSUFFICIENT_FUNDS
+
+  # ─────────────────────────────────────────────
+  # Settings (Vulnerability Toggles)
+  # ─────────────────────────────────────────────
+
+  /settings:
+    get:
+      tags: [Settings]
+      summary: Get all vulnerability toggle states
+      description: |
+        **Status: Implemented**
+
+        Returns all vulnerability module toggles with their current state.
+
+        x-frontend-migration: Frontend `vulnerabilities.js` `getModules()` calls
+        mock `GET /api/vuln/modules`. Must change to `GET /api/settings`.
+        Response is an array of setting objects, not an empty array.
+      operationId: getSettings
+      responses:
+        '200':
+          description: All toggle settings
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Setting'
+              example:
+                - module_key: A01:2025 - BOLA
+                  module_name: bola_idor
+                  is_vulnerable: false
+                  updated_at: '2026-04-27T12:00:00.000Z'
+                - module_key: A03:2025 - Injection
+                  module_name: sql_injection
+                  is_vulnerable: false
+                  updated_at: '2026-04-27T12:00:00.000Z'
+
+    post:
+      tags: [Settings]
+      summary: Update a single module's toggle state
+      description: |
+        **Status: Implemented**
+
+        Flips a vulnerability module between vulnerable and hardened mode.
+
+        x-frontend-migration: Frontend `vulnerabilities.js` `toggleModule(moduleId, enabled)`
+        calls mock `PUT /api/vuln/toggle`. Must change to `POST /api/settings` with
+        body `{ module_name, is_vulnerable }`. The `moduleId` maps to `module_name`,
+        and `enabled` maps to `is_vulnerable`.
+      operationId: updateSetting
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [module_name, is_vulnerable]
+              properties:
+                module_name:
+                  type: string
+                  description: Code-facing module identifier
+                  example: sql_injection
+                is_vulnerable:
+                  type: boolean
+                  description: true = vulnerable mode, false = hardened mode
+                  example: true
+            example:
+              module_name: sql_injection
+              is_vulnerable: true
+      responses:
+        '200':
+          description: Toggle updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Setting'
+              example:
+                module_key: A03:2025 - Injection
+                module_name: sql_injection
+                is_vulnerable: true
+                updated_at: '2026-04-28T10:00:00.000Z'
+        '400':
+          description: Missing required fields
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error:
+                  status: 400
+                  message: module_name and is_vulnerable are required
+                  code: VALIDATION_FAILED
+        '404':
+          description: Module not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error:
+                  status: 404
+                  message: Module not found
+                  code: MODULE_NOT_FOUND
+
+  # ─────────────────────────────────────────────
+  # Users (PLANNED)
+  # ─────────────────────────────────────────────
+
+  /users/profile:
+    get:
+      tags: [Users]
+      summary: "[PLANNED] Get the authenticated user's profile"
+      x-status: planned
+      description: |
+        **Status: PLANNED — not yet implemented**
+
+        Returns profile info for the authenticated user. Needed by:
+        - Frontend `users.js` `getProfile()`
+        - Darrin's Mass Assignment module (API3) — in vulnerable mode this
+          endpoint returns ALL fields including sensitive data; in hardened
+          mode it returns filtered fields only.
+
+        Planned response shape based on frontend mock and DB schema:
+      operationId: getProfile
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: User profile
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                        format: uuid
+                      username:
+                        type: string
+                      email:
+                        type: string
+                        format: email
+                      name:
+                        type: string
+                      role:
+                        type: string
+                      accountNumber:
+                        type: string
+                      createdAt:
+                        type: string
+                        format: date-time
+              example:
+                user:
+                  id: 550e8400-e29b-41d4-a716-446655440000
+                  username: scurry
+                  email: steph.curry@email.com
+                  name: Steph Curry
+                  role: user
+                  accountNumber: FAUX-M3KQ8P1Z
+                  createdAt: '2026-04-27T12:00:00.000Z'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+    put:
+      tags: [Users]
+      summary: "[PLANNED] Update the authenticated user's profile"
+      x-status: planned
+      description: |
+        **Status: PLANNED — not yet implemented**
+
+        Updates profile fields for the authenticated user. Needed by:
+        - Frontend `users.js` `updateProfile(data)`
+        - Darrin's Mass Assignment module (API3) — in vulnerable mode this
+          endpoint accepts ANY field including `role` and `isAdmin`; in
+          hardened mode it only accepts whitelisted fields (name, email).
+      operationId: updateProfile
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                email:
+                  type: string
+                  format: email
+            example:
+              name: Stephen Curry
+              email: steph.curry@email.com
+      responses:
+        '200':
+          description: Profile updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                        format: uuid
+                      username:
+                        type: string
+                      email:
+                        type: string
+                      name:
+                        type: string
+                      role:
+                        type: string
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  # ─────────────────────────────────────────────
+  # Health
+  # ─────────────────────────────────────────────
+
+  /health:
+    get:
+      tags: [Health]
+      summary: Public health check
+      description: |
+        **Status: Implemented**
+
+        Returns a simple status indicator. No auth required.
+      operationId: healthCheck
+      responses:
+        '200':
+          description: Service is up
+          content:
+            application/json:
+              example:
+                status: ok
+
+  /health/protected:
+    get:
+      tags: [Health]
+      summary: Protected health check
+      description: |
+        **Status: Implemented**
+
+        Same as the public health check but requires a valid JWT.
+        Useful for testing auth middleware in isolation.
+      operationId: healthCheckProtected
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Service is up, auth valid
+          content:
+            application/json:
+              example:
+                status: ok
+                user:
+                  userId: 550e8400-e29b-41d4-a716-446655440000
+                  email: steph.curry@email.com
+                  role: user
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+# ═══════════════════════════════════════════════
+# Reusable Components
+# ═══════════════════════════════════════════════
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT returned by /auth/login or /auth/register
+
+  schemas:
+    SanitizedUser:
+      type: object
+      description: User object with sensitive fields stripped
+      properties:
+        id:
+          type: string
+          format: uuid
+        username:
+          type: string
+        email:
+          type: string
+          format: email
+        role:
+          type: string
+          enum: [user, admin]
+
+    Account:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        accountNumber:
+          type: string
+          example: FAUX-M3KQ8P1Z
+        balance:
+          type: number
+          format: float
+          example: 1000.00
+        createdAt:
+          type: string
+          format: date-time
+
+    Transaction:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        fromAccountId:
+          type: string
+          format: uuid
+        toAccountId:
+          type: string
+          format: uuid
+        amount:
+          type: number
+          format: float
+        reference:
+          type: string
+          nullable: true
+          description: Stored transfer note persisted in the transactions table
+        memo:
+          type: string
+          nullable: true
+          description: Alias of reference returned for frontend ergonomics
+        createdAt:
+          type: string
+          format: date-time
+
+    Setting:
+      type: object
+      properties:
+        module_key:
+          type: string
+          description: OWASP category key
+          example: A03:2025 - Injection
+        module_name:
+          type: string
+          description: Code-facing module identifier
+          example: sql_injection
+        is_vulnerable:
+          type: boolean
+          description: true = vulnerable, false = hardened
+        updated_at:
+          type: string
+          format: date-time
+
+    Error:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            status:
+              type: integer
+            message:
+              type: string
+            code:
+              type: string
+
+  responses:
+    Unauthorized:
+      description: Missing or invalid JWT
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          examples:
+            no_token:
+              value:
+                error:
+                  status: 401
+                  message: no token provided
+                  code: AUTH_REQUIRED
+            invalid_token:
+              value:
+                error:
+                  status: 401
+                  message: Invalid or expired token
+                  code: INVALID_TOKEN

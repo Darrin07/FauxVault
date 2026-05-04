@@ -10,26 +10,28 @@ import {
     InputAdornment,
     CircularProgress,
 } from '@mui/material'
-
 import {
     Person as UserIcon,
     Email as EmailIcon,
     Lock as LockIcon,
 } from '@mui/icons-material'
-import * as authAPI from '../api/auth'
+import * as authAPI from '../services/auth'
+import { validateRegistration } from '../utils/validate'
 
-//Registration Page.  Returns { token, user: {id, email, name, role } }
-//Based on MUI Free Templates over Sign-up, using similar logic for components
-//Email validator regex instructoin from: https://stackoverflow.com/questions/46155/how-can-i-validate-an-email-address-in-javascript
+// RegisterPage:  renders at /register
+// Server contract: POST /auth/register expects { username, email, password }
+// Server returns: { token, user: { id, username, email, role } }
+// On Success: stores JWT via AuthContext, redirects to /dashboard
+// On Failure:  client-side validation displays inline; API error displays in Alert
+// Email validator regex from: https://stackoverflow.com/questions/46155/how-can-i-validate-an-email-address-in-javascript
 
-//Register Functions
 export default function RegisterPage() {
     const [form, setForm] = useState({
-        name: '',
+        username: '',
         email: '',
         password: '',
         confirmPassword: '',
-    }) 
+    })
     const [errors, setErrors] = useState({})
     const [apiError, setApiError] = useState('')
     const [loading, setLoading] = useState(false)
@@ -40,71 +42,53 @@ export default function RegisterPage() {
     function handleChange(field) {
         return (e) => {
             setForm((prev) => ({ ...prev, [field]: e.target.value }))
-
-            //If error, clear field on change to reset
+            // Clear the field's error as soon as the user corrects
             if (errors[field]) {
-                setErrors((prev) => ({...prev, [field]: ''}))
+                setErrors((prev) => ({ ...prev, [field]: '' }))
             }
         }
     }
 
-    //This function confirms that the information this user has given us is valid for registration
-    //Can be used for exploitation in the future possibly
-    function validate() {
-        const errs = {};
-        
-        //Case:  No Name or email, email format wrong
-        if (!form.name.trim()) errs.name = 'Name Required';
-        if (!form.email.trim()) errs.email = 'Email Required'
-        //Regex on email pattern; not RFC-Compliant; general direction from stackoverflow cited 
-        else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) errs.email = 'Invalid Email Format'
 
-        //Password validation:  missing, short, doesn't match
-        if (!form.password) errs.password = 'Password Required'
-        else if (form.password.length < 5) errs.password = 'Minimum 5 characters'
-        if (form.password !== form.confirmPassword) errs.confirmPassword = 'Passwords did not match'
-
-        return errs
-    }
 
     async function handleSubmit(e) {
         e.preventDefault()
         setApiError('')
 
-        //Run our validation function; if any appear, set our error messages
-        const errs = validate()
+        // Run validation; will stop and show errors if failure
+        const errs = validateRegistration(form)
         if (Object.keys(errs).length > 0) {
             setErrors(errs)
             return
         }
 
-        //Set our loading
+        // Set loading state for submit button, attempt registration
         setLoading(true)
-        //Try to register our user, then log them in, and send them to dashboard
         try {
             const { user, token } = await authAPI.register({
+                username: form.username,
                 email: form.email,
                 password: form.password,
-                name: form.name,
             })
             login(user, token)
             navigate('/dashboard')
-        } catch(err) {
-            setApiError(err.message || 'Registration Failed. Please Try Again.')
+        } catch (err) {
+            setApiError(err.message || 'Registration failed. Please try again.')
         } finally {
             setLoading(false)
         }
     }
+
     return (
-        
         <Box component="form" onSubmit={handleSubmit} noValidate>
-            <Typography 
+            <Typography
                 variant="h2"
-                sx={{ 
+                sx={{
                     fontSize: '1.5rem',
                     mb: 0.5
-                }}>
-            Create Account    
+                }}
+            >
+                Create Account
             </Typography>
 
             {apiError && (
@@ -116,18 +100,19 @@ export default function RegisterPage() {
             <Box sx={{
                 display: 'flex',
                 flexDirection: 'column',
-                gap: 2, 
+                gap: 2,
                 mb: 3
             }}>
+                {/* Username */}
                 <TextField
-                    id="signup-name"
-                    label="Full Name"
-                    value={form.name}
-                    onChange={handleChange('name')}
-                    placeholder='Full Name'
-                    error={!!errors.name}
-                    helperText={errors.name}
-
+                    id="signup-username"
+                    label="Username"
+                    value={form.username}
+                    onChange={handleChange('username')}
+                    placeholder="Letters, numbers, underscores (e.g. john_doe)"
+                    autoComplete="username"
+                    error={!!errors.username}
+                    helperText={errors.username}
                     fullWidth
                     InputProps={{
                         startAdornment: (
@@ -138,92 +123,96 @@ export default function RegisterPage() {
                     }}
                 />
 
+                {/* Email */}
                 <TextField
                     id="signup-email"
                     label="Email"
+                    type="email"
                     value={form.email}
                     onChange={handleChange('email')}
-                    placeholder='name@example.com'
-
+                    placeholder="name@example.com"
+                    autoComplete="email"
                     error={!!errors.email}
                     helperText={errors.email}
-
                     fullWidth
                     InputProps={{
                         startAdornment: (
                             <InputAdornment position="start">
-                                <UserIcon sx={{ fontSize: 18, color: 'text.disabled' }} />
+                                <EmailIcon sx={{ fontSize: 18, color: 'text.disabled' }} />
                             </InputAdornment>
                         )
                     }}
                 />
 
+                {/* Password */}
                 <TextField
                     id="signup-password"
                     label="Password"
+                    type="password"
                     value={form.password}
                     onChange={handleChange('password')}
-                    placeholder='Minimum 5 Characters'
-
+                    placeholder="Minimum 8 characters"
+                    autoComplete="new-password"
                     error={!!errors.password}
                     helperText={errors.password}
-
                     fullWidth
                     InputProps={{
                         startAdornment: (
                             <InputAdornment position="start">
-                                <UserIcon sx={{ fontSize: 18, color: 'text.disabled' }} />
+                                <LockIcon sx={{ fontSize: 18, color: 'text.disabled' }} />
                             </InputAdornment>
                         )
                     }}
                 />
 
+                {/* Confirm Password */}
                 <TextField
                     id="signup-confirm-password"
                     label="Confirm Password"
+                    type="password"
                     value={form.confirmPassword}
                     onChange={handleChange('confirmPassword')}
-                    placeholder='Re-enter your password'
-
+                    placeholder="Re-enter your password"
+                    autoComplete="new-password"
                     error={!!errors.confirmPassword}
                     helperText={errors.confirmPassword}
-
                     fullWidth
                     InputProps={{
                         startAdornment: (
                             <InputAdornment position="start">
-                                <UserIcon sx={{ fontSize: 18, color: 'text.disabled' }} />
+                                <LockIcon sx={{ fontSize: 18, color: 'text.disabled' }} />
                             </InputAdornment>
                         )
                     }}
                 />
             </Box>
+
             <Button
-                type='submit'
-                variant='contained'
-                
+                type="submit"
+                variant="contained"
                 fullWidth
-                size='large'
+                size="large"
                 disabled={loading}
                 sx={{ mb: 2, py: 1.3 }}
-                >
-                    {loading ? (<CircularProgress size={22} color="inherit" sx={{ mr: 1 }} />) : null}
-                    {loading ? 'Creating Account (Please Wait)' : 'Create Account'}
-                </Button>
+            >
+                {loading ? <CircularProgress size={22} color="inherit" sx={{ mr: 1 }} /> : null}
+                {loading ? 'Creating Account…' : 'Create Account'}
+            </Button>
 
-                <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center' }}>
-                    Already have an account?{' '}
-                    <Box
-                        component={Link}
-                        to="/login"
-                        sx={{
-                            color: 'primary.main',
-                            fontWeight: 600, 
-                            '&:hover': { textDecoration: 'underline' }
-                        }}>
-                            Log In
-                        </Box>
-                </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center' }}>
+                Already have an account?{' '}
+                <Box
+                    component={Link}
+                    to="/login"
+                    sx={{
+                        color: 'primary.main',
+                        fontWeight: 600,
+                        '&:hover': { textDecoration: 'underline' }
+                    }}
+                >
+                    Log In
+                </Box>
+            </Typography>
         </Box>
     )
 }

@@ -12,9 +12,9 @@
     "lint": "eslint src/",
     "test": "npm run test:against-docker-db",
     "test:base": "jest --verbose --runInBand --forceExit",
-    "test:against-docker-db": "DB_HOST=localhost npm run test:base",
+    "test:against-docker-db": "DB_HOST=localhost RATE_LIMIT_SAFETY_MAX=5 RATE_LIMIT_BRUTE_MAX=3 npm run test:base",
     "test:in-container": "docker compose -f ../docker-compose.yml run --rm -e DB_HOST=db app npm run test:base",
-    "test:watch": "DB_HOST=localhost jest --watch --verbose --runInBand --forceExit"
+    "test:watch": "DB_HOST=localhost RATE_LIMIT_SAFETY_MAX=5 RATE_LIMIT_BRUTE_MAX=3 jest --watch --verbose --runInBand --forceExit"
   },
   "keywords": [],
   "author": "",
@@ -25,11 +25,13 @@
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
+    "express-rate-limit": "^8.4.1",
     "jsonwebtoken": "^9.0.3",
     "morgan": "^1.10.1",
     "pg": "^8.20.0"
   },
   "jest": {
+    "setupFilesAfterEnv": ["./tests/setup.js"],
     "globalTeardown": "./tests/teardown.js"
   },
   "devDependencies": {
