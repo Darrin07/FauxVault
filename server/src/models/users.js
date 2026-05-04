@@ -98,4 +98,4 @@ async function updateUserRole(id, role) {
     return result.rows[0] || null;
 }
 
-module.exports = { createUser, findUserByEmail, findUserByUsername, findUserById, resetUsers, updateUserRole };
+module.exports = { createUser, findUserByEmail, findUserByUsername, findUserById, resetUsers, updateUser, updateUserRole };
