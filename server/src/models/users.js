@@ -81,4 +81,21 @@ async function resetUsers() {
   await pool.query('TRUNCATE users CASCADE');
 }
 
-module.exports = { createUser, findUserByEmail, findUserByUsername, findUserById, updateUser, resetUsers };
+/**
+ * Updates a user's role.
+ * Used by mass asignment vulnerabiluty module to demostrate how 
+ * unprotec field updates can lead to privelge escalation. 
+ * @param {string} - id - the userid UUID
+ * @param {string} - role -the new role to assign
+ * @param {Object} - the updated user record
+ * @requirements R2.1.3
+ */
+async function updateUserRole(id, role) {
+    const result = await pool.query(
+      'UPDATE users SET role = $1 WHERE user_id = $2 RETURNING user_id, username, email, name, role, created_at AS "createdAt"',
+      [role, id]
+    );
+    return result.rows[0] || null;
+}
+
+module.exports = { createUser, findUserByEmail, findUserByUsername, findUserById, resetUsers, updateUser, updateUserRole };
