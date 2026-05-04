@@ -1,5 +1,6 @@
 /** Transfer Controller - handles fund transfer requests */
 const { findAccountByUserId, transfer, getTransactions } = require('../models/accounts');
+const { executeSecurely } = require('../config/db');
 
 /**
  * Transfers funds from the authenticated user's account to a destination account.
@@ -14,9 +15,11 @@ const { findAccountByUserId, transfer, getTransactions } = require('../models/ac
  * @throws {422} insufficient funds
  * @requirement R1.2.2
  */
+// VULN MODULE: Stored XSS (A03) — add memo/reference field; toggle sanitization on output
 async function createTransfer(req, res, next){
     try{
-        const{ toAccountId, amount } = req.body;
+        const{ toAccountId, amount, memo, reference } = req.body;
+        const transferReference = memo ?? reference ?? null;
 
         // --- input validation ---
 
@@ -32,21 +35,33 @@ async function createTransfer(req, res, next){
             });
         }
 
-        // --- resolve sender account from JWT user ---
-
-        const senderAccounts = await findAccountByUserId(req.user.userId);
-        if(!senderAccounts.length){
-            return res.status(404).json({
-                error: { status: 404, message: 'No account found for auth user', code: 'ACCOUNT_NOT_FOUND'},
+        if(transferReference !== null && typeof transferReference !== 'string'){
+            return res.status(400).json({
+                error: { status: 400, message: 'memo/reference must be a string', code: 'VALIDATION_FAILED'},
             });
         }
 
-        const fromAccountId = senderAccounts[0].id;
+        // --- resolve sender account from JWT user ---
 
-        // --- execute transfer ---
+        const response = await executeSecurely(req.user.userId, async (client) => {
+            // The sender lookup and the transfer transaction must share the same
+            // client so RLS sees the authenticated user's session context.
+            const senderAccounts = await findAccountByUserId(req.user.userId, client);
+            if(!senderAccounts.length){
+                return res.status(404).json({
+                    error: { status: 404, message: 'No account found for auth user', code: 'ACCOUNT_NOT_FOUND'},
+                });
+            }
 
-        const transaction = await transfer(fromAccountId, toAccountId, amount);
-        res.status(201).json({ transaction });
+            const fromAccountId = senderAccounts[0].id;
+
+            // --- execute transfer ---
+
+            const transaction = await transfer(fromAccountId, toAccountId, amount, transferReference, client);
+            return res.status(201).json({ transaction });
+        });
+
+        return response;
 
     } catch(err){
       if(err.message === 'Destination account not found'){
@@ -75,24 +90,31 @@ async function createTransfer(req, res, next){
  */
 async function getTransferHistory(req, res, next) {
     try {
-        const senderAccounts = await findAccountByUserId(req.user.userId);
-        if (!senderAccounts.length) {
-            return res.status(404).json({
-                error: { status: 404, message: 'No account found for auth user', code: 'ACCOUNT_NOT_FOUND' },
-            });
-        }
+        const response = await executeSecurely(req.user.userId, async (client) => {
+            // History is also RLS-sensitive because it reads both the user's
+            // account row and transaction rows. Keeping both reads on the same
+            // client ensures PostgreSQL evaluates them under one user context.
+            const senderAccounts = await findAccountByUserId(req.user.userId, client);
+            if (!senderAccounts.length) {
+                return res.status(404).json({
+                    error: { status: 404, message: 'No account found for auth user', code: 'ACCOUNT_NOT_FOUND' },
+                });
+            }
 
-        const accountId = senderAccounts[0].id;
-        let history = await getTransactions(accountId);
+            const accountId = senderAccounts[0].id;
+            let history = await getTransactions(accountId, client);
 
-        const { type } = req.query;
-        if (type === 'sent') {
-            history = history.filter(t => t.fromAccountId === accountId);
-        } else if (type === 'received') {
-            history = history.filter(t => t.toAccountId === accountId);
-        }
+            const { type } = req.query;
+            if (type === 'sent') {
+                history = history.filter(t => t.fromAccountId === accountId);
+            } else if (type === 'received') {
+                history = history.filter(t => t.toAccountId === accountId);
+            }
 
-        res.json({ transactions: history });
+            return res.json({ transactions: history });
+        });
+
+        return response;
     } catch (err) {
         next(err);
     }

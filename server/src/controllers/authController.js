@@ -42,6 +42,7 @@ function sanitizeUser(user){
     * @throws {409} email or username already registered
     * @requirement R1.1
  */
+// VULN MODULE: Weak Passwords (A02) — toggle which hash algorithm is used to store password
 async function register(req, res, next){
     try{
         const { username, email, password } = req.body;
@@ -88,6 +89,7 @@ async function register(req, res, next){
  * @throws {401} invalid credentials
  * @requirement R1.1
  */
+// VULN MODULE: Weak Passwords (A02) — toggle hash comparison (plaintext/MD5 vs bcrypt)
 async function login(req, res, next){
     try{
         const { identifier, password } = req.body;

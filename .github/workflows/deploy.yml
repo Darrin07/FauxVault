@@ -22,9 +22,7 @@ jobs:
           - 5432:5432
         options: >-
           --health-cmd "pg_isready -U fauxvault_user -d fauxvault"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 5
+          --health-interval 5s --health-timeout 5s --health-retries 5
     env:
       POSTGRES_DB: fauxvault
       POSTGRES_USER: fauxvault_user
@@ -43,20 +41,22 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20.19.0'
-          cache: 'npm'
+          node-version: "20.19.0"
+          cache: "npm"
           cache-dependency-path: server/package-lock.json
 
       - name: Install dependencies
         run: npm ci
 
       - name: Apply database schema
-        run: psql -h "$DB_HOST" -U "$POSTGRES_USER" -d "$POSTGRES_DB" -f ../database/FauxVault_Schema.sql
+        run: psql -h "$DB_HOST" -U "$POSTGRES_USER" -d "$POSTGRES_DB" -f
+          ../database/FauxVault_Schema.sql
         env:
           PGPASSWORD: ${{ env.POSTGRES_PASSWORD }}
 
       - name: Seed database
-        run: psql -h "$DB_HOST" -U "$POSTGRES_USER" -d "$POSTGRES_DB" -f ../database/FauxVault_Seed.sql
+        run: psql -h "$DB_HOST" -U "$POSTGRES_USER" -d "$POSTGRES_DB" -f
+          ../database/FauxVault_Seed.sql
         env:
           PGPASSWORD: ${{ env.POSTGRES_PASSWORD }}
 
@@ -71,35 +71,64 @@ jobs:
     needs: test
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
 
+    permissions:
+      id-token: write
+      contents: read
+
     steps:
-      - name: Deploy to EC2 via SSH
-        uses: appleboy/ssh-action@v1.0.3
+      - name: Configure AWS credentials via OIDC
+        uses: aws-actions/configure-aws-credentials@v4
         with:
-          host: ${{ secrets.EC2_HOST }}
-          username: ${{ secrets.EC2_USER }}
-          key: ${{ secrets.EC2_SSH_KEY }}
-          script: |
-            set -e
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: us-east-1
 
-            echo "==> Checking .env exists..."
-            if [ ! -f ${{ secrets.EC2_APP_DIR }}/.env ]; then
-              echo "ERROR: .env file missing. Aborting deployment."
-              exit 1
-            fi
+      - name: Deploy via SSM
+        run: |
+          COMMAND_ID=$(aws ssm send-command \
+            --instance-ids ${{ secrets.EC2_INSTANCE_ID }} \
+            --document-name "AWS-RunShellScript" \
+            --parameters 'commands=[
+              "set -e",
+              "echo ==> Checking .env exists...",
+              "if [ ! -f ${{ secrets.EC2_APP_DIR }}/.env ]; then echo ERROR: .env missing; exit 1; fi",
+              "echo ==> Pulling latest code...",
+              "cd ${{ secrets.EC2_APP_DIR }}",
+              "git pull origin main",
+              "echo ==> Rebuilding containers...",
+              "export DOCKER_BUILDKIT=0",
+              "docker-compose down",
+              "docker-compose up -d --build",
+              "echo ==> Waiting for app to start...",
+              "sleep 10",
+              "echo ==> Health check...",
+              "curl -f http://localhost/api/health || (echo ERROR: Health check failed && exit 1)",
+              "echo ==> Deployment successful"
+            ]' \
+            --query "Command.CommandId" \
+            --output text)
 
-            echo "==> Pulling latest code..."
-            cd ${{ secrets.EC2_APP_DIR }}
-            git pull origin main
+          echo "SSM Command ID: $COMMAND_ID"
 
-            echo "==> Rebuilding and restarting containers..."
-            export DOCKER_BUILDKIT=0
-            docker-compose down
-            docker-compose up -d --build
+          aws ssm wait command-executed \
+            --command-id "$COMMAND_ID" \
+            --instance-id ${{ secrets.EC2_INSTANCE_ID }}
 
-            echo "==> Waiting for app to start..."
-            sleep 10
+          STATUS=$(aws ssm get-command-invocation \
+            --command-id "$COMMAND_ID" \
+            --instance-id ${{ secrets.EC2_INSTANCE_ID }} \
+            --query "Status" \
+            --output text)
 
-            echo "==> Health check..."
-            curl -f http://localhost/api/health || (echo "ERROR: Health check failed" && exit 1)
+          aws ssm get-command-invocation \
+            --command-id "$COMMAND_ID" \
+            --instance-id ${{ secrets.EC2_INSTANCE_ID }} \
+            --query "StandardOutputContent" \
+            --output text
 
-            echo "==> Deployment successful"
+          aws ssm get-command-invocation \
+            --command-id "$COMMAND_ID" \
+            --instance-id ${{ secrets.EC2_INSTANCE_ID }} \
+            --query "StandardErrorContent" \
+            --output text
+
+          test "$STATUS" = "Success"
