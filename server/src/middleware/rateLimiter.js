@@ -22,9 +22,9 @@ const safetyNetLimiter = rateLimit({
 });
 
 /**
- * Brute-force rate limiter — toggleable via vulnerability settings.
+ * Brute-force rate limiter, toggleable via vulnerability settings.
  * Requires vulnerabilityToggle('brute_force') middleware to run first
- * so that req.vulnerableMode is set.
+ * so that req.vuln_brute_force is set.
  *
  * Vulnerable mode: skip is true, no rate limiting applied.
  * Hardened mode: skip is false, rate limiting enforced.
@@ -34,7 +34,7 @@ const bruteForceLimiter = rateLimit({
   limit: config.rateLimit.bruteMax,
   standardHeaders: 'draft-6',
   legacyHeaders: false,
-  skip: (req) => req.vulnerableMode === true,
+  skip: (req) => req.vuln_brute_force === true,
   handler: (req, res) => {
     res.status(429).json({
       error: {
