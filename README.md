@@ -44,9 +44,13 @@ cd FauxVault
 
 ```bash
 cp .env.example .env
+cp server/.env.example server/.env
 ```
 
-Add the following to your `.env` for the database connection:
+The root `.env` is used by the frontend and Docker Compose. `server/.env` is
+used when you run the backend directly on the host.
+
+Key root `.env` values:
 
 ```env
 # Frontend (Vite)
@@ -66,21 +70,45 @@ DB_PORT=5432
 JWT_SECRET=your_jwt_secret_here
 ```
 
-### 3a. Run with Docker Compose (recommended)
+### Runtime workflows
+
+This repo currently supports two local runtime modes:
+
+- Recommended frontend development workflow:
+  Docker Postgres + host backend on `localhost:3001` + host frontend on
+  `localhost:5173`
+- API-only Docker workflow:
+  Docker backend on host port `80` + Docker Postgres
+
+The detailed setup, proxy explanation, and production topology notes live in
+[`docs/development-and-production-workflows.md`](docs/development-and-production-workflows.md).
+
+### 3a. Run API-only with Docker Compose
 
 ```bash
-docker-compose up
+docker compose up
 ```
 
 **Note:** If you encounter `exec format error` when building or starting the
 Docker stack, disable BuildKit:
 ```bash
-DOCKER_BUILDKIT=0 docker-compose up --build
+DOCKER_BUILDKIT=0 docker compose up --build
 ```
 
-This starts the Express API on `http://localhost:80` and PostgreSQL on port `5432`.
+This starts the Express API on `http://localhost:80` and PostgreSQL on port
+`5432`. Use this for API-only Docker testing, not as the default frontend dev
+workflow.
 
 ### 3b. Run manually (without Docker)
+
+This is the recommended workflow for day-to-day frontend work. Run the database
+in Docker, then run the backend and frontend on the host.
+
+**Database:**
+
+```bash
+docker compose up -d db
+```
 
 **Backend:**
 
@@ -102,15 +130,20 @@ npm run dev
 
 Vite serves the frontend on `http://localhost:5173`.
 
-> The frontend uses mock data by default (`VITE_USE_MOCK=true`). Set to `false` in `.env` to connect to the Express backend.
+> The frontend uses mock data by default (`VITE_USE_MOCK=true`). Set it to
+> `false` in the root `.env` when you want the UI talking to the real Express
+> backend through the Vite `/api` proxy.
 
 ### 4. Seed the database
 
 With PostgreSQL running, apply the schema and seed data:
 
 ```bash
-psql -U fauxvault_user -d fauxvault -f database/FauxVault_Schema.sql
-psql -U fauxvault_user -d fauxvault -f database/FauxVault_Seed.sql
+docker compose exec -T db psql -U fauxvault_user -d fauxvault \
+  -f - < database/FauxVault_Schema.sql
+
+docker compose exec -T db psql -U fauxvault_user -d fauxvault \
+  -f - < database/FauxVault_Seed.sql
 ```
 
 ## Testing
