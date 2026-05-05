@@ -36,6 +36,14 @@ app.get('/api/health/protected', authenticate, (req, res) => {
   res.json({ status: 'ok', user: req.user });
 });
 
+// 404 handler to catch all unmatched routes
+app.use((req, res, next) => {
+    const err = new Error(`Route ${req.method} ${req.path} not found`);
+    err.status = 404;
+    err.code = 'NOT_FOUND';
+    next(err);
+});
+
 // Error handler (must be last)
 app.use(errorHandler);
 
