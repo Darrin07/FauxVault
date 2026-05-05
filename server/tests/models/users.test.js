@@ -9,7 +9,7 @@ describe('models/users', () => {
         const user = await createUser({
             username: 'testuser',
             email: 'test@test.com',
-            passwordHash: '$2b$10$fakehashfortest',
+            passwordBcrypt: '$2b$10$fakehashfortest',
             name: 'Travis Test User',
             role: 'user',
         });
@@ -23,7 +23,7 @@ describe('models/users', () => {
     });
 
     test('findUserByEmail returns the correct user', async () => {
-        await createUser({ username: 'auser', email: 'a@test.com', passwordHash: '$2b$10$fakehash', name: 'A', role: 'user' });
+        await createUser({ username: 'auser', email: 'a@test.com', passwordBcrypt: '$2b$10$fakehash', name: 'A', role: 'user' });
         const found = await findUserByEmail('a@test.com');
         expect(found.email).toBe('a@test.com');
     });
@@ -33,7 +33,7 @@ describe('models/users', () => {
     });
 
     test('findUserById returns the correct user', async () => {
-        const user = await createUser({ username: 'buser', email: 'b@fauxtest.com', passwordHash: '$2b$10$fakehash', name: 'B', role: 'user' });
+        const user = await createUser({ username: 'buser', email: 'b@fauxtest.com', passwordBcrypt: '$2b$10$fakehash', name: 'B', role: 'user' });
         const found = await findUserById(user.id);
         expect(found.email).toBe('b@fauxtest.com');
     });

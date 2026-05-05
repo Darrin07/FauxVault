@@ -7,10 +7,10 @@ const { safetyNetLimiter, bruteForceLimiter } = require('../middleware/rateLimit
 // Safety-net: unconditional rate limit on all auth routes
 router.use(safetyNetLimiter);
 
-// VULN MODULE: Weak Passwords (A02) — toggle hash algorithm (plaintext/MD5 vs bcrypt)
-router.post('/register', authController.register);
-// VULN MODULE: Brute Force (A07) — toggleable rate limiting
-router.post('/login', vulnerabilityToggle('brute_force'), bruteForceLimiter, authController.login);
+// VULN MODULE: weak_password_storage (A02) — toggle hash algorithm (plaintext/MD5 vs bcrypt)
+router.post('/register', vulnerabilityToggle('weak_password_storage'), authController.register);
+// VULN MODULE: brute_force (A07) — toggleable rate limiting; weak_password_storage also applied
+router.post('/login', vulnerabilityToggle('weak_password_storage'), vulnerabilityToggle('brute_force'), bruteForceLimiter, authController.login);
 router.post('/logout', authController.logout);
 
 module.exports = router;

@@ -31,7 +31,12 @@
     "pg": "^8.20.0"
   },
   "jest": {
-    "setupFilesAfterEnv": ["./tests/setup.js"],
+    "setupFiles": [
+      "./tests/envSetup.js"
+    ],
+    "setupFilesAfterEnv": [
+      "./tests/setup.js"
+    ],
     "globalTeardown": "./tests/teardown.js"
   },
   "devDependencies": {
