@@ -22,12 +22,11 @@ import {
 } from '@mui/icons-material'
 import * as transfersApi from '../services/transfers'
 import { fmt } from '../utils/format'
+import { useVulnerabilities } from '../hooks/useVulnerabilities'
 
 // TransferPage:  renders at /transfer
 // On success: green Alert confirms transfer, form clears, transaction added to Recent Transfers sidebar (max 5)
 // On failure: red Alert shows server error message; all fields stay populated so user can correct and retry
-
-// fmt imported from ../utils/format
 
 export default function TransferPage() {
     const [form, setForm] = useState({ toAccountId: '', amount: '', memo: '' })
@@ -35,6 +34,10 @@ export default function TransferPage() {
     const [success, setSuccess] = useState(null)
     const [loading, setLoading] = useState(false)
     const [recentTransfers, setRecentTransfers] = useState([])
+
+    //Vulnerability Module: Stored XSS - when enabled, the description cell will render raw HTML
+    const { modules } = useVulnerabilities()
+    const xssVulnerable = modules.find(m => m.id === 'xss_stored')?.enabled
 
     function handleChange(field) {
         return (e) => setForm((prev) => ({ ...prev, [field]: e.target.value }))
@@ -197,11 +200,21 @@ export default function TransferPage() {
                                     >
                                         <ListItemText
                                             primary={`Account ${t.toAccountId}`}
-                                            secondary={new Date(t.createdAt).toLocaleDateString('en-US', {
-                                                month: 'short', day: 'numeric', year: 'numeric',
-                                            })}
+                                            secondary={
+                                                <>
+                                                    {new Date(t.createdAt).toLocaleDateString('en-US', {
+                                                        month: 'short', day: 'numeric', year: 'numeric',
+                                                    })}
+                                                    {/* VULN MODULE: Stored XSS — memo rendering */}
+                                                    {t.memo && (
+                                                        xssVulnerable
+                                                            ? <span dangerouslySetInnerHTML={{ __html: ` — ${t.memo}` }} />
+                                                            : <span>{` — ${t.memo}`}</span>
+                                                    )}
+                                                </>
+                                            }
                                             primaryTypographyProps={{ variant: 'body2', fontWeight: 600 }}
-                                            secondaryTypographyProps={{ variant: 'caption' }}
+                                            secondaryTypographyProps={{ variant: 'caption', component: 'div' }}
                                         />
 
                                         <Typography
