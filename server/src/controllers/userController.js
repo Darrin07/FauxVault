@@ -2,6 +2,11 @@
 const { findUserById, updateUser, findUserByEmail } = require('../models/users');
 const { findAccountByUserId } = require('../models/accounts');
 const { executeSecurely } = require('../config/db');
+const {
+    MAX_ACTIVE_VULNERABILITIES,
+    getUserSettings,
+    updateUserSetting,
+} = require('../models/toggleState');
 
 /**
  * Returns profile info for the authenticated user, including account number.
@@ -103,4 +108,49 @@ async function updateProfile(req, res, next) {
     }
 }
 
-module.exports = { getProfile, updateProfile };
+async function getVulnerabilitySettings(req, res, next) {
+    try {
+        const settings = await getUserSettings(req.user.userId);
+        res.json(settings);
+    } catch (err) {
+        next(err);
+    }
+}
+
+async function updateVulnerabilitySetting(req, res, next) {
+    try {
+        const { module_name, is_vulnerable } = req.body;
+
+        if (!module_name || typeof is_vulnerable !== 'boolean') {
+            return res.status(400).json({
+                error: {
+                    status: 400,
+                    message: 'module_name and boolean is_vulnerable are required',
+                    code: 'VALIDATION_FAILED',
+                },
+            });
+        }
+
+        const result = await updateUserSetting(req.user.userId, module_name, is_vulnerable);
+
+        if (!result) {
+            return res.status(404).json({
+                error: { status: 404, message: 'Module not found', code: 'MODULE_NOT_FOUND' },
+            });
+        }
+
+        res.json({
+            ...result,
+            maxActiveVulnerabilities: MAX_ACTIVE_VULNERABILITIES,
+        });
+    } catch (err) {
+        next(err);
+    }
+}
+
+module.exports = {
+    getProfile,
+    updateProfile,
+    getVulnerabilitySettings,
+    updateVulnerabilitySetting,
+};

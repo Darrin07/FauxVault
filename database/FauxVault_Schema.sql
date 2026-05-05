@@ -2,6 +2,7 @@
 DROP TABLE IF EXISTS transactions CASCADE;
 DROP TABLE IF EXISTS accounts CASCADE;
 DROP TABLE IF EXISTS users CASCADE;
+DROP TABLE IF EXISTS user_vulnerability_settings CASCADE;
 DROP TABLE IF EXISTS vulnerability_settings CASCADE;
 
 -- Users Table
@@ -41,8 +42,16 @@ CREATE TABLE transactions (
 CREATE TABLE vulnerability_settings (
     module_key VARCHAR(50) PRIMARY KEY,
     module_name VARCHAR(50) UNIQUE NOT NULL,
-    is_vulnerable BOOLEAN DEFAULT TRUE,
+    is_vulnerable BOOLEAN DEFAULT FALSE,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE user_vulnerability_settings (
+    user_id UUID NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+    module_name VARCHAR(50) NOT NULL REFERENCES vulnerability_settings(module_name) ON DELETE CASCADE,
+    is_vulnerable BOOLEAN NOT NULL DEFAULT FALSE,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (user_id, module_name)
 );
 
 -- Enable RLS on sensitive tables
