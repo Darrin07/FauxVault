@@ -3,7 +3,7 @@
 ALTER TABLE accounts DISABLE ROW LEVEL SECURITY;
 ALTER TABLE transactions DISABLE ROW LEVEL SECURITY;
 -- Clean tables
-TRUNCATE users, accounts, transactions, vulnerability_settings CASCADE;
+TRUNCATE users, accounts, transactions, vulnerability_settings, user_vulnerability_settings CASCADE;
 
 -- 1. Seed Users
 -- Passwords: admin = 'AdminPass123', test_user = 'Password123'
@@ -28,21 +28,21 @@ VALUES (
 );
 
 -- 4. Seed Vulnerability Toggles
--- Default to TRUE (vulnerable mode) per project spec R1.3.1
+-- Default to FALSE (hardened mode) per per-user toggle architecture
 -- module_key = OWASP category ID, module_name = code-facing short name
 -- See references/OWASP_Module_Mapping.md for full mapping details
 INSERT INTO vulnerability_settings (module_key, module_name, is_vulnerable)
 VALUES
-('a01-broken-access-control', 'bola', TRUE),
-('a02-cryptographic-failures', 'weak_password_storage', TRUE),
-('a03-injection-sql', 'sql_injection', TRUE),
-('a03-xss-stored', 'xss_stored', TRUE),
-('a03-xss-reflected', 'xss_reflected', TRUE),
-('a05-security-misconfiguration', 'verbose_errors', TRUE),
-('a07-auth-failures', 'weak_session_tokens', TRUE),
-('a07-brute-force', 'brute_force', TRUE),
-('api3-excessive-data-exposure', 'excessive_data_exposure', TRUE),
-('api5-broken-function-auth', 'privilege_escalation', TRUE);
+('a01-broken-access-control', 'bola', FALSE),
+('a02-cryptographic-failures', 'weak_password_storage', FALSE),
+('a03-injection-sql', 'sql_injection', FALSE),
+('a03-xss-stored', 'xss_stored', FALSE),
+('a03-xss-reflected', 'xss_reflected', FALSE),
+('a05-security-misconfiguration', 'verbose_errors', FALSE),
+('a07-auth-failures', 'weak_session_tokens', FALSE),
+('a07-brute-force', 'brute_force', FALSE),
+('api3-excessive-data-exposure', 'excessive_data_exposure', FALSE),
+('api5-broken-function-auth', 'privilege_escalation', FALSE);
 
 -- Re-enable RLS once seeding is complete
 ALTER TABLE accounts ENABLE ROW LEVEL SECURITY;
