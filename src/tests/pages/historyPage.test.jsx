@@ -25,6 +25,10 @@
  *    a. filters visible rows by description text
  *    b. shows 'No matches found' when search has no results
  *    c. shows result count after filtering
+ * 
+ *  6. Vulnerablility Module:  Stored XSS (xss_stored)
+ *    a. renders description as raw HTML when xss_stored is enabled
+ *    b. renders description as escaped text when xss_stored is disabled
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
@@ -33,12 +37,26 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import HistoryPage from '@/pages/HistoryPage'
 
+// Mock Setup ------
+// HistoryPage imports useVulnerabilities.  Without thhis mock, the module import resolves to the hook
+// which needs VulnerabilityProvider in the tree.  vi.hoisted() guarantees mock function is created before import
+// statement resolves
+
+const { mockUseVulnerabilities } = vi.hoisted(() => ({
+    mockUseVulnerabilities: vi.fn(),
+}))
+
+vi.mock('@/hooks/useVulnerabilities', () => ({
+    useVulnerabilities: mockUseVulnerabilities,
+}))
+
 vi.mock('@/services/transfers', () => ({
     getTransfers: vi.fn(),
     sendTransfer: vi.fn(),
 }))
 
 import * as transfersApi from '@/services/transfers'
+import { useVulnerabilities } from '../../hooks/useVulnerabilities'
 
 // Matches the raw server response shape from GET /transfers
 const MOCK_TRANSACTIONS = [
@@ -73,6 +91,14 @@ function renderPage(route = '/history') {
 beforeEach(() => {
     localStorage.clear()
     vi.clearAllMocks()
+    // Default: xss_stored disabled (hardened) — keeps all existing tests unaffected
+    mockUseVulnerabilities.mockReturnValue({
+        modules: [{ id: 'xss_stored', name: 'Stored XSS', enabled: false }],
+        toggleModule: vi.fn(),
+        isVulnerable: false,
+        notification: null,
+        closeNotification: vi.fn(),
+    })
 })
 
 // Loading test
@@ -191,5 +217,48 @@ describe('HistoryPage — client-side search', () => {
         await user.type(screen.getByPlaceholderText(/search/i), 'Rent')
 
         expect(await screen.findByText(/1 transaction found/i)).toBeInTheDocument()
+    })
+})
+
+// Vulnerability Module: Stored XSS
+
+const XSS_TRANSACTION = {
+    id: 'txn-xss',
+    fromAccountId: 'acc-001',
+    toAccountId: 'acc-002',
+    amount: 1.00,
+    reference: '<img src=x onerror="alert(1)">',
+    memo: '<img src=x onerror="alert(1)">',
+    createdAt: '2026-05-01T12:00:00.000Z',
+}
+
+describe('HistoryPage — Stored XSS module (xss_stored)', () => {
+    it('renders description HTML as a DOM element when xss_stored is enabled', async () => {
+        mockUseVulnerabilities.mockReturnValue({
+            modules: [{ id: 'xss_stored', name: 'Stored XSS', enabled: true }],
+            toggleModule: vi.fn(),
+            isVulnerable: true,
+            notification: null,
+            closeNotification: vi.fn(),
+        })
+        transfersApi.getTransfers.mockResolvedValue({ transactions: [XSS_TRANSACTION] })
+        const { container } = renderPage()
+
+        await screen.findByRole('table')
+
+        // dangerouslySetInnerHTML: <img src=x> becomes a real DOM node
+        expect(container.querySelector('img[src="x"]')).toBeInTheDocument()
+    })
+
+    it('renders description HTML as escaped text when xss_stored is disabled', async () => {
+        // Default beforeEach mock already has xss_stored disabled
+        transfersApi.getTransfers.mockResolvedValue({ transactions: [XSS_TRANSACTION] })
+        const { container } = renderPage()
+
+        await screen.findByRole('table')
+
+        // React escaping: no <img> element, raw string visible as text
+        expect(container.querySelector('img[src="x"]')).not.toBeInTheDocument()
+        expect(screen.getByText(/<img/)).toBeInTheDocument()
     })
 })
