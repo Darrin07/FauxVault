@@ -36,7 +36,7 @@ function sanitizeUser(user){
 
 /**
     * Registers a new user.
-    * VULN MODULE: weak_password_storage (A02/A04)
+    * VULN MODULE: weak_password_storage (A02)
     *   Vulnerable:  stores password_plaintext + password_md5; response includes hashInfo
     *   Hardened:    stores only password_bcrypt; plaintext/md5 columns set to NULL
     * @param {Request} req - express request with username, email, password in body
@@ -105,7 +105,7 @@ async function register(req, res, next){
 
 /**
  * Authenticates a user and returns a JWT.
- * VULN MODULE: weak_password_storage (A02/A04)
+ * VULN MODULE: weak_password_storage (A02)
  *   Vulnerable:  compares submitted password against stored MD5 hash; response includes hashInfo
  *   Hardened:    compares against bcrypt hash
  * Accepts email or username as identifier.
