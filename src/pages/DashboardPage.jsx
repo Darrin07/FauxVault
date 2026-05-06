@@ -29,6 +29,7 @@ import {
 import * as accountsApi from '../services/accounts'
 import * as transfersApi from '../services/transfers'
 import { fmt } from '../utils/format'
+import SessionInspector from '../components/SessionInspector'
 
     // DashboardPage — rendered at /dashboard
     // Loads account balance, deposits, and withdrawals on mount via Promise.all
