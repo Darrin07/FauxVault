@@ -1,5 +1,6 @@
 const express = require('express');
 const cors = require('cors');
+const cookieParser = require('cookie-parser');
 const morgan = require('morgan');
 const errorHandler = require('./middleware/errorHandler');
 const { authenticate } = require('./middleware/auth');
@@ -8,6 +9,10 @@ const app = express();
 
 // Middleware chain
 app.use(cors());
+app.use(cors({
+  origin: process.env.CORS_ORIGIN || 'http://localhost:5173',
+  credentials: true,
+}))
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
