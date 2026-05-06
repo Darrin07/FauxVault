@@ -19,6 +19,7 @@ import { Search as SearchIcon } from '@mui/icons-material'
 import * as transfersApi from '../services/transfers'
 import { normalizeTransaction } from '../utils/normalize'
 import { fmt, formatDate } from '../utils/format'
+import { useVulnerabilities } from '../hooks/useVulnerabilities'
 
 // HistoryPage: renders at /history
 // Fetch transfer history from GET /transfers on mount; re-fetches when URL ?type param changes
@@ -31,6 +32,10 @@ export default function HistoryPage() {
     const [searchQuery, setSearchQuery] = useState('')
     const [loading, setLoading] = useState(true)
     const [searchParams] = useSearchParams()
+
+    //Vulnerability Module: Stored XSS - when enabled, the description cell wil render raw HTML
+    const { modules } = useVulnerabilities()
+    const xssVulnerable = modules.find(m => m.id === 'xss_stored')?.enabled
 
     // 'transfers' when navigated from Dashboard quick action; controls heading only
     // Not forwarded to the API — the API filter accepts 'sent'/'received', not 'transfers'
@@ -176,7 +181,11 @@ export default function HistoryPage() {
                                         </TableCell>
 
                                         <TableCell>
-                                            <Typography variant="body2">{txn.description}</Typography>
+                                            {/* Vulnerability Module: Stored XSS - dagenouslySetInnerHTML when vulnerable */}
+                                            {xssVulnerable
+                                                ? <Typography variant="body2" dangerouslySetInnerHTML={{ __html: txn.description }} />
+                                                : <Typography variant="body2">{txn.description}</Typography>
+                                            }
                                         </TableCell>
 
                                         <TableCell>

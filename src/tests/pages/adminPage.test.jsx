@@ -33,6 +33,47 @@ vi.mock('@/services/users', () => ({
     updateProfile: vi.fn(),
 }))
 
+vi.mock('@mui/material', () => ({
+    Box: ({ children, component, onSubmit }) =>
+        component === 'form'
+            ? <form onSubmit={onSubmit}>{children}</form>
+            : <div>{children}</div>,
+    Typography: ({ children }) => <span>{children}</span>,
+    TextField: ({ placeholder, onChange, value, type, label, inputProps }) => (
+        <>
+            {label && <label htmlFor={label}>{label}</label>}
+            <input
+                id={label}
+                placeholder={placeholder}
+                onChange={onChange}
+                value={value}
+                type={type}
+                {...(inputProps || {})}
+            />
+        </>
+    ),
+    Button: ({ children, onClick, disabled, type }) => (
+        <button type={type} onClick={onClick} disabled={disabled}>{children}</button>
+    ),
+    Alert: ({ children, onClose }) => (
+        <div role="alert">
+            {children}
+            {onClose && <button onClick={onClose}>Close</button>}
+        </div>
+    ),
+    InputAdornment: ({ children }) => <div>{children}</div>,
+    Card: ({ children }) => <div>{children}</div>,
+    CardContent: ({ children }) => <div>{children}</div>,
+    CircularProgress: () => <div data-testid="loading" />,
+    Divider: () => <hr />,
+}))
+
+vi.mock('@mui/icons-material', () => ({
+    Person: () => <span>user-icon</span>,
+    Email: () => <span>mail-icon</span>,
+    Save: () => <span>save-icon</span>,
+}))
+
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'

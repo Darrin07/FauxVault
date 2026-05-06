@@ -23,6 +23,59 @@ const {
     mockGetTransfers: vi.fn(),
 }))
 
+vi.mock('@mui/material', () => ({
+    Box: ({ children, component, onSubmit }) =>
+        component === 'form'
+            ? <form onSubmit={onSubmit}>{children}</form>
+            : <div>{children}</div>,
+    Typography: ({ children }) => <span>{children}</span>,
+    Card: ({ children }) => <div>{children}</div>,
+    CardContent: ({ children }) => <div>{children}</div>,
+    Skeleton: () => <div data-testid="skeleton" />,
+    Button: ({ children, onClick, disabled, type }) => (
+        <button type={type} onClick={onClick} disabled={disabled}>{children}</button>
+    ),
+    Dialog: ({ children, open, onClose }) =>
+        open ? <div role="dialog">{children}</div> : null,
+    DialogTitle: ({ children }) => <div>{children}</div>,
+    DialogContent: ({ children }) => <div>{children}</div>,
+    DialogActions: ({ children }) => <div>{children}</div>,
+    TextField: ({ placeholder, onChange, value, type, label, inputProps }) => (
+        <>
+            {label && <label htmlFor={label}>{label}</label>}
+            <input
+                id={label}
+                placeholder={placeholder}
+                onChange={onChange}
+                value={value}
+                type={type}
+                {...(inputProps || {})}
+            />
+        </>
+    ),
+    InputAdornment: ({ children }) => <div>{children}</div>,
+    Alert: ({ children, onClose, severity }) => (
+        <div role="alert" data-severity={severity}>
+            {children}
+            {onClose && <button onClick={onClose}>Close</button>}
+        </div>
+    ),
+    CircularProgress: () => <div data-testid="loading" />,
+    Divider: () => <hr />,
+}))
+
+vi.mock('@mui/icons-material', () => ({
+    Send: () => <span>send-icon</span>,
+    History: () => <span>history-icon</span>,
+    AccountBalance: () => <span>balance-icon</span>,
+    TrendingUp: () => <span>deposit-icon</span>,
+    TrendingDown: () => <span>withdrawal-icon</span>,
+    Tag: () => <span>hash-icon</span>,
+    AttachMoney: () => <span>dollar-icon</span>,
+    ChatBubbleOutlined: () => <span>memo-icon</span>,
+    CheckCircleOutlined: () => <span>check-icon</span>,
+}))
+
 vi.mock('../../services/accounts', () => ({
     getBalance: mockGetBalance,
     getDeposits: mockGetDeposits,
@@ -128,8 +181,9 @@ describe('DashboardPage — TransferModal validation', () => {
         await openModal(user)
 
         await user.type(screen.getByLabelText(/recipient account id/i), 'some-uuid')
-        await user.type(screen.getByLabelText(/amount \(\$\)/i), '0')
-        await user.click(screen.getByRole('button', { name: /send transfer/i }))
+        fireEvent.change(screen.getByLabelText(/amount \(\$\)/i), { target: { value: '0' } })
+
+        fireEvent.submit(screen.getByRole('button', { name: /send transfer/i }).closest('form'))
 
         const alert = await screen.findByRole('alert')
         expect(alert).toHaveTextContent(/valid amount/i)
