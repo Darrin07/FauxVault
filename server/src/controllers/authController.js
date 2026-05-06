@@ -6,6 +6,9 @@ const config = require('../config');
 const { createUser, findUserByEmail, findUserByEmailAllHashes, findUserByUsername, findUserByUsernameAllHashes } = require('../models/users');
 const { createAccount } = require('../models/accounts');
 
+const isProduction = config.nodeEnv === 'production';
+const COOKIE_MAX_AGE = 24 * 60 * 60 * 1000; // 24 hr, JWT expiresIn
+
 function md5(str) {
   return crypto.createHash('md5').update(str).digest('hex');
 }
@@ -32,6 +35,35 @@ function generateToken(user){
  */
 function sanitizeUser(user){
     return { id: user.id, username: user.username, email: user.email, role: user.role };
+}
+
+/**
+ * Sets the session token as a cookie with flags determined by the vulnerability module.
+ * Vulnerability Module: weak_session_tokens (A07)
+ *   Vulnerable:  httpOnly=false, secure=false, sameSite='None': JS-accessible
+ *   Hardened:    httpOnly=true, secure=true (prod), sameSite='Strict': JS-inaccessible
+ * @param {Response} res - express response object
+ * @param {string} token - the signed JWT
+ * @param {boolean} isVulnerable - whether the weak_session_tokens module is enabled
+ */
+function setSessionCookie(res, token, isVulnerable) {
+    if (isVulnerable) {
+        res.cookie('token', token, {
+            httpOnly: false,
+            secure: false,
+            sameSite: 'None',
+            maxAge: COOKIE_MAX_AGE,
+            path: '/',
+        });
+    } else {
+        res.cookie('token', token, {
+            httpOnly: true,
+            secure: isProduction,
+            sameSite: 'Strict',
+            maxAge: COOKIE_MAX_AGE,
+            path: '/',
+        });
+    }
 }
 
 /**
@@ -94,7 +126,12 @@ async function register(req, res, next){
         await createAccount(user.id, 1000);
 
         const token = generateToken(user);
-        const body = { token, user: sanitizeUser(user) };
+
+        //Vulnerability Module:  weak_session_tokens - set cookie with appropriate flags
+        setSessionCookie(res, token, req.vuln_weak_session_tokens);
+
+        const body = { user: sanitizeUser(user) };
+        if (req.vuln_weak_session_tokens) body.token = token; //vulnerable: token in body
         if (hashInfo) body.hashInfo = hashInfo;
 
         res.status(201).json(body);
@@ -175,7 +212,11 @@ async function login(req, res, next){
         }
 
         const token = generateToken(user);
-        const body = { token, user: sanitizeUser(user) };
+
+        //vulnerability module: weak_session_tokens - set cookie w/appropriate flags
+        setSessionCookie(res, token, req.vuln_weak_session_tokens);
+        const body = { user: sanitizeUser(user) };
+        if (req.vuln_weak_session_tokens) body.token = token; //vulnerable: token in body as well
         if (hashInfo) body.hashInfo = hashInfo;
 
         res.json(body);
@@ -186,12 +227,15 @@ async function login(req, res, next){
 
 
 /**
- * Logs out the current user (stateless — client discards token)
+ * Logs out the current user.
+ * Clears the session cookie regardless of module state.
+ * Client is responsbile for discarding localStorage token.
  * @param {Request} req - express request
  * @param {Response} res - express response
  * @requirement R1.1
  */
 function logout(req, res) {
+    res.clearCookie('token', { path: '/' });
     res.json({ message: 'Logged out'});
 }
 
