@@ -39,6 +39,60 @@ vi.mock('@/hooks/useVulnerabilities', () => ({
     useVulnerabilities: mockUseVulnerabilities,
 }))
 
+vi.mock('@mui/material', () => ({
+    Box: ({ children, component, onSubmit }) =>
+        component === 'form'
+            ? <form onSubmit={onSubmit}>{children}</form>
+            : <div>{children}</div>,
+    Typography: ({ children }) => <span>{children}</span>,
+    TextField: ({ placeholder, onChange, value, type, label, inputProps }) => (
+        <>
+            {label && <label htmlFor={label}>{label}</label>}
+            <input
+                id={label}
+                placeholder={placeholder}
+                onChange={onChange}
+                value={value}
+                type={type}
+                {...(inputProps || {})}
+            />
+        </>
+    ),
+    Button: ({ children, onClick, disabled, type }) => (
+        <button type={type} onClick={onClick} disabled={disabled}>{children}</button>
+    ),
+    Alert: ({ children, onClose }) => (
+        <div role="alert">
+            {children}
+            {onClose && <button onClick={onClose}>Close</button>}
+        </div>
+    ),
+    InputAdornment: ({ children }) => <div>{children}</div>,
+    Card: ({ children }) => <div>{children}</div>,
+    CardContent: ({ children }) => <div>{children}</div>,
+    List: ({ children }) => <ul>{children}</ul>,
+    ListItem: ({ children }) => <li>{children}</li>,
+    ListItemText: ({ primary, secondary }) => (
+        <div>
+            <span>{primary}</span>
+            <div>{secondary}</div>
+        </div>
+    ),
+    CircularProgress: () => <div data-testid="loading" />,
+}))
+
+vi.mock('@mui/icons-material', () => ({
+    Send: () => <span>send-icon</span>,
+    Tag: () => <span>hash-icon</span>,
+    AttachMoney: () => <span>dollar-icon</span>,
+    ChatBubbleOutlined: () => <span>memo-icon</span>,
+    CheckCircleOutlined: () => <span>check-icon</span>,
+}))
+
+vi.mock('@/hooks/useVulnerabilities', () => ({
+    useVulnerabilities: mockUseVulnerabilities,
+}))
+
 vi.mock('@/services/transfers', () => ({
     sendTransfer: vi.fn(),
     getTransfers: vi.fn(),
@@ -97,7 +151,6 @@ async function submitTransfer(user, toAccountId = 'acc-receiver-uuid', amount = 
 
 beforeEach(() => {
     vi.clearAllMocks()
-    // Default: xss_stored disabled (hardened)
     mockUseVulnerabilities.mockReturnValue({
         modules: [{ id: 'xss_stored', name: 'Stored XSS', enabled: false }],
         toggleModule: vi.fn(),

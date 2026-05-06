@@ -24,6 +24,46 @@
  *    b. does NOT crash or leave the button permanently disabled
  */
 
+vi.mock('@mui/material', () => ({
+    Box: ({ children, component, onSubmit, to }) => {
+        if (component === 'form') return <form onSubmit={onSubmit}>{children}</form>
+        if (component && typeof component !== 'string') return <a href={to}>{children}</a>
+        return <div>{children}</div>
+    },
+    Typography: ({ children }) => <span>{children}</span>,
+    TextField: ({ placeholder, onChange, value, type, label, inputProps, helperText }) => (
+        <>
+            {label && <label htmlFor={label}>{label}</label>}
+            <input
+                id={label}
+                placeholder={placeholder}
+                onChange={onChange}
+                value={value}
+                type={type}
+                {...(inputProps || {})}
+            />
+            {helperText && <span role="status">{helperText}</span>}
+        </>
+    ),
+    Button: ({ children, onClick, disabled, type }) => (
+        <button type={type} onClick={onClick} disabled={disabled}>{children}</button>
+    ),
+    Alert: ({ children, onClose }) => (
+        <div role="alert">
+            {children}
+            {onClose && <button onClick={onClose}>Close</button>}
+        </div>
+    ),
+    InputAdornment: ({ children }) => <div>{children}</div>,
+    CircularProgress: () => <div data-testid="loading" />,
+}))
+
+vi.mock('@mui/icons-material', () => ({
+    Person: () => <span>user-icon</span>,
+    Email: () => <span>email-icon</span>,
+    Lock: () => <span>lock-icon</span>,
+}))
+
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'

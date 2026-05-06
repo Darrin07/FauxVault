@@ -63,6 +63,7 @@ function TransferModal({ isOpen, onClose }) {
     }
     
     async function handleSubmit(e) {
+        console.log('form state on submit:', form)
         e.preventDefault()
         setError('')
         setSuccess('')

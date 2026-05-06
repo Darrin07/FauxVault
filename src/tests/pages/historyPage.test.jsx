@@ -46,6 +46,29 @@ const { mockUseVulnerabilities } = vi.hoisted(() => ({
     mockUseVulnerabilities: vi.fn(),
 }))
 
+vi.mock('@mui/material', () => ({
+    Box: ({ children }) => <div>{children}</div>,
+    Typography: ({ children, dangerouslySetInnerHTML, variant }) =>
+        dangerouslySetInnerHTML
+            ? <span dangerouslySetInnerHTML={dangerouslySetInnerHTML} />
+            : <span>{children}</span>,
+    TextField: (props) => <input placeholder={props.placeholder} onChange={props.onChange} />,
+    InputAdornment: ({ children }) => <div>{children}</div>,
+    Table: ({ children }) => <table>{children}</table>,
+    TableBody: ({ children }) => <tbody>{children}</tbody>,
+    TableCell: ({ children }) => <td>{children}</td>,
+    TableContainer: ({ children }) => <div>{children}</div>,
+    TableHead: ({ children }) => <thead>{children}</thead>,
+    TableRow: ({ children }) => <tr>{children}</tr>,
+    Chip: ({ label }) => <span>{label}</span>,
+    Skeleton: () => <div data-testid="skeleton" />,
+    Paper: ({ children }) => <div>{children}</div>,
+}))
+
+vi.mock('@mui/icons-material', () => ({
+    Search: () => <span>search</span>,
+}))
+
 vi.mock('@/hooks/useVulnerabilities', () => ({
     useVulnerabilities: mockUseVulnerabilities,
 }))
