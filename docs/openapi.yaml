@@ -68,9 +68,9 @@ paths:
         Creates a new user with a bcrypt-hashed password and a default checking
         account with $1,000 balance. Returns a signed JWT.
 
-        x-frontend-migration: Frontend `auth.js` sends `{ email, password, name }`.
-        Must change to `{ username, email, password }`. The `name` field is optional
-        and stored separately from `username`.
+        When the `weak_password_storage` module is enabled, the response also
+        includes `hashInfo` so students can inspect the intentionally weak
+        storage formats used by that vulnerable path.
       operationId: register
       requestBody:
         required: true
@@ -108,6 +108,8 @@ paths:
                     description: Signed JWT
                   user:
                     $ref: '#/components/schemas/SanitizedUser'
+                  hashInfo:
+                    $ref: '#/components/schemas/RegisterHashInfo'
               example:
                 token: eyJhbGciOiJIUzI1NiIs...
                 user:
@@ -148,9 +150,8 @@ paths:
         Accepts an identifier (email or username) and password. If the identifier
         contains `@`, looks up by email; otherwise by username. Returns a signed JWT.
 
-        x-frontend-migration: Frontend `auth.js` sends `{ email, password }`.
-        Must change to `{ identifier, password }`. The `identifier` field accepts
-        either an email address or a username.
+        When the `weak_password_storage` module is enabled, the response also
+        includes `hashInfo` describing the intentionally weak MD5 comparison.
       operationId: login
       requestBody:
         required: true
@@ -183,6 +184,8 @@ paths:
                     type: string
                   user:
                     $ref: '#/components/schemas/SanitizedUser'
+                  hashInfo:
+                    $ref: '#/components/schemas/LoginHashInfo'
               example:
                 token: eyJhbGciOiJIUzI1NiIs...
                 user:
@@ -294,8 +297,8 @@ paths:
         module will add a toggle: vulnerable mode skips the ownership check,
         hardened mode enforces it.
 
-        x-frontend-migration: No frontend caller yet. This endpoint will be used
-        by the BOLA/IDOR module demo.
+        No frontend caller uses this endpoint yet; it is reserved for the
+        BOLA/IDOR module demo.
       operationId: getAccountById
       security:
         - bearerAuth: []
@@ -334,16 +337,11 @@ paths:
   /accounts/deposits:
     get:
       tags: [Accounts]
-      summary: "[PLANNED] Get deposit summary for the authenticated user"
-      x-status: planned
+      summary: Get deposit summary for the authenticated user
       description: |
-        **Status: PLANNED — not yet implemented**
+        **Status: Implemented**
 
         Returns aggregate deposit total for the authenticated user's account.
-        The frontend dashboard (`accounts.js` `getDeposits()`) expects this.
-
-        Planned response shape based on frontend mock:
-        `{ total: 3200.00, period: "this month" }`
       operationId: getDeposits
       security:
         - bearerAuth: []
@@ -365,20 +363,26 @@ paths:
                 period: this month
         '401':
           $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: No account found for authenticated user
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error:
+                  status: 404
+                  message: No account found for authenticated user
+                  code: ACCOUNT_NOT_FOUND
 
   /accounts/withdrawals:
     get:
       tags: [Accounts]
-      summary: "[PLANNED] Get withdrawal summary for the authenticated user"
-      x-status: planned
+      summary: Get withdrawal summary for the authenticated user
       description: |
-        **Status: PLANNED — not yet implemented**
+        **Status: Implemented**
 
         Returns aggregate withdrawal total for the authenticated user's account.
-        The frontend dashboard (`accounts.js` `getWithdrawals()`) expects this.
-
-        Planned response shape based on frontend mock:
-        `{ total: 1320.00, period: "this month" }`
       operationId: getWithdrawals
       security:
         - bearerAuth: []
@@ -400,6 +404,17 @@ paths:
                 period: this month
         '401':
           $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: No account found for authenticated user
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error:
+                  status: 404
+                  message: No account found for authenticated user
+                  code: ACCOUNT_NOT_FOUND
 
   # ─────────────────────────────────────────────
   # Transfers
@@ -418,17 +433,6 @@ paths:
         Stored XSS lab support: transaction records include `reference`, and the
         API also returns `memo` as an alias of that same stored value so the
         frontend can bind cleanly to a memo textbox.
-
-        x-frontend-migration: Frontend has two files that fetch transactions:
-        - `transfers.js` `getTransfers()` — uses `apiFetch('/transfers')` ✓ correct path
-        - `transactions.js` `getTransactions(type)` — mock-only, wire to this endpoint
-
-        Response shape differs from frontend mock. Backend returns:
-        `{ transactions: [{ id, fromAccountId, toAccountId, amount, reference, memo, createdAt }] }`
-        Frontend `transactions.js` mock uses:
-        `[{ id, date, description, type, amount, balanceAfter }]`
-        Frontend will need to adapt to the backend shape or the backend will need
-        a richer response (description, running balance are not currently stored).
       operationId: getTransferHistory
       security:
         - bearerAuth: []
@@ -487,10 +491,6 @@ paths:
         The backend stores that value in the `reference` column and returns both
         `reference` and `memo` in API responses. `reference` is also accepted as
         an input alias for compatibility.
-
-        x-frontend-migration: Frontend `transfers.js` `sendTransfer()` sends
-        `{ recipientId, amount, memo }`. Must change `recipientId` to `toAccountId`.
-        The `memo` field is now supported.
       operationId: createTransfer
       security:
         - bearerAuth: []
@@ -596,10 +596,6 @@ paths:
         **Status: Implemented**
 
         Returns all vulnerability module toggles with their current state.
-
-        x-frontend-migration: Frontend `vulnerabilities.js` `getModules()` calls
-        mock `GET /api/vuln/modules`. Must change to `GET /api/settings`.
-        Response is an array of setting objects, not an empty array.
       operationId: getSettings
       responses:
         '200':
@@ -611,30 +607,26 @@ paths:
                 items:
                   $ref: '#/components/schemas/Setting'
               example:
-                - module_key: A01:2025 - BOLA
-                  module_name: bola_idor
+                - module_key: a01-broken-access-control
+                  module_name: bola
                   is_vulnerable: false
                   updated_at: '2026-04-27T12:00:00.000Z'
-                - module_key: A03:2025 - Injection
+                - module_key: a03-injection-sql
                   module_name: sql_injection
                   is_vulnerable: false
                   updated_at: '2026-04-27T12:00:00.000Z'
 
     post:
       tags: [Settings]
-      summary: Update a single module's toggle state
+      summary: Attempt to update a global vulnerability toggle
       description: |
         **Status: Implemented**
 
-        Flips a vulnerability module between vulnerable and hardened mode.
-
-        x-frontend-migration: Frontend `vulnerabilities.js` `toggleModule(moduleId, enabled)`
-        calls mock `PUT /api/vuln/toggle`. Must change to `POST /api/settings` with
-        body `{ module_name, is_vulnerable }`. The `moduleId` maps to `module_name`,
-        and `enabled` maps to `is_vulnerable`.
+        Global vulnerability settings are read-only at runtime. Signed-in users
+        can persist per-user overrides with `PUT /users/me/vulnerability-settings`.
       operationId: updateSetting
       requestBody:
-        required: true
+        required: false
         content:
           application/json:
             schema:
@@ -653,59 +645,31 @@ paths:
               module_name: sql_injection
               is_vulnerable: true
       responses:
-        '200':
-          description: Toggle updated
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Setting'
-              example:
-                module_key: A03:2025 - Injection
-                module_name: sql_injection
-                is_vulnerable: true
-                updated_at: '2026-04-28T10:00:00.000Z'
-        '400':
-          description: Missing required fields
+        '403':
+          description: Global settings are read-only at runtime
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
               example:
                 error:
-                  status: 400
-                  message: module_name and is_vulnerable are required
-                  code: VALIDATION_FAILED
-        '404':
-          description: Module not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-              example:
-                error:
-                  status: 404
-                  message: Module not found
-                  code: MODULE_NOT_FOUND
+                  status: 403
+                  message: Global vulnerability settings are read-only at runtime
+                  code: SETTINGS_READ_ONLY
 
   # ─────────────────────────────────────────────
-  # Users (PLANNED)
+  # Users
   # ─────────────────────────────────────────────
 
   /users/profile:
     get:
       tags: [Users]
-      summary: "[PLANNED] Get the authenticated user's profile"
-      x-status: planned
+      summary: Get the authenticated user's profile
       description: |
-        **Status: PLANNED — not yet implemented**
+        **Status: Implemented**
 
-        Returns profile info for the authenticated user. Needed by:
-        - Frontend `users.js` `getProfile()`
-        - Darrin's Mass Assignment module (API3) — in vulnerable mode this
-          endpoint returns ALL fields including sensitive data; in hardened
-          mode it returns filtered fields only.
-
-        Planned response shape based on frontend mock and DB schema:
+        Returns profile info for the authenticated user, including the user's
+        first account number when one exists.
       operationId: getProfile
       security:
         - bearerAuth: []
@@ -718,25 +682,7 @@ paths:
                 type: object
                 properties:
                   user:
-                    type: object
-                    properties:
-                      id:
-                        type: string
-                        format: uuid
-                      username:
-                        type: string
-                      email:
-                        type: string
-                        format: email
-                      name:
-                        type: string
-                      role:
-                        type: string
-                      accountNumber:
-                        type: string
-                      createdAt:
-                        type: string
-                        format: date-time
+                    $ref: '#/components/schemas/UserProfile'
               example:
                 user:
                   id: 550e8400-e29b-41d4-a716-446655440000
@@ -748,19 +694,21 @@ paths:
                   createdAt: '2026-04-27T12:00:00.000Z'
         '401':
           $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
 
     put:
       tags: [Users]
-      summary: "[PLANNED] Update the authenticated user's profile"
-      x-status: planned
+      summary: Update the authenticated user's profile
       description: |
-        **Status: PLANNED — not yet implemented**
+        **Status: Implemented**
 
-        Updates profile fields for the authenticated user. Needed by:
-        - Frontend `users.js` `updateProfile(data)`
-        - Darrin's Mass Assignment module (API3) — in vulnerable mode this
-          endpoint accepts ANY field including `role` and `isAdmin`; in
-          hardened mode it only accepts whitelisted fields (name, email).
+        Updates whitelisted profile fields for the authenticated user. Hardened
+        mode accepts only `name` and `email`.
       operationId: updateProfile
       security:
         - bearerAuth: []
@@ -788,21 +736,157 @@ paths:
                 type: object
                 properties:
                   user:
-                    type: object
-                    properties:
-                      id:
-                        type: string
-                        format: uuid
-                      username:
-                        type: string
-                      email:
-                        type: string
-                      name:
-                        type: string
-                      role:
-                        type: string
+                    $ref: '#/components/schemas/UserProfile'
+              example:
+                user:
+                  id: 550e8400-e29b-41d4-a716-446655440000
+                  username: scurry
+                  email: steph.curry@email.com
+                  name: Stephen Curry
+                  role: user
+                  accountNumber: FAUX-M3KQ8P1Z
+                  createdAt: '2026-04-27T12:00:00.000Z'
+        '400':
+          description: Missing update fields
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error:
+                  status: 400
+                  message: At least one field (name, email) is required
+                  code: VALIDATION_FAILED
         '401':
           $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Email already registered
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error:
+                  status: 409
+                  message: Email already registered
+                  code: EMAIL_EXISTS
+
+  /users/me/vulnerability-settings:
+    get:
+      tags: [Users, Settings]
+      summary: Get the authenticated user's effective vulnerability settings
+      description: |
+        **Status: Implemented**
+
+        Returns global vulnerability defaults merged with any per-user overrides
+        for the authenticated user.
+      operationId: getUserVulnerabilitySettings
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Effective vulnerability settings for the signed-in user
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/UserSetting'
+              example:
+                - module_key: a03-injection-sql
+                  module_name: sql_injection
+                  is_vulnerable: false
+                  global_default: false
+                  has_user_override: false
+                  updated_at: '2026-04-27T12:00:00.000Z'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+    put:
+      tags: [Users, Settings]
+      summary: Update a per-user vulnerability setting
+      description: |
+        **Status: Implemented**
+
+        Persists a vulnerability override for the authenticated user. When
+        enabling a fourth module, the oldest active per-user override is
+        automatically disabled.
+      operationId: updateUserVulnerabilitySetting
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [module_name, is_vulnerable]
+              properties:
+                module_name:
+                  type: string
+                  description: Code-facing module identifier
+                  example: sql_injection
+                is_vulnerable:
+                  type: boolean
+                  description: true = vulnerable mode, false = hardened mode
+                  example: true
+            example:
+              module_name: sql_injection
+              is_vulnerable: true
+      responses:
+        '200':
+          description: Per-user vulnerability setting updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserSettingUpdateResponse'
+              example:
+                setting:
+                  module_key: a03-injection-sql
+                  module_name: sql_injection
+                  is_vulnerable: true
+                  global_default: false
+                  has_user_override: true
+                  updated_at: '2026-04-28T10:00:00.000Z'
+                settings:
+                  - module_key: a03-injection-sql
+                    module_name: sql_injection
+                    is_vulnerable: true
+                    global_default: false
+                    has_user_override: true
+                    updated_at: '2026-04-28T10:00:00.000Z'
+                autoDisabledModule: null
+                maxActiveVulnerabilities: 3
+        '400':
+          description: Missing or invalid fields
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error:
+                  status: 400
+                  message: module_name and boolean is_vulnerable are required
+                  code: VALIDATION_FAILED
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: Module not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error:
+                  status: 404
+                  message: Module not found
+                  code: MODULE_NOT_FOUND
 
   # ─────────────────────────────────────────────
   # Health
@@ -880,6 +964,69 @@ components:
           type: string
           enum: [user, admin]
 
+    RegisterHashInfo:
+      type: object
+      description: Present only when the weak_password_storage module is enabled.
+      properties:
+        vulnerableMode:
+          type: boolean
+          example: true
+        storedFormats:
+          type: array
+          items:
+            type: string
+            enum: [plaintext, md5, bcrypt]
+          example: [plaintext, md5, bcrypt]
+        plaintext:
+          type: string
+          description: Demonstration-only plaintext password storage.
+        md5:
+          type: string
+          description: Demonstration-only MD5 password hash.
+        bcrypt:
+          type: string
+          description: Bcrypt password hash.
+
+    LoginHashInfo:
+      type: object
+      description: Present only when the weak_password_storage module is enabled.
+      properties:
+        vulnerableMode:
+          type: boolean
+          example: true
+        comparisonMethod:
+          type: string
+          enum: [md5]
+        submittedMd5:
+          type: string
+        storedMd5:
+          type: string
+        storedPlaintext:
+          type: string
+
+    UserProfile:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        username:
+          type: string
+        email:
+          type: string
+          format: email
+        name:
+          type: string
+        role:
+          type: string
+          enum: [user, admin]
+        accountNumber:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+
     Account:
       type: object
       properties:
@@ -933,7 +1080,7 @@ components:
         module_key:
           type: string
           description: OWASP category key
-          example: A03:2025 - Injection
+          example: a03-injection-sql
         module_name:
           type: string
           description: Code-facing module identifier
@@ -944,6 +1091,35 @@ components:
         updated_at:
           type: string
           format: date-time
+
+    UserSetting:
+      allOf:
+        - $ref: '#/components/schemas/Setting'
+        - type: object
+          properties:
+            global_default:
+              type: boolean
+              description: Global default state before applying the user override.
+            has_user_override:
+              type: boolean
+              description: Whether the returned value comes from a per-user override.
+
+    UserSettingUpdateResponse:
+      type: object
+      properties:
+        setting:
+          $ref: '#/components/schemas/UserSetting'
+        settings:
+          type: array
+          items:
+            $ref: '#/components/schemas/UserSetting'
+        autoDisabledModule:
+          type: string
+          nullable: true
+          description: Module name automatically disabled when the 3-active cap is exceeded.
+        maxActiveVulnerabilities:
+          type: integer
+          example: 3
 
     Error:
       type: object
