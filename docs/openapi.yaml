@@ -248,11 +248,6 @@ paths:
         **Status: Implemented**
 
         Returns the account info and balance for the user identified by the JWT.
-
-        x-frontend-migration: Frontend `accounts.js` `getBalance()` is mock-only.
-        Wire it to this endpoint. Response shape is `{ account: { id, accountNumber,
-        balance, createdAt } }` — frontend expects `{ balance, accountType,
-        lastUpdated }` and will need to adapt.
       operationId: getMyAccount
       security:
         - bearerAuth: []
@@ -271,6 +266,7 @@ paths:
                   id: 660e8400-e29b-41d4-a716-446655440000
                   accountNumber: FAUX-M3KQ8P1Z
                   balance: 1000.00
+                  accountType: checking
                   createdAt: '2026-04-27T12:00:00.000Z'
         '401':
           $ref: '#/components/responses/Unauthorized'
@@ -897,6 +893,9 @@ components:
           type: number
           format: float
           example: 1000.00
+        accountType:
+          type: string
+          example: checking
         createdAt:
           type: string
           format: date-time

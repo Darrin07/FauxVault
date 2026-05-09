@@ -2,14 +2,11 @@ import { apiFetch } from './client'
 
 /**  Accounts service — GET /accounts/me, /accounts/deposits, /accounts/withdrawals
 * Work with: server  - accountController.js:
-*   GET /accounts/me           { account: { id, accountNumber, balance, createdAt } }
+*   GET /accounts/me           { account: { id, accountNumber, balance, accountType, createdAt } }
 *   GET /accounts/deposits     { total: number, period: string }
 *   GET /accounts/withdrawals  { total: number, period: string }
 *  All three require a Bearer JWT (injected automatically by apiFetch).
 */
-
-// Note — possible server need: the DB has an account_type column but the server does not
-// currently return it from GET /accounts/me. I have written a default to 'Checking' until fixed.
 
 /**
  * GET /api/accounts/me
@@ -25,7 +22,7 @@ export async function getBalance() {
         id: account.id,
         accountNumber: account.accountNumber,
         balance: account.balance,
-        accountType: account.accountType ?? 'Checking',
+        accountType: account.accountType,
         lastUpdated: account.createdAt,
     }
 }

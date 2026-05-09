@@ -33,6 +33,7 @@ describe('GET /api/accounts/me', () => {
     expect(res.body.account).toBeDefined();
     expect(res.body.account.balance).toBe(1000);
     expect(res.body.account.accountNumber).toMatch(/^FAUX-/);
+    expect(res.body.account.accountType).toBe('checking');
     expect(res.body.account).not.toHaveProperty('userId');
   });
 
@@ -56,6 +57,7 @@ describe('GET /api/accounts/:id', () => {
 
     expect(res.status).toBe(200);
     expect(res.body.account.id).toBe(accountId);
+    expect(res.body.account.accountType).toBe('checking');
   });
 
   test('returns 404 for nonexistent account', async () => {
