@@ -37,6 +37,7 @@ async function getMyAccount(req, res, next) {
                 id: account.id,
                 accountNumber: account.accountNumber,
                 balance: account.balance,
+                accountType: account.accountType,
                 createdAt: account.createdAt,
             },
         });
@@ -77,6 +78,7 @@ async function getAccountById(req, res, next) {
                 id: account.id,
                 accountNumber: account.accountNumber,
                 balance: account.balance,
+                accountType: account.accountType,
                 createdAt: account.createdAt,
             },
         });

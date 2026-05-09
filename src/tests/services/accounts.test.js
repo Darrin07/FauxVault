@@ -7,7 +7,7 @@
  *  getBalance() --> calls GET /accounts/me
  *  getBalance() --> normalises { account: { ... } } into flattened shape
  *  getBalance() --> maps createdAt → lastUpdated
- *  getBalance() --> defaults accountType to 'Checking' as server omits it
+ *  getBalance() --> preserves accountType from the server
  *  getDeposits() --> calls GET /accounts/deposits
  *  getWithdrawals() --> calls GET /accounts/withdrawals
  */
@@ -39,6 +39,7 @@ describe('accounts.getBalance()', () => {
             id: 'acc-001',
             accountNumber: 'FV-USER-002',
             balance: 500.50,
+            accountType: 'checking',
             createdAt: '2024-01-15T10:00:00.000Z',
         },
     }
@@ -67,19 +68,11 @@ describe('accounts.getBalance()', () => {
         expect(result).not.toHaveProperty('createdAt')
     })
 
-    it('defaults accountType to Checking when server does not return it', async () => {
+    it('preserves accountType from the server response', async () => {
         vi.stubGlobal('fetch', mockFetch(serverResponse))
         const result = await accountsService.getBalance()
 
-        expect(result).toHaveProperty('accountType', 'Checking')
-    })
-
-    it('uses accountType from server when provided', async () => {
-        const withType = { account: { ...serverResponse.account, accountType: 'Savings' } }
-        vi.stubGlobal('fetch', mockFetch(withType))
-        const result = await accountsService.getBalance()
-
-        expect(result).toHaveProperty('accountType', 'Savings')
+        expect(result).toHaveProperty('accountType', 'checking')
     })
 })
 

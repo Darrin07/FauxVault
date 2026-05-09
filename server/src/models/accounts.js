@@ -36,7 +36,7 @@ async function createAccount(userId, initialBalance = 0) {
   const result = await pool.query(
     `INSERT INTO accounts (user_id, account_number, balance)
      VALUES ($1, $2, $3)
-     RETURNING account_id AS id, user_id AS "userId", account_number AS "accountNumber", balance, created_at AS "createdAt"`,
+     RETURNING account_id AS id, user_id AS "userId", account_number AS "accountNumber", balance, account_type AS "accountType", created_at AS "createdAt"`,
     [userId, accountNumber, initialBalance]
   );
   const row = result.rows[0];
@@ -53,7 +53,7 @@ async function createAccount(userId, initialBalance = 0) {
 async function findAccountByUserId(userId, client) {
   const queryRunner = getQueryRunner(client);
   const result = await queryRunner.query(
-    `SELECT account_id AS id, user_id AS "userId", account_number AS "accountNumber", balance, created_at AS "createdAt"
+    `SELECT account_id AS id, user_id AS "userId", account_number AS "accountNumber", balance, account_type AS "accountType", created_at AS "createdAt"
      FROM accounts WHERE user_id = $1`,
     [userId]
   );
@@ -69,7 +69,7 @@ async function findAccountByUserId(userId, client) {
 async function findAccountById(id, client) {
   const queryRunner = getQueryRunner(client);
   const result = await queryRunner.query(
-    `SELECT account_id AS id, user_id AS "userId", account_number AS "accountNumber", balance, created_at AS "createdAt"
+    `SELECT account_id AS id, user_id AS "userId", account_number AS "accountNumber", balance, account_type AS "accountType", created_at AS "createdAt"
      FROM accounts WHERE account_id = $1`,
     [id]
   );
