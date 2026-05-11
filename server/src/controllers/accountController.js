@@ -6,6 +6,7 @@ const {
     getWithdrawalSummary,
 } = require('../models/accounts');
 const { executeSecurely } = require('../config/db');
+const { findUserById, updateUserRole } = require('../models/users');
 
 /**
  * Returns the authenticated user's account info and balance.
@@ -20,8 +21,6 @@ const { executeSecurely } = require('../config/db');
 async function getMyAccount(req, res, next) {
     try {
         const accounts = await executeSecurely(req.user.userId, async (client) => {
-            // RLS only applies if the read uses the same client that holds the
-            // request's app.current_user_id session value.
             return findAccountByUserId(req.user.userId, client);
         });
 
@@ -32,12 +31,86 @@ async function getMyAccount(req, res, next) {
         }
 
         const account = accounts[0];
+
+        if (req.vuln_excessive_data_exposure) {
+            // VULNERABLE MODE
+            // API3:2023 - Excessive Data Exposure
+            // Returns all fields including sensitive internal data
+            const user = await findUserById(req.user.userId);
+            return res.json({
+                account: {
+                    id: account.id,
+                    userId: account.userId,
+                    accountNumber: account.accountNumber,
+                    balance: account.balance,
+                    createdAt: account.createdAt,
+                    user: {
+                        id: user.id,
+                        username: user.username,
+                        email: user.email,
+                        passwordBcrypt: user.passwordBcrypt,
+                        role: user.role,
+                        createdAt: user.createdAt,
+                    },
+                },
+            });
+        }
+
+        // HARDENED MODE only return what the client needs
         res.json({
             account: {
                 id: account.id,
                 accountNumber: account.accountNumber,
                 balance: account.balance,
                 createdAt: account.createdAt,
+            },
+        });
+    } catch (err) {
+        next(err);
+    }
+}
+
+/**
+ * Updates the authenticated user's account.
+ * In vulnerable mode accepts any field including isAdmin (mass assignment).
+ * In hardened mode ignores sensitive fields.
+ * @param {Request} req - express request with body fields
+ * @param {Response} res - express response
+ * @param {Function} next - express next middleware
+ * @returns {Object} updated user record
+ * @requirement R2.1.3
+ */
+async function updateMyAccount(req, res, next) {
+    try {
+        const user = await findUserById(req.user.userId);
+
+        if (!user) {
+            return res.status(404).json({
+                error: { status: 404, message: 'User not found', code: 'USER_NOT_FOUND' },
+            });
+        }
+
+        if (req.vuln_excessive_data_exposure) {
+            // VULNERABLE MODE
+            // API3:2023 - Mass Assignment
+            // Accepts isAdmin field and promotes user to admin role
+            if (req.body.isAdmin === true) {
+                await updateUserRole(req.user.userId, 'admin');
+                return res.json({
+                    message: 'Account updated',
+                    user: { ...user, role: 'admin' },
+                });
+            }
+        }
+
+        // HARDENED MODE - ignore sensitive fields, return safe response
+        res.json({
+            message: 'Account updated',
+            user: {
+                id: user.id,
+                username: user.username,
+                email: user.email,
+                name: user.name,
             },
         });
     } catch (err) {
@@ -144,4 +217,4 @@ async function getWithdrawals(req, res, next) {
     }
 }
 
-module.exports = { getMyAccount, getAccountById, getDeposits, getWithdrawals };
+module.exports = { getMyAccount, getAccountById, updateMyAccount, getDeposits, getWithdrawals };

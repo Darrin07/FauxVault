@@ -1,6 +1,6 @@
 const request = require('supertest');
 const app = require('../../src/app');
-const { resetSettings } = require('../../src/models/toggleState');
+const { resetSettings, updateSetting } = require('../../src/models/toggleState');
 
 beforeEach(async () => {
     await resetSettings();
@@ -29,10 +29,7 @@ describe('Verbose Errors Module - A02:2025', () => {
 
     describe('Vulnerable mode', () => {
         test('returns full stack trace and error details', async () => {
-
-            await request(app)
-                .post('/api/settings')
-                .send({module_name: 'verbose_errors', is_vulnerable: true});
+            await updateSetting('verbose_errors', true);
 
             const res = await request(app)
                 .get('/api/dummy-route');
