@@ -6,7 +6,7 @@ const {
     getWithdrawalSummary,
 } = require('../models/accounts');
 const { executeSecurely } = require('../config/db');
-const { findUserById, updateUserRole } = require('../models/users');
+const { findUserById, updateUser, updateUserRole } = require('../models/users');
 
 /**
  * Returns the authenticated user's account info and balance.
@@ -21,6 +21,8 @@ const { findUserById, updateUserRole } = require('../models/users');
 async function getMyAccount(req, res, next) {
     try {
         const accounts = await executeSecurely(req.user.userId, async (client) => {
+            // RLS only applies if the read uses the same client that holds the
+            // request's app.current_user_id session value.
             return findAccountByUserId(req.user.userId, client);
         });
 
@@ -33,8 +35,7 @@ async function getMyAccount(req, res, next) {
         const account = accounts[0];
 
         if (req.vuln_excessive_data_exposure) {
-            // VULNERABLE MODE
-            // API3:2023 - Excessive Data Exposure
+            // VULNERABLE: API3:2023 - Excessive Data Exposure
             // Returns all fields including sensitive internal data
             const user = await findUserById(req.user.userId);
             return res.json({
@@ -91,8 +92,7 @@ async function updateMyAccount(req, res, next) {
         }
 
         if (req.vuln_excessive_data_exposure) {
-            // VULNERABLE MODE
-            // API3:2023 - Mass Assignment
+            // VULNERABLE: API3:2023 - Mass Assignment
             // Accepts isAdmin field and promotes user to admin role
             if (req.body.isAdmin === true) {
                 await updateUserRole(req.user.userId, 'admin');
@@ -103,14 +103,19 @@ async function updateMyAccount(req, res, next) {
             }
         }
 
-        // HARDENED MODE - ignore sensitive fields, return safe response
+        // HARDENED MODE - persist whitelisted fields only (name, email)
+        const updated = await updateUser(req.user.userId, {
+            name: req.body.name,
+            email: req.body.email,
+        });
+
         res.json({
             message: 'Account updated',
             user: {
-                id: user.id,
-                username: user.username,
-                email: user.email,
-                name: user.name,
+                id: updated.id,
+                username: updated.username,
+                email: updated.email,
+                name: updated.name,
             },
         });
     } catch (err) {

@@ -12,11 +12,6 @@ beforeEach(async () => {
   await resetAccounts();
   await resetSettings();
 
-  // default to hardened so existing account tests are not affected by toggle
-  await request(app)
-    .post('/api/settings')
-    .send({ module_name: 'excessive_data_exposure', is_vulnerable: false });
-
   const res = await request(app)
     .post('/api/auth/register')
     .send({ username: 'acctuser', email: 'acct@example.com', password: 'Password123' });

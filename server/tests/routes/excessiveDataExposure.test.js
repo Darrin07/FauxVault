@@ -1,6 +1,6 @@
 const request = require('supertest');
 const app = require('../../src/app');
-const { resetUsers } = require('../../src/models/users');
+const { resetUsers, findUserById } = require('../../src/models/users');
 const { resetAccounts } = require('../../src/models/accounts');
 const { resetSettings, updateUserSetting } = require('../../src/models/toggleState');
 
@@ -24,10 +24,6 @@ describe('Excessive Data Exposure / Mass Assignment (API3:2023)', () => {
 
     describe('GET /api/accounts/me - Hardened mode', () => {
         test('returns only safe fields', async () => {
-            await request(app)
-                .post('/api/settings')
-                .send({ module_name: 'excessive_data_exposure', is_vulnerable: false });
-
             const res = await request(app)
                 .get('/api/accounts/me')
                 .set('Authorization', `Bearer ${token}`);
@@ -61,17 +57,15 @@ describe('Excessive Data Exposure / Mass Assignment (API3:2023)', () => {
 
     describe('POST /api/accounts/me - Hardened mode', () => {
         test('ignores isAdmin field and does not escalate privileges', async () => {
-            await request(app)
-                .post('/api/settings')
-                .send({ module_name: 'excessive_data_exposure', is_vulnerable: false });
-
             const res = await request(app)
                 .post('/api/accounts/me')
                 .set('Authorization', `Bearer ${token}`)
                 .send({ isAdmin: true });
 
             expect(res.status).toBe(200);
-            expect(res.body.user.role).not.toBe('admin');
+
+            const persisted = await findUserById(userId);
+            expect(persisted.role).toBe('user');
         });
     });
 
@@ -86,6 +80,9 @@ describe('Excessive Data Exposure / Mass Assignment (API3:2023)', () => {
 
             expect(res.status).toBe(200);
             expect(res.body.user.role).toBe('admin');
+
+            const persisted = await findUserById(userId);
+            expect(persisted.role).toBe('admin');
         });
-    });;
+    });
 });
