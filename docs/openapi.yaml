@@ -109,14 +109,34 @@ paths:
                   user:
                     $ref: '#/components/schemas/SanitizedUser'
                   hashInfo:
-                    $ref: '#/components/schemas/RegisterHashInfo'
-              example:
-                token: eyJhbGciOiJIUzI1NiIs...
-                user:
-                  id: 550e8400-e29b-41d4-a716-446655440000
-                  username: scurry
-                  email: steph.curry@email.com
-                  role: user
+                    description: Present only when the `weak_password_storage` toggle is vulnerable for the current request.
+                    allOf:
+                      - $ref: '#/components/schemas/RegisterHashInfo'
+              examples:
+                hardened:
+                  summary: Hardened mode response
+                  value:
+                    token: eyJhbGciOiJIUzI1NiIs...
+                    user:
+                      id: 550e8400-e29b-41d4-a716-446655440000
+                      username: scurry
+                      email: steph.curry@email.com
+                      role: user
+                vulnerable:
+                  summary: Vulnerable weak_password_storage response
+                  value:
+                    token: eyJhbGciOiJIUzI1NiIs...
+                    user:
+                      id: 550e8400-e29b-41d4-a716-446655440000
+                      username: scurry
+                      email: steph.curry@email.com
+                      role: user
+                    hashInfo:
+                      vulnerableMode: true
+                      storedFormats: [plaintext, md5, bcrypt]
+                      plaintext: Secret123
+                      md5: 5c90b96a75d4f9d5a1cfaa6f532afdc8
+                      bcrypt: $2b$10$qyt3okcfpq6fZj9ijyiQY.CBdO5tn7tRxgu9W17yjjNHO9gvz.DIa
         '400':
           description: Missing required fields
           content:
@@ -185,14 +205,34 @@ paths:
                   user:
                     $ref: '#/components/schemas/SanitizedUser'
                   hashInfo:
-                    $ref: '#/components/schemas/LoginHashInfo'
-              example:
-                token: eyJhbGciOiJIUzI1NiIs...
-                user:
-                  id: 550e8400-e29b-41d4-a716-446655440000
-                  username: scurry
-                  email: steph.curry@email.com
-                  role: user
+                    description: Present only when the `weak_password_storage` toggle is vulnerable for the current request.
+                    allOf:
+                      - $ref: '#/components/schemas/LoginHashInfo'
+              examples:
+                hardened:
+                  summary: Hardened mode response
+                  value:
+                    token: eyJhbGciOiJIUzI1NiIs...
+                    user:
+                      id: 550e8400-e29b-41d4-a716-446655440000
+                      username: scurry
+                      email: steph.curry@email.com
+                      role: user
+                vulnerable:
+                  summary: Vulnerable weak_password_storage response
+                  value:
+                    token: eyJhbGciOiJIUzI1NiIs...
+                    user:
+                      id: 550e8400-e29b-41d4-a716-446655440000
+                      username: scurry
+                      email: steph.curry@email.com
+                      role: user
+                    hashInfo:
+                      vulnerableMode: true
+                      comparisonMethod: md5
+                      submittedMd5: 3e9d6959c264ea6a13181fd6e44bd3c3
+                      storedMd5: 3e9d6959c264ea6a13181fd6e44bd3c3
+                      storedPlaintext: Letmein99
         '400':
           description: Missing required fields
           content:
@@ -966,10 +1006,11 @@ components:
 
     RegisterHashInfo:
       type: object
-      description: Present only when the weak_password_storage module is enabled.
+      description: Present only when the weak_password_storage module is enabled; intentionally exposes weak storage formats as a teaching surface.
       properties:
         vulnerableMode:
           type: boolean
+          description: Response flag indicating this request used the vulnerable weak_password_storage path.
           example: true
         storedFormats:
           type: array
@@ -989,20 +1030,25 @@ components:
 
     LoginHashInfo:
       type: object
-      description: Present only when the weak_password_storage module is enabled.
+      description: Present only when the weak_password_storage module is enabled; intentionally exposes MD5 comparison details as a teaching surface.
       properties:
         vulnerableMode:
           type: boolean
+          description: Response flag indicating this request used the vulnerable weak_password_storage path.
           example: true
         comparisonMethod:
           type: string
           enum: [md5]
+          description: Password comparison method used by the vulnerable path.
         submittedMd5:
           type: string
+          description: MD5 hash of the submitted password.
         storedMd5:
           type: string
+          description: MD5 hash stored for the user.
         storedPlaintext:
           type: string
+          description: Demonstration-only plaintext password stored for the user.
 
     UserProfile:
       type: object
