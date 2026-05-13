@@ -82,7 +82,7 @@ function TransferModal({ isOpen, onClose }) {
 
         setLoading(true) 
         try {
-        const { transaction } = await transfersApi.sendTransfer({ 
+        await transfersApi.sendTransfer({ 
             toAccountId: form.toAccountId, 
             amount: Number(form.amount), 
             memo: form.memo, })

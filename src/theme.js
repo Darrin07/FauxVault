@@ -1,14 +1,4 @@
-
-/**
- * Note on AI Usage:  Originally this app had CSS files for much of the App, which was detracting from the point
- * of the project.  I asked Claude Code to update the CSS into the theme with a proposed outline and then it helped me walk throug
- * key changes.  I still had to write the code and the wording, but Claude easily saved me 10 hours, as I didn't have to
- * look up everything or guess on my structure, and Claude was able to suggest common color codes for me to trial.
- * Model used:  Claude Code Sonnet 4.6 (Thinking)
- */
-
-
-import { createTheme, alpha } from '@mui/material/styles'
+import { createTheme } from '@mui/material/styles'
 
 const theme = createTheme({
 
