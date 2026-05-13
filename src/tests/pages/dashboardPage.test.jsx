@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor, fireEvent, within } from '@testing-library/react'
+import { render, screen, waitFor, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { AuthProvider } from '../../context/AuthContext'
@@ -35,7 +35,7 @@ vi.mock('@mui/material', () => ({
     Button: ({ children, onClick, disabled, type }) => (
         <button type={type} onClick={onClick} disabled={disabled}>{children}</button>
     ),
-    Dialog: ({ children, open, onClose }) =>
+    Dialog: ({ children, open }) =>
         open ? <div role="dialog">{children}</div> : null,
     DialogTitle: ({ children }) => <div>{children}</div>,
     DialogContent: ({ children }) => <div>{children}</div>,
