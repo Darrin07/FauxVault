@@ -154,7 +154,7 @@ export default function SessionInspector() {
                 }}>
                     {flags.map((flag) => {
                         const currentValue = isVulnerable ? flag.vulnerable : flag.hardened
-                        const isSecure = isVulnerable ? false : true
+                        const isSecure = !isVulnerable
                         return (
                             <Box key={flag.label} sx={{
                                 p: 1.5,

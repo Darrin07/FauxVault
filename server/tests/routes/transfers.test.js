@@ -2,6 +2,15 @@ const request = require('supertest');
 const app = require('../../src/app');
 const { resetUsers } = require('../../src/models/users');
 const { resetAccounts } = require('../../src/models/accounts');
+const { resetSettings } = require('../../src/models/toggleState');
+
+function extractTokenFromResponse(res) {
+  if (res.body.token) return res.body.token;
+  const cookies = res.headers['set-cookie'] || [];
+  const tokenCookie = cookies.find(c => c.startsWith('token='));
+  if (tokenCookie) return tokenCookie.split(';')[0].replace('token=', '');
+  return null;
+}
 
 let senderToken;
 let receiverAccountId;
@@ -9,16 +18,17 @@ let receiverAccountId;
 beforeEach(async () => {
   await resetUsers();
   await resetAccounts();
+  await resetSettings();
 
   const senderRes = await request(app)
     .post('/api/auth/register')
     .send({ username: 'sender', email: 'sender@example.com', password: 'Password123' });
-  senderToken = senderRes.body.token;
+  senderToken = extractTokenFromResponse(senderRes);
 
   const receiverRes = await request(app)
     .post('/api/auth/register')
     .send({ username: 'receiver', email: 'receiver@example.com', password: 'Password123' });
-  const receiverToken = receiverRes.body.token;
+  const receiverToken = extractTokenFromResponse(receiverRes);
 
   const acctRes = await request(app)
     .get('/api/accounts/me')

@@ -7,8 +7,7 @@ const { authenticate } = require('./middleware/auth');
 
 const app = express();
 
-// Middleware chain
-app.use(cors());
+// Middleware chain; credentials added for weak-session-tokens module
 app.use(cors({
   origin: process.env.CORS_ORIGIN || 'http://localhost:5173',
   credentials: true,

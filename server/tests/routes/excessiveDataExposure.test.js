@@ -4,6 +4,14 @@ const { resetUsers, findUserById } = require('../../src/models/users');
 const { resetAccounts } = require('../../src/models/accounts');
 const { resetSettings, updateUserSetting } = require('../../src/models/toggleState');
 
+function extractTokenFromResponse(res) {
+    if (res.body.token) return res.body.token;
+    const cookies = res.headers['set-cookie'] || [];
+    const tokenCookie = cookies.find(c => c.startsWith('token='));
+    if (tokenCookie) return tokenCookie.split(';')[0].replace('token=', '');
+    return null;
+}
+
 let token;
 let userId;
 
@@ -16,7 +24,7 @@ beforeEach(async () => {
         .post('/api/auth/register')
         .send({ username: 'testuser', email: 'test@example.com', password: 'Password123' });
 
-    token = res.body.token;
+    token = extractTokenFromResponse(res);
     userId = res.body.user.id;
 });
 

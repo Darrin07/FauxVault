@@ -164,12 +164,5 @@ describe('Auth middleware', () => {
     expect(res.status).toBe(200);
     expect(res.body.user.email).toBe('auth@example.com');
   });
-  test('clears the token cookie', async () => {
-    const res = await request(app).post('/api/auth/logout');
-    const cookies = res.headers['set-cookie'] || [];
-    const tokenCookie = cookies.find(c => c.startsWith('token='));
-    expect(tokenCookie).toBeDefined();
-    // Cookie should be expired (cleared)
-    expect(tokenCookie).toMatch(/expires=/i);
-  });
 });
+

@@ -40,7 +40,7 @@ function sanitizeUser(user){
 /**
  * Sets the session token as a cookie with flags determined by the vulnerability module.
  * Vulnerability Module: weak_session_tokens (A07)
- *   Vulnerable:  httpOnly=false, secure=false, sameSite='None': JS-accessible
+ *   Vulnerable:  httpOnly=false, secure=false, sameSite='Lax': JS-accessible
  *   Hardened:    httpOnly=true, secure=true (prod), sameSite='Strict': JS-inaccessible
  * @param {Response} res - express response object
  * @param {string} token - the signed JWT
@@ -51,7 +51,7 @@ function setSessionCookie(res, token, isVulnerable) {
         res.cookie('token', token, {
             httpOnly: false,
             secure: false,
-            sameSite: 'None',
+            sameSite: 'Lax',
             maxAge: COOKIE_MAX_AGE,
             path: '/',
         });

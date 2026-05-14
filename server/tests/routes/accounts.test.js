@@ -4,6 +4,14 @@ const { resetUsers } = require('../../src/models/users');
 const { resetAccounts } = require('../../src/models/accounts');
 const { resetSettings } = require('../../src/models/toggleState');
 
+function extractTokenFromResponse(res) {
+  if (res.body.token) return res.body.token;
+  const cookies = res.headers['set-cookie'] || [];
+  const tokenCookie = cookies.find(c => c.startsWith('token='));
+  if (tokenCookie) return tokenCookie.split(';')[0].replace('token=', '');
+  return null;
+}
+
 let token;
 let token2;
 
@@ -16,13 +24,13 @@ beforeEach(async () => {
     .post('/api/auth/register')
     .send({ username: 'acctuser', email: 'acct@example.com', password: 'Password123' });
 
-  token = res.body.token;
+  token = extractTokenFromResponse(res);
 
   const res2 = await request(app)
     .post('/api/auth/register')
     .send({ username: 'acctuser2', email: 'acct2@example.com', password: 'Password123' });
 
-  token2 = res2.body.token;
+  token2 = extractTokenFromResponse(res2);
 });
 
 describe('GET /api/accounts/me', () => {

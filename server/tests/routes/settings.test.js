@@ -4,6 +4,14 @@ const { resetSettings } = require('../../src/models/toggleState');
 const { resetUsers } = require('../../src/models/users');
 const { resetAccounts } = require('../../src/models/accounts');
 
+function extractTokenFromResponse(res) {
+    if (res.body.token) return res.body.token;
+    const cookies = res.headers['set-cookie'] || [];
+    const tokenCookie = cookies.find(c => c.startsWith('token='));
+    if (tokenCookie) return tokenCookie.split(';')[0].replace('token=', '');
+    return null;
+}
+
 beforeEach(async () => {
     await resetSettings();
     await resetUsers();
@@ -55,7 +63,7 @@ describe('GET /api/users/me/vulnerability-settings', () => {
 
         const res = await request(app)
             .get('/api/users/me/vulnerability-settings')
-            .set('Authorization', `Bearer ${registerRes.body.token}`);
+            .set('Authorization', `Bearer ${extractTokenFromResponse(registerRes)}`);
 
         expect(res.status).toBe(200);
         expect(res.body).toBeInstanceOf(Array);
@@ -71,7 +79,7 @@ describe('PUT /api/users/me/vulnerability-settings', () => {
             .post('/api/auth/register')
             .send({ username: 'settingsuser', email: 'settingsuser@example.com', password: 'Password123' });
 
-        return registerRes.body.token;
+        return extractTokenFromResponse(registerRes);
     }
 
     test('persists a signed-in user override', async () => {
