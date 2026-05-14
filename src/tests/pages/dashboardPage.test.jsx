@@ -23,6 +23,14 @@ const {
     mockGetTransfers: vi.fn(),
 }))
 
+const { mockUseVulnerabilities } = vi.hoisted(() => ({
+    mockUseVulnerabilities: vi.fn(),
+}))
+
+vi.mock('../../hooks/useVulnerabilities', () => ({
+    useVulnerabilities: mockUseVulnerabilities,
+}))
+
 vi.mock('@mui/material', () => ({
     Box: ({ children, component, onSubmit }) =>
         component === 'form'
@@ -112,6 +120,14 @@ function renderPage() {
 beforeEach(() => {
     localStorage.clear()
     vi.clearAllMocks()
+
+    mockUseVulnerabilities.mockReturnValue({
+        modules: [{ id: 'weak_session_tokens', enabled: false }],
+        toggleModule: vi.fn(),
+        notification: null,
+        closeNotification: vi.fn(),
+        isVulnerable: false,
+    })
 
     // Seed the three on-mount API calls
     mockGetBalance.mockResolvedValue({
