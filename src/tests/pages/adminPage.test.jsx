@@ -1,110 +1,98 @@
 /**
  * Component integration tests: AdminPage
  *
- * Mocks the users service at the module level.
- * Requires a logged-in auth session (seeded in localStorage) because the
- * page reads user.username from AuthContext for the read-only panel.
+ * Mocks the admin service and vulnerabilities service at the module level.
+ * Requires a logged-in auth session (seeded in localStorage).
  *
  * What is tested:
- *  1. Profile loading on mount
- *    a. calls getProfile() on mount
- *    b. populates the name field from the profile response
- *    c. populates the email field from the profile response
- *    d. shows the account number from the profile response
- *    e. shows '—' when accountNumber is not returned by the server
- *    f. does NOT show 'undefined' anywhere on the page
+ *  1. User list loading
+ *    a. shows a loading spinner on mount
+ *    b. renders a row for each user returned by listUsers()
+ *    c. displays username, email, and role for each user
+ *    d. shows an error alert when listUsers() rejects
  *
- *  2. API contract
- *    a. calls updateProfile() with { name, email } on submit
- *    b. does NOT send firstName, lastName, or address in the payload
+ *  2. Access control banners
+ *    a. shows no access-control banner for admin users
+ *    b. shows a warning banner for non-admin users when privilege_escalation is OFF
  *
- *  3. Success handling
- *    a. shows a success Alert after profile is saved
- *    b. re-enables the Save button after success
- *
- *  4. Error handling
- *    a. shows an error Alert (not just console.error) when save fails
- *    b. error Alert is dismissible via the X button
+ *  3. Role management
+ *    a. apply button is disabled when no role change is pending
+ *    b. calls changeUserRole() with the correct args on apply
+ *    c. shows an error alert when changeUserRole() rejects
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-vi.mock('@/services/users', () => ({
-    getProfile: vi.fn(),
-    updateProfile: vi.fn(),
+
+vi.mock('@/services/admin', () => ({
+    listUsers: vi.fn(),
+    changeUserRole: vi.fn(),
+}))
+
+vi.mock('@/services/vulnerabilities', () => ({
+    getModules: vi.fn().mockResolvedValue([]),
+    updateModule: vi.fn().mockResolvedValue({}),
 }))
 
 vi.mock('@mui/material', () => ({
-    Box: ({ children, component, onSubmit }) =>
-        component === 'form'
-            ? <form onSubmit={onSubmit}>{children}</form>
-            : <div>{children}</div>,
+    Box: ({ children }) => <div>{children}</div>,
     Typography: ({ children }) => <span>{children}</span>,
-    TextField: ({ placeholder, onChange, value, type, label, inputProps }) => (
-        <>
-            {label && <label htmlFor={label}>{label}</label>}
-            <input
-                id={label}
-                placeholder={placeholder}
-                onChange={onChange}
-                value={value}
-                type={type}
-                {...(inputProps || {})}
-            />
-        </>
-    ),
-    Button: ({ children, onClick, disabled, type }) => (
-        <button type={type} onClick={onClick} disabled={disabled}>{children}</button>
-    ),
     Alert: ({ children, onClose }) => (
         <div role="alert">
             {children}
             {onClose && <button onClick={onClose}>Close</button>}
         </div>
     ),
-    InputAdornment: ({ children }) => <div>{children}</div>,
     Card: ({ children }) => <div>{children}</div>,
     CardContent: ({ children }) => <div>{children}</div>,
-    CircularProgress: () => <div data-testid="loading" />,
-    Divider: () => <hr />,
+    CircularProgress: ({ size }) => <div data-testid={size ? 'spinner-small' : 'loading'} />,
+    Table: ({ children }) => <table>{children}</table>,
+    TableBody: ({ children }) => <tbody>{children}</tbody>,
+    TableCell: ({ children }) => <td>{children}</td>,
+    TableHead: ({ children }) => <thead>{children}</thead>,
+    TableRow: ({ children }) => <tr>{children}</tr>,
+    Chip: ({ label }) => <span>{label}</span>,
+    Select: ({ children, value, onChange }) => (
+        <select value={value} onChange={(e) => onChange(e)}>
+            {children}
+        </select>
+    ),
+    MenuItem: ({ children, value }) => <option value={value}>{children}</option>,
+    IconButton: ({ children, onClick, disabled }) => (
+        <button onClick={onClick} disabled={disabled}>{children}</button>
+    ),
+    Tooltip: ({ children, title }) => <span title={title}>{children}</span>,
 }))
 
 vi.mock('@mui/icons-material', () => ({
-    Person: () => <span>user-icon</span>,
-    Email: () => <span>mail-icon</span>,
-    Save: () => <span>save-icon</span>,
+    Check: () => <span>apply</span>,
 }))
 
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { AuthProvider } from '@/context/AuthContext'
+import { VulnerabilityProvider } from '@/context/VulnerabilityContext'
 import AdminPage from '@/pages/AdminPage'
+import * as adminApi from '@/services/admin'
 
+const MOCK_USERS = [
+    { id: 'u-001', username: 'admin', email: 'admin@fauxvault.com', name: 'Admin User', role: 'admin', createdAt: '2026-01-01T00:00:00.000Z' },
+    { id: 'u-002', username: 'regularuser', email: 'regular@example.com', name: 'Regular User', role: 'user', createdAt: '2026-01-02T00:00:00.000Z' },
+]
 
-import * as usersApi from '@/services/users'
+const ADMIN_SESSION = { id: 'u-001', username: 'admin', email: 'admin@fauxvault.com', role: 'admin' }
+const USER_SESSION  = { id: 'u-002', username: 'regularuser', email: 'regular@example.com', role: 'user' }
 
-const MOCK_USER = {
-    id: 'u-001',
-    username: 'test_user',
-    email: 'test@example.com',
-    role: 'user',
-}
+function renderPage(sessionUser = ADMIN_SESSION) {
+    localStorage.setItem('token', 'test-token')
+    localStorage.setItem('user', JSON.stringify(sessionUser))
 
-const MOCK_PROFILE = {
-    id: 'u-001',
-    username: 'test_user',
-    email: 'test@example.com',
-    name: 'Test User',
-    role: 'user',
-    accountNumber: 'FAUX-TEST123',
-    createdAt: '2026-01-01T00:00:00.000Z',
-}
-
-function renderPage() {
     return render(
         <MemoryRouter>
             <AuthProvider>
-                <AdminPage />
+                <VulnerabilityProvider>
+                    <AdminPage />
+                </VulnerabilityProvider>
             </AuthProvider>
         </MemoryRouter>
     )
@@ -112,158 +100,100 @@ function renderPage() {
 
 beforeEach(() => {
     localStorage.clear()
-    // Seed a logged-in session so AuthContext has a user for the read-only panel
-    localStorage.setItem('token', 'test-token')
-    localStorage.setItem('user', JSON.stringify(MOCK_USER))
     vi.clearAllMocks()
-
-    // Default: getProfile succeeds with mock data
-    usersApi.getProfile.mockResolvedValue({ user: MOCK_PROFILE })
-    // Default: updateProfile succeeds
-    usersApi.updateProfile.mockResolvedValue({ user: { ...MOCK_PROFILE, name: 'Updated Name' } })
+    adminApi.listUsers.mockResolvedValue({ users: MOCK_USERS })
+    adminApi.changeUserRole.mockResolvedValue({ user: { ...MOCK_USERS[1], role: 'admin' } })
 })
 
-describe('AdminPage — profile loading on mount', () => {
-    it('calls getProfile() on mount', async () => {
+// ─── User list loading ────────────────────────────────────────────────────────
+
+describe('AdminPage — user list loading', () => {
+    it('shows a loading spinner on mount', () => {
+        adminApi.listUsers.mockReturnValue(new Promise(() => {})) // never resolves
+        renderPage()
+        expect(screen.getByTestId('loading')).toBeInTheDocument()
+    })
+
+    it('renders a row for each user returned by listUsers()', async () => {
         renderPage()
         await waitFor(() => {
-            expect(usersApi.getProfile).toHaveBeenCalledTimes(1)
+            expect(screen.getAllByText('admin').length).toBeGreaterThan(0)
+            expect(screen.getByText('regularuser')).toBeInTheDocument()
         })
     })
 
-    it('populates the name field from the profile response', async () => {
+    it('displays username, email, and role for each user', async () => {
         renderPage()
-        // Wait for getProfile to resolve and form to be seeded
-        const nameField = await screen.findByLabelText(/display name/i)
         await waitFor(() => {
-            expect(nameField).toHaveValue('Test User')
+            expect(screen.getByText('admin@fauxvault.com')).toBeInTheDocument()
+            expect(screen.getByText('regular@example.com')).toBeInTheDocument()
         })
     })
 
-    it('populates the email field from the profile response', async () => {
+    it('shows an error alert when listUsers() rejects', async () => {
+        adminApi.listUsers.mockRejectedValue(new Error('Admin access required'))
         renderPage()
-        const emailField = await screen.findByLabelText(/email address/i)
-        await waitFor(() => {
-            expect(emailField).toHaveValue('test@example.com')
-        })
-    })
-
-    it('shows the account number from the profile response', async () => {
-        renderPage()
-        expect(await screen.findByText(/#FAUX-TEST123/i)).toBeInTheDocument()
-    })
-
-    it('shows — when accountNumber is not returned by the server', async () => {
-        usersApi.getProfile.mockResolvedValue({
-            user: { ...MOCK_PROFILE, accountNumber: undefined },
-        })
-        renderPage()
-        expect(await screen.findByText('—')).toBeInTheDocument()
-    })
-
-    it('does NOT show undefined anywhere on the page', async () => {
-        renderPage()
-        await screen.findByLabelText(/display name/i)
-        await waitFor(() => {
-            expect(document.body.textContent).not.toContain('undefined')
-        })
+        expect(await screen.findByRole('alert')).toBeInTheDocument()
+        expect(await screen.findByText(/admin access required/i)).toBeInTheDocument()
     })
 })
 
-// ─── API contract ──────────────────────────────────────────────────────────────
+// ─── Access control banners ───────────────────────────────────────────────────
 
-describe('AdminPage — API contract', () => {
-    it('calls updateProfile() with { name, email } on submit', async () => {
-        const user = userEvent.setup()
-        renderPage()
-
-        // Wait for form to be seeded from getProfile
-        await screen.findByDisplayValue('Test User')
-
-        // Clear name field and type a new value
-        await user.clear(screen.getByLabelText(/display name/i))
-        await user.type(screen.getByLabelText(/display name/i), 'New Name')
-        await user.click(screen.getByRole('button', { name: /save changes/i }))
-
-        await waitFor(() => {
-            expect(usersApi.updateProfile).toHaveBeenCalledWith({
-                name: 'New Name',
-                email: 'test@example.com',
-            })
-        })
+describe('AdminPage — access control banners', () => {
+    it('shows no access-control banner for admin users', async () => {
+        renderPage(ADMIN_SESSION)
+        await waitFor(() => expect(screen.queryByText(/logged in as/i)).not.toBeInTheDocument())
     })
 
-    it('does NOT send firstName, lastName, or address in the payload', async () => {
-        const user = userEvent.setup()
-        renderPage()
-
-        await screen.findByDisplayValue('Test User')
-        await user.click(screen.getByRole('button', { name: /save changes/i }))
-
-        await waitFor(() => {
-            const payload = usersApi.updateProfile.mock.calls[0][0]
-            expect(payload).not.toHaveProperty('firstName')
-            expect(payload).not.toHaveProperty('lastName')
-            expect(payload).not.toHaveProperty('address')
-        })
+    it('shows a warning banner for non-admin users when privilege_escalation is OFF', async () => {
+        adminApi.listUsers.mockRejectedValue(new Error('Admin access required'))
+        renderPage(USER_SESSION)
+        expect(await screen.findByText(/blocks this page/i)).toBeInTheDocument()
     })
 })
 
-// Success handling 
+// ─── Role management ──────────────────────────────────────────────────────────
 
-describe('AdminPage — success handling', () => {
-    it('shows a success Alert after the profile is saved', async () => {
-        const user = userEvent.setup()
+describe('AdminPage — role management', () => {
+    it('apply button is disabled when no role change is pending', async () => {
         renderPage()
-
-        await screen.findByDisplayValue('Test User')
-        await user.click(screen.getByRole('button', { name: /save changes/i }))
-
-        expect(await screen.findByText(/profile updated successfully/i)).toBeInTheDocument()
+        await screen.findByText('regularuser')
+        const applyButtons = screen.getAllByRole('button', { name: /apply/i })
+        applyButtons.forEach((btn) => expect(btn).toBeDisabled())
     })
 
-    it('re-enables the Save button after a successful save', async () => {
+    it('calls changeUserRole() with correct args when role is changed and applied', async () => {
         const user = userEvent.setup()
         renderPage()
+        await screen.findByText('regularuser')
 
-        await screen.findByDisplayValue('Test User')
-        await user.click(screen.getByRole('button', { name: /save changes/i }))
+        const selects = screen.getAllByRole('combobox')
+        const regularUserSelect = selects[1] // second row = regularuser
+        await user.selectOptions(regularUserSelect, 'admin')
+
+        const applyButtons = screen.getAllByRole('button', { name: /apply/i })
+        const enabledApply = applyButtons.find((btn) => !btn.disabled)
+        await user.click(enabledApply)
 
         await waitFor(() => {
-            expect(screen.getByRole('button', { name: /save changes/i })).not.toBeDisabled()
+            expect(adminApi.changeUserRole).toHaveBeenCalledWith('u-002', 'admin')
         })
     })
-})
 
-// Error handling 
-
-describe('AdminPage — error handling', () => {
-    it('shows an error Alert when the save fails — not just console.error', async () => {
+    it('shows an error alert when changeUserRole() rejects', async () => {
         const user = userEvent.setup()
-        usersApi.updateProfile.mockRejectedValue(new Error('Email already in use'))
-
+        adminApi.changeUserRole.mockRejectedValue(new Error('Failed to update role.'))
         renderPage()
-        await screen.findByDisplayValue('Test User')
-        await user.click(screen.getByRole('button', { name: /save changes/i }))
+        await screen.findByText('regularuser')
 
-        // Error appear on page
-        expect(await screen.findByText(/email already in use/i)).toBeInTheDocument()
-    })
+        const selects = screen.getAllByRole('combobox')
+        await user.selectOptions(selects[1], 'admin')
 
-    it('dismisses the error Alert when the X button is clicked', async () => {
-        const user = userEvent.setup()
-        usersApi.updateProfile.mockRejectedValue(new Error('Email already in use'))
+        const applyButtons = screen.getAllByRole('button', { name: /apply/i })
+        const enabledApply = applyButtons.find((btn) => !btn.disabled)
+        await user.click(enabledApply)
 
-        renderPage()
-        await screen.findByDisplayValue('Test User')
-        await user.click(screen.getByRole('button', { name: /save changes/i }))
-
-        await screen.findByText(/email already in use/i)
-
-        await user.click(screen.getByRole('button', { name: /close/i }))
-
-        await waitFor(() => {
-            expect(screen.queryByText(/email already in use/i)).not.toBeInTheDocument()
-        })
+        expect(await screen.findByText(/failed to update role/i)).toBeInTheDocument()
     })
 })
