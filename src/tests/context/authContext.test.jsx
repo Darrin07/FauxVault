@@ -13,7 +13,8 @@
 
 import { describe, it, expect, beforeEach } from 'vitest'
 import { renderHook, act } from '@testing-library/react'
-import { AuthProvider, AuthContext } from '@/context/AuthContext'
+import { AuthContext } from '@/context/AuthContext'
+import { AuthProvider } from '@/components/AuthProvider'
 import { useContext } from 'react'
 
 // Helper to render the hook with the AuthProvider wrapper

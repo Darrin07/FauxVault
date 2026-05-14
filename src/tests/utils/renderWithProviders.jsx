@@ -7,7 +7,7 @@
 
 import { render } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
-import { AuthProvider } from '../@/context/AuthContext'
+import { AuthProvider } from '@/components/AuthProvider'
 
 const MOCK_USER = {
     id: 'u-001',

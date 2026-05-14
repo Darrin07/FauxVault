@@ -68,7 +68,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
-import { AuthProvider } from '@/context/AuthContext'
+import { AuthProvider } from '@/components/AuthProvider'
 import RegisterPage from '@/pages/RegisterPage'
 
 // Mock the auth service — does not test full service
