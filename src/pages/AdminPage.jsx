@@ -71,11 +71,11 @@ export default function AdminPage() {
         if (!role) return
         setSaving((prev) => ({ ...prev, [userId]: true }))
         try {
-            const { user: updated } = await adminApi.changeUserRole(userId, role)
-            setUsers((prev) => prev.map((u) => (u.id === userId ? { ...u, role: updated.role } : u)))
+            await adminApi.changeUserRole(userId, role)
             setPendingRole((prev) => { const next = { ...prev }; delete next[userId]; return next })
             setSaved((prev) => ({ ...prev, [userId]: true }))
             setTimeout(() => setSaved((prev) => ({ ...prev, [userId]: false })), 2000)
+            await fetchUsers()
         } catch (err) {
             setError(err.message || 'Failed to update role.')
         } finally {
