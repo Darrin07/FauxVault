@@ -1,4 +1,5 @@
-import { createContext, useReducer, useCallback } from 'react'
+import { useReducer, useCallback } from 'react'
+import { AuthContext } from './AuthContextObject'
 
 /**  AuthContext — manages authentication state across the app.
 *
@@ -7,8 +8,6 @@ import { createContext, useReducer, useCallback } from 'react'
 * Server's sanitizeUser() shape: { id, username, email, role }
 * Citation, informed by: https://medium.com/@0xJad/manage-authentication-state-in-react-with-authcontext-2d3129eac92b
 */
-
-export const AuthContext = createContext(null)
 
 // Baseline "logged out" state — used by LOGOUT and as fallback in getInitialState
 const EMPTY_STATE = {

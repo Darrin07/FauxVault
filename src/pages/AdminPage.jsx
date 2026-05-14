@@ -39,11 +39,10 @@ export default function AdminPage() {
     const [saved, setSaved] = useState({})             // { [userId]: boolean }
 
     const fetchUsers = useCallback(async () => {
-        setLoading(true)
-        setError('')
         try {
             const { users: list } = await adminApi.listUsers()
             setUsers(list)
+            setError('')
         } catch (err) {
             setError(err.message || 'Failed to load users.')
         } finally {
@@ -52,13 +51,13 @@ export default function AdminPage() {
     }, [])
 
     useEffect(() => {
-        fetchUsers()
-    }, [fetchUsers])
+        fetchUsers() // eslint-disable-line react-hooks/set-state-in-effect
+    }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
     // Re-fetch after the toggle state is persisted to the server (300 ms covers the round-trip)
     useEffect(() => {
         if (!privEscEnabled) return
-        const timer = setTimeout(fetchUsers, 300)
+        const timer = setTimeout(() => { setLoading(true); fetchUsers() }, 300)
         return () => clearTimeout(timer)
     }, [privEscEnabled, fetchUsers])
 
