@@ -13,7 +13,19 @@ import { apiFetch } from './client'
  * Returns all vulnerability module toggle states.
  * @returns {Array<{ module_key, module_name, is_vulnerable, updated_at }>}
  */
-
 export async function getModules() {
     return await apiFetch('/settings')
+}
+
+/**
+ * PUT /api/users/me/vulnerability-settings
+ * Persists a single module toggle for the authenticated user.
+ * @param {string} module_name - e.g. 'privilege_escalation'
+ * @param {boolean} is_vulnerable
+ */
+export async function updateModule(module_name, is_vulnerable) {
+    return await apiFetch('/users/me/vulnerability-settings', {
+        method: 'PUT',
+        body: JSON.stringify({ module_name, is_vulnerable }),
+    })
 }

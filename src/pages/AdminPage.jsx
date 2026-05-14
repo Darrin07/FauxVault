@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useAuth } from '../hooks/useAuth'
+import { useVulnerabilities } from '../hooks/useVulnerabilities'
 import {
     Box,
     Typography,
@@ -28,6 +29,8 @@ import * as adminApi from '../services/admin'
 
 export default function AdminPage() {
     const { user } = useAuth()
+    const { modules } = useVulnerabilities()
+    const privEscEnabled = modules.find((m) => m.id === 'privilege_escalation')?.enabled ?? false
     const [users, setUsers] = useState([])
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState('')
@@ -51,6 +54,13 @@ export default function AdminPage() {
     useEffect(() => {
         fetchUsers()
     }, [fetchUsers])
+
+    // Re-fetch after the toggle state is persisted to the server (300 ms covers the round-trip)
+    useEffect(() => {
+        if (!privEscEnabled) return
+        const timer = setTimeout(fetchUsers, 300)
+        return () => clearTimeout(timer)
+    }, [privEscEnabled, fetchUsers])
 
     function handleRoleChange(userId, role) {
         setPendingRole((prev) => ({ ...prev, [userId]: role }))
@@ -83,11 +93,18 @@ export default function AdminPage() {
                 User management — visible to all authenticated users when Privilege Escalation is enabled.
             </Typography>
 
-            {user?.role !== 'admin' && (
+            {user?.role !== 'admin' && !privEscEnabled && (
                 <Alert severity="warning" sx={{ mb: 2 }}>
-                    You are logged in as <strong>{user?.role}</strong>. In hardened mode the server
-                    blocks this page with 403. Enable the <em>Privilege Escalation</em> module to
+                    You are logged in as <strong>{user?.role}</strong>. The server blocks this page
+                    with 403. Enable <em>Privilege Escalation</em> in the vulnerability panel to
                     bypass function-level authorization.
+                </Alert>
+            )}
+
+            {user?.role !== 'admin' && privEscEnabled && (
+                <Alert severity="error" sx={{ mb: 2 }}>
+                    Privilege Escalation active — you are accessing admin routes as a
+                    non-admin <strong>{user?.role}</strong>. The role check has been bypassed.
                 </Alert>
             )}
 
