@@ -1,8 +1,0 @@
-{
-  "permissions": {
-    "allow": [
-      "PowerShell(cd \"c:\\\\Users\\\\ethan\\\\OneDrive\\\\Desktop\\\\FauxVault\\\\FauxVault\\\\server\"; $env:DB_HOST=\"localhost\"; $env:RATE_LIMIT_SAFETY_MAX=\"5\"; $env:RATE_LIMIT_BRUTE_MAX=\"3\"; npx jest --forceExit 2>&1)",
-      "PowerShell(cd \"c:\\\\Users\\\\ethan\\\\OneDrive\\\\Desktop\\\\FauxVault\\\\FauxVault\\\\server\"; $env:DB_HOST=\"localhost\"; $env:RATE_LIMIT_SAFETY_MAX=\"5\"; $env:RATE_LIMIT_BRUTE_MAX=\"3\"; npx jest tests/routes/privilegeEscalation.test.js --forceExit --verbose 2>&1)"
-    ]
-  }
-}
