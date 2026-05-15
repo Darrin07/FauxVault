@@ -1,201 +1,191 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useAuth } from '../hooks/useAuth'
+import { useVulnerabilities } from '../hooks/useVulnerabilities'
 import {
     Box,
     Typography,
-    TextField,
-    Button,
     Alert,
-    InputAdornment,
     Card,
     CardContent,
     CircularProgress,
-    Divider,
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableRow,
+    Chip,
+    Select,
+    MenuItem,
+    IconButton,
+    Tooltip,
 } from '@mui/material'
-import {
-    Person as UserIcon,
-    Email as MailIcon,
-    Save as SaveIcon,
-} from '@mui/icons-material'
-import * as usersApi from '../services/users'
+import { Check as CheckIcon } from '@mui/icons-material'
+import * as adminApi from '../services/admin'
 
-// AdminPage: renders at /admin (accessible to all authenticated users)
-// Loads full profile from GET /users/profile on mount to seed form and read accountNumber
-// On Success: green Alert for 3 seconds; AuthContext user updated via updateProfile()
-// On Failure: red Alert shows server error; fields stay populated
+// AdminPage: renders at /admin
+// VULN MODULE: Privilege Escalation (API5-Broken Function Level Auth)
+// Vulnerable mode:  any authenticated user can view and modify all accounts.
+// Hardened mode:    server enforces role='admin'; non-admins receive 403.
 
 export default function AdminPage() {
-
-    const { user, updateProfile } = useAuth()
-    const [loading, setLoading] = useState(false)
-    const [form, setForm] = useState({ name: '', email: '' })
-    const [accountNumber, setAccountNumber] = useState('')
-    const [saved, setSaved] = useState(false)
+    const { user } = useAuth()
+    const { modules } = useVulnerabilities()
+    const privEscEnabled = modules.find((m) => m.id === 'privilege_escalation')?.enabled ?? false
+    const [users, setUsers] = useState([])
+    const [loading, setLoading] = useState(true)
     const [error, setError] = useState('')
+    const [pendingRole, setPendingRole] = useState({}) // { [userId]: roleString }
+    const [saving, setSaving] = useState({})           // { [userId]: boolean }
+    const [saved, setSaved] = useState({})             // { [userId]: boolean }
 
-    // Load full profile on mount; auth context user has { id, username, email, role }
-    useEffect(() => {
-        async function fetchProfile() {
-            try {
-                const { user: profile } = await usersApi.getProfile()
-                setForm({
-                    name: profile.name || '',
-                    email: profile.email || '',
-                })
-                setAccountNumber(profile.accountNumber || '')
-            } catch (err) {
-                console.error('Failed to load profile:', err)
-            }
-        }
-        fetchProfile()
-    }, [])
-
-    function handleChange(field) {
-        return (e) => {
-            setForm((prev) => ({ ...prev, [field]: e.target.value }))
-            setSaved(false)
-            setError('')
-        }
-    }
-
-    async function handleSubmit(e) {
-        e.preventDefault()
-        setLoading(true)
-        setError('')
-
+    const fetchUsers = useCallback(async () => {
         try {
-            // Send name and email
-            const { user: updatedUser } = await usersApi.updateProfile({
-                name: form.name,
-                email: form.email,
-            })
-
-            // update user in AuthContext and localStorage
-            updateProfile(updatedUser)
-
-            // show success state for 3 seconds
-            setSaved(true)
-            setTimeout(() => setSaved(false), 3000)
+            const { users: list } = await adminApi.listUsers()
+            setUsers(list)
+            setError('')
         } catch (err) {
-            setError(err.message || 'Failed to save changes. Please try again.')
+            setError(err.message || 'Failed to load users.')
         } finally {
             setLoading(false)
+        }
+    }, [])
+
+    useEffect(() => {
+        fetchUsers() // eslint-disable-line react-hooks/set-state-in-effect
+    }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+    // Re-fetch after the toggle state is persisted to the server (300 ms covers the round-trip)
+    useEffect(() => {
+        if (!privEscEnabled) return
+        const timer = setTimeout(() => { setLoading(true); fetchUsers() }, 300)
+        return () => clearTimeout(timer)
+    }, [privEscEnabled, fetchUsers])
+
+    function handleRoleChange(userId, role) {
+        setPendingRole((prev) => ({ ...prev, [userId]: role }))
+        setSaved((prev) => ({ ...prev, [userId]: false }))
+    }
+
+    async function applyRoleChange(userId) {
+        const role = pendingRole[userId]
+        if (!role) return
+        setSaving((prev) => ({ ...prev, [userId]: true }))
+        try {
+            await adminApi.changeUserRole(userId, role)
+            setPendingRole((prev) => { const next = { ...prev }; delete next[userId]; return next })
+            setSaved((prev) => ({ ...prev, [userId]: true }))
+            setTimeout(() => setSaved((prev) => ({ ...prev, [userId]: false })), 2000)
+            await fetchUsers()
+        } catch (err) {
+            setError(err.message || 'Failed to update role.')
+        } finally {
+            setSaving((prev) => ({ ...prev, [userId]: false }))
         }
     }
 
     return (
         <Box>
             <Typography variant="h1" sx={{ fontSize: '1.75rem', mb: 0.5 }}>
-                Admin
+                Admin Panel
             </Typography>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-                Manage account settings
+                User management — visible to all authenticated users when Privilege Escalation is enabled.
             </Typography>
 
-            <Card sx={{ maxWidth: 640 }}>
-                <CardContent sx={{ p: 3 }}>
-                    <Typography variant="h3" sx={{ fontSize: '1.1rem', mb: 2 }}>
-                        Account Information
-                    </Typography>
+            {user?.role !== 'admin' && !privEscEnabled && (
+                <Alert severity="warning" sx={{ mb: 2 }}>
+                    You are logged in as <strong>{user?.role}</strong>. The server blocks this page
+                    with 403. Enable <em>Privilege Escalation</em> in the vulnerability panel to
+                    bypass function-level authorization.
+                </Alert>
+            )}
 
-                    {saved && (
-                        <Alert severity="success" sx={{ mb: 2 }}>
-                            Profile updated successfully
-                        </Alert>
+            {user?.role !== 'admin' && privEscEnabled && (
+                <Alert severity="error" sx={{ mb: 2 }}>
+                    Privilege Escalation active — you are accessing admin routes as a
+                    non-admin <strong>{user?.role}</strong>. The role check has been bypassed.
+                </Alert>
+            )}
+
+            {error && (
+                <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>
+                    {error}
+                </Alert>
+            )}
+
+            <Card>
+                <CardContent sx={{ p: 0 }}>
+                    {loading ? (
+                        <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
+                            <CircularProgress />
+                        </Box>
+                    ) : (
+                        <Table size="small">
+                            <TableHead>
+                                <TableRow>
+                                    <TableCell>Username</TableCell>
+                                    <TableCell>Email</TableCell>
+                                    <TableCell>Name</TableCell>
+                                    <TableCell>Current Role</TableCell>
+                                    <TableCell>Change Role</TableCell>
+                                    <TableCell />
+                                </TableRow>
+                            </TableHead>
+                            <TableBody>
+                                {users.map((u) => {
+                                    const pending = pendingRole[u.id]
+                                    const isSaving = saving[u.id]
+                                    const isDirty = pending !== undefined && pending !== u.role
+                                    return (
+                                        <TableRow key={u.id} hover>
+                                            <TableCell sx={{ fontFamily: 'monospace' }}>
+                                                {u.username}
+                                            </TableCell>
+                                            <TableCell>{u.email}</TableCell>
+                                            <TableCell>{u.name || '—'}</TableCell>
+                                            <TableCell>
+                                                <Chip
+                                                    label={u.role}
+                                                    size="small"
+                                                    color={u.role === 'admin' ? 'error' : 'default'}
+                                                />
+                                            </TableCell>
+                                            <TableCell>
+                                                <Select
+                                                    size="small"
+                                                    value={pending ?? u.role}
+                                                    onChange={(e) => handleRoleChange(u.id, e.target.value)}
+                                                    sx={{ minWidth: 100 }}
+                                                >
+                                                    <MenuItem value="user">user</MenuItem>
+                                                    <MenuItem value="admin">admin</MenuItem>
+                                                </Select>
+                                            </TableCell>
+                                            <TableCell>
+                                                {saved[u.id] ? (
+                                                    <CheckIcon color="success" fontSize="small" />
+                                                ) : (
+                                                    <Tooltip title={isDirty ? 'Apply role change' : 'No change'}>
+                                                        <span>
+                                                            <IconButton
+                                                                size="small"
+                                                                disabled={!isDirty || isSaving}
+                                                                onClick={() => applyRoleChange(u.id)}
+                                                            >
+                                                                {isSaving
+                                                                    ? <CircularProgress size={16} />
+                                                                    : <CheckIcon fontSize="small" />}
+                                                            </IconButton>
+                                                        </span>
+                                                    </Tooltip>
+                                                )}
+                                            </TableCell>
+                                        </TableRow>
+                                    )
+                                })}
+                            </TableBody>
+                        </Table>
                     )}
-
-                    {error && (
-                        <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>
-                            {error}
-                        </Alert>
-                    )}
-
-                    {/* Read-only identity panel */}
-                    <Box
-                        sx={{
-                            display: 'flex',
-                            gap: 3,
-                            mb: 3,
-                            p: 2,
-                            borderRadius: 2,
-                            border: '1px solid',
-                            borderColor: 'divider',
-                            bgcolor: 'rgba(255,255,255,0.02)',
-                        }}
-                    >
-                        <Box>
-                            <Typography variant="caption" color="text.disabled">
-                                Username
-                            </Typography>
-                            <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                                {user?.username}
-                            </Typography>
-                        </Box>
-
-                        <Box>
-                            <Typography variant="caption" color="text.disabled">
-                                Account Number
-                            </Typography>
-                            <Typography
-                                variant="body2"
-                                sx={{ fontWeight: 600, fontFamily: "'JetBrains Mono', monospace" }}
-                            >
-                                {accountNumber ? `#${accountNumber}` : '—'}
-                            </Typography>
-                        </Box>
-                    </Box>
-
-                    <Divider sx={{ mb: 3 }} />
-
-                    {/* Editable profile fields */}
-                    <Box component="form" onSubmit={handleSubmit} sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-
-                        {/* Display Name */}
-                        <TextField
-                            id="profile-name"
-                            label="Display Name"
-                            value={form.name}
-                            onChange={handleChange('name')}
-                            placeholder="Your full name"
-                            fullWidth
-                            InputProps={{
-                                startAdornment: (
-                                    <InputAdornment position="start">
-                                        <UserIcon sx={{ fontSize: 18, color: 'text.disabled' }} />
-                                    </InputAdornment>
-                                ),
-                            }}
-                        />
-
-                        {/* Email */}
-                        <TextField
-                            id="profile-email"
-                            label="Email Address"
-                            type="email"
-                            value={form.email}
-                            onChange={handleChange('email')}
-                            fullWidth
-                            InputProps={{
-                                startAdornment: (
-                                    <InputAdornment position="start">
-                                        <MailIcon sx={{ fontSize: 18, color: 'text.disabled' }} />
-                                    </InputAdornment>
-                                ),
-                            }}
-                        />
-
-                        <Box sx={{ mt: 1 }}>
-                            <Button
-                                type="submit"
-                                variant="contained"
-                                startIcon={loading ? <CircularProgress size={18} color="inherit" /> : <SaveIcon />}
-                                disabled={loading}
-                            >
-                                {loading ? 'Saving…' : 'Save Changes'}
-                            </Button>
-                        </Box>
-                    </Box>
-
                 </CardContent>
             </Card>
         </Box>
