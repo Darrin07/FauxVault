@@ -27,6 +27,7 @@ app.use('/api/accounts', require('./routes/accounts'));
 app.use('/api/transfers', require('./routes/transfers'));
 app.use('/api/users', require('./routes/users'));
 app.use('/api/settings', require('./routes/settings'));
+app.use('/api/admin', require('./routes/admin'));
 
 
 

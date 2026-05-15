@@ -10,9 +10,7 @@ describe('Verbose Errors Module - A02:2025', () => {
     
     describe('Hardened mode', () => {
         test('returns generic error without stack trace', async () => {
-            await request(app)
-                .post('/api/settings')
-                .send({module_name: 'verbose_errors', is_vulnerable: false});
+            await updateSetting('verbose_errors', false);
 
             const res = await request(app)
                 .get('/api/dummy-route');

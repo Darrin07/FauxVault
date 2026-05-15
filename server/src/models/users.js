@@ -120,6 +120,19 @@ async function resetUsers() {
 }
 
 /**
+ * Returns all users. Used by admin-only endpoints to list all users
+ * @returns {Array} all user records (but no passwords)
+ * @requirement R2.1.2
+ */
+async function getAllUsers() {
+  const result = await pool.query(
+    `SELECT user_id AS id, username, email, name, role, created_at AS "createdAt"
+     FROM users ORDER BY created_at DESC`
+  );
+  return result.rows;
+}
+
+/**
  * Updates a user's role.
  * Used by the mass assignment vulnerability module to demonstrate
  * how unprotected field updates can lead to privilege escalation.
@@ -137,4 +150,4 @@ async function updateUserRole(id, role) {
   return result.rows[0] || null;
 }
 
-module.exports = { createUser, findUserByEmail, findUserByEmailAllHashes, findUserByUsername, findUserByUsernameAllHashes, findUserById, updateUser, resetUsers, updateUserRole };
+module.exports = { createUser, findUserByEmail, findUserByEmailAllHashes, findUserByUsername, findUserByUsernameAllHashes, findUserById, updateUser, resetUsers, getAllUsers, updateUserRole };

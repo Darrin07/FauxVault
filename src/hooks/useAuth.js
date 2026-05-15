@@ -1,5 +1,5 @@
 import { useContext } from 'react'
-import { AuthContext } from '../context/AuthContext'
+import { AuthContext } from '../context/AuthContextObject'
 
 //Calls on the Authentication context to connec tto components
 
