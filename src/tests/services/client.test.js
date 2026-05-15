@@ -72,3 +72,23 @@ describe('apiFetch X-Vulnerability-Overrides header', () => {
         expect(headers['X-Vulnerability-Overrides']).toBe('brute_force')
     })
 })
+
+describe('apiFetch on first request before syncModuleState runs', () => {
+    // vi.resetModules invalidates the module cache so the dynamic import returns
+    // a fresh vulnerabilityState with its declaration-default activeModuleIds = [],
+    // not whatever the file-level beforeEach pushed into the previously cached instance.
+    beforeEach(() => {
+        vi.resetModules()
+        localStorage.clear()
+    })
+
+    it('omits the X-Vulnerability-Overrides header at module-load defaults', async () => {
+        const { apiFetch: freshApiFetch } = await import('@/services/client')
+        vi.stubGlobal('fetch', mockFetch({}))
+
+        await freshApiFetch('/settings')
+
+        const headers = fetch.mock.calls[0][1].headers
+        expect(headers).not.toHaveProperty('X-Vulnerability-Overrides')
+    })
+})
