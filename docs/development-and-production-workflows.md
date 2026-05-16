@@ -38,7 +38,36 @@ Start only the database:
 docker compose up -d db
 ```
 
-Seed the database on first run, or after resetting `pgdata`:
+Seed the database using the npm scripts (recommended):
+
+```bash
+# First-time bootstrap: applies schema, then seed
+npm run db:init
+
+# Later, to reset data after drift (toggles flipped, tests mutated rows,
+# or the seed file changed on main):
+npm run db:reseed
+```
+
+`db:init` runs both `FauxVault_Schema.sql` and `FauxVault_Seed.sql`. `db:reseed` runs only the seed file, which TRUNCATEs the data tables and reinserts, leaving the schema untouched. Use `db:init` once per fresh `pgdata` volume; use `db:reseed` to fix drift without touching schema.
+
+Both scripts read `POSTGRES_USER` and `POSTGRES_DB` from the `db` container's environment (which Compose populates from `.env`), so they work unchanged in dev and on the prod EC2 box as long as `.env` is present.
+
+**When to run `db:reseed`:**
+
+- A vulnerability behaves as vulnerable when the admin toggle shows hardened, or vice versa. On 2026-05-13 a stale `brute_force=TRUE` row survived a seed-default flip from TRUE to FALSE.
+- Login with the documented seed credentials fails (`admin` / `AdminPass123`, or `test_user` / `Password123`). Your local users table has been mutated by prior tests or manual logins.
+- Account `FV-USER-002` balance is not `$500.50`, or more than one transaction exists. Transfer tests didn't clean up after themselves.
+- A vulnerability module is missing from the admin page that you can see in `FauxVault_Seed.sql`. Someone added a new toggle row and your DB never picked it up.
+- A test passes locally but fails in CI (or vice versa) and the failure looks like "wrong row count" or "unexpected boolean" rather than "wrong code path."
+- You just pulled from `main` and behavior feels off without a clear code reason. The pull may include a seed-file change that has not been re-applied locally.
+- The `admin` user is missing, has a different role, or has extra rows. Manual experimentation has drifted the identity pool.
+
+> If you see *schema*-shaped drift instead (missing tables, missing columns, `relation does not exist` errors), run `db:init` rather than `db:reseed`. `db:reseed` only fixes data drift; schema drift needs the schema file re-applied.
+
+#### Manual fallback
+
+The npm scripts wrap the `psql` calls below. Use these directly when debugging connection issues, applying only one file, or doing a one-off operation against the DB. The literals `fauxvault_user` and `fauxvault` match the stock `.env.example`; substitute if you've changed `POSTGRES_USER` or `POSTGRES_DB` locally.
 
 ```bash
 docker compose exec -T db psql -U fauxvault_user -d fauxvault \
