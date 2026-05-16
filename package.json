@@ -8,7 +8,9 @@
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "test": "vitest"
+    "test": "vitest",
+    "db:init": "docker compose exec -T db sh -c 'psql -U \"$POSTGRES_USER\" -d \"$POSTGRES_DB\"' < database/FauxVault_Schema.sql && docker compose exec -T db sh -c 'psql -U \"$POSTGRES_USER\" -d \"$POSTGRES_DB\"' < database/FauxVault_Seed.sql",
+    "db:reseed": "docker compose exec -T db sh -c 'psql -U \"$POSTGRES_USER\" -d \"$POSTGRES_DB\"' < database/FauxVault_Seed.sql"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",

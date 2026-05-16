@@ -3,6 +3,8 @@
  * Handles JSON parsing and normalises the server error shapes into thrown errors.
  */
 
+import { getActiveModuleIds } from './vulnerabilityState'
+
 export const BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api'
 
 /**
@@ -23,6 +25,13 @@ export async function apiFetch(endpoint, options = {}) {
     // If token is present, add to headers authorization key
     if (token) {
         headers['Authorization'] = `Bearer ${token}`
+    }
+
+    // Tell the server which vulnerability modules the user has switched on in the UI.
+    // Backend middleware reads this header at server/src/middleware/vulnerabilityToggle.js.
+    const activeModuleIds = getActiveModuleIds()
+    if (activeModuleIds.length > 0) {
+        headers['X-Vulnerability-Overrides'] = activeModuleIds.join(',')
     }
 
     const response = await fetch(`${BASE_URL}${endpoint}`, {
