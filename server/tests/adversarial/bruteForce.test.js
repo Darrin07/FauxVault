@@ -88,6 +88,6 @@ describe('Adversarial: brute-force attack simulation', () => {
     }
 
     expect(succeeded).toBe(true);
-    expect(token).toBeTruthy();;
+    expect(token).toBeTruthy();
   });
 });
