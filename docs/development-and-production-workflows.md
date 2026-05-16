@@ -148,6 +148,14 @@ If the stack fails with an `exec format error`, retry with BuildKit disabled:
 DOCKER_BUILDKIT=0 docker compose up --build
 ```
 
+Seed the database on first stand-up (or after wiping `pgdata`):
+
+```bash
+npm run db:init
+```
+
+The script runs from the host and reaches the `db` container via `docker compose exec`, so the app being containerized makes no difference. See "Seed the database" in the recommended workflow above for `db:reseed` and drift symptoms.
+
 In this mode, the app container uses `DB_HOST=db` from the root `.env` and
 reaches Postgres through Docker service discovery.
 
