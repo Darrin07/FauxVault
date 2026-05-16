@@ -92,13 +92,15 @@ export default function SessionInspector() {
         },
         {
             label: 'SameSite',
-            vulnerable: 'None',
+            vulnerable: 'Lax',
             hardened: 'Strict',
             description: isVulnerable
-                ? 'Cookie sent with all cross-site requests — CSRF possible'
+                ? 'Cookie sent on navigation, not cross-site POST — partial CSRF protection'
                 : 'Cookie only sent with same-site requests — CSRF blocked',
         },
     ]
+
+    const isSecure = !isVulnerable
 
     return (
         <Card sx={{
@@ -154,7 +156,6 @@ export default function SessionInspector() {
                 }}>
                     {flags.map((flag) => {
                         const currentValue = isVulnerable ? flag.vulnerable : flag.hardened
-                        const isSecure = !isVulnerable
                         return (
                             <Box key={flag.label} sx={{
                                 p: 1.5,
