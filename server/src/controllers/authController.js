@@ -3,7 +3,7 @@ const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const config = require('../config');
-const { createUser, findUserByEmail, findUserByEmailAllHashes, findUserByUsername, findUserByUsernameAllHashes } = require('../models/users');
+const { createUser, findUserByEmail, findUserByEmailAllHashes, findUserById, findUserByUsername, findUserByUsernameAllHashes } = require('../models/users');
 const { createAccount } = require('../models/accounts');
 
 const isProduction = config.nodeEnv === 'production';
@@ -239,4 +239,29 @@ function logout(req, res) {
     res.json({ message: 'Logged out'});
 }
 
-module.exports = { register, login, logout };
+/**
+ * Returns the current authenticated user.
+ * Supports hardened weak_session_tokens mode by hydrating frontend auth state
+ * from the HttpOnly session cookie.
+ * @param {Request} req - express request with req.user set by authenticate
+ * @param {Response} res - express response
+ * @param {Function} next - express next middleware
+ * @requirement R1.1
+ */
+async function me(req, res, next) {
+    try {
+        const user = await findUserById(req.user.userId);
+
+        if (!user) {
+            return res.status(404).json({
+                error: { status: 404, message: 'User not found', code: 'USER_NOT_FOUND' },
+            });
+        }
+
+        res.json({ user: sanitizeUser(user) });
+    } catch (err) {
+        next(err);
+    }
+}
+
+module.exports = { register, login, logout, me };

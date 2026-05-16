@@ -1,8 +1,11 @@
 const express = require('express');
 const router = express.Router();
 const authController = require('../controllers/authController');
+const { authenticate } = require('../middleware/auth');
 const { vulnerabilityToggle } = require('../middleware/vulnerabilityToggle');
 const { safetyNetLimiter, bruteForceLimiter } = require('../middleware/rateLimiter');
+
+router.get('/me', authenticate, authController.me);
 
 // Safety-net: unconditional rate limit on all auth routes
 router.use(safetyNetLimiter);

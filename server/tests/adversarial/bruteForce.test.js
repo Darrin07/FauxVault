@@ -4,14 +4,7 @@ const { resetUsers } = require('../../src/models/users');
 const { resetAccounts } = require('../../src/models/accounts');
 const { resetSettings, updateSetting } = require('../../src/models/toggleState');
 const { resetLimiters } = require('../../src/middleware/rateLimiter');
-
-function extractTokenFromResponse(res) {
-  if (res.body.token) return res.body.token;
-  const cookies = res.headers['set-cookie'] || [];
-  const tokenCookie = cookies.find(c => c.startsWith('token='));
-  if (tokenCookie) return tokenCookie.split(';')[0].replace('token=', '');
-  return null;
-}
+const { extractTokenFromResponse } = require('../helpers/auth');
 
 const COMMON_PASSWORDS = [
   'password', '123456', 'admin', 'letmein', 'welcome',

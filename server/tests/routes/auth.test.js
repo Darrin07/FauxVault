@@ -3,24 +3,7 @@ const app = require('../../src/app');
 const { resetUsers } = require('../../src/models/users');
 const { resetAccounts } = require('../../src/models/accounts');
 const { resetSettings } = require('../../src/models/toggleState');
-
-/**
- * Extracts the JWT from Set-Cookie headers.
- * In hardened mode (weak_session_tokens OFF), the token is ONLY in the cookie,
- * not in the response body. This helper handles both modes.
- */
-function extractTokenFromResponse(res) {
-  // Body token (vulnerable mode)
-  if (res.body.token) return res.body.token;
-
-  // Cookie token (hardened mode) — parse from Set-Cookie header
-  const cookies = res.headers['set-cookie'] || [];
-  const tokenCookie = cookies.find(c => c.startsWith('token='));
-  if (tokenCookie) {
-    return tokenCookie.split(';')[0].replace('token=', '');
-  }
-  return null;
-}
+const { extractTokenFromResponse, getTokenCookie } = require('../helpers/auth');
 
 beforeEach(async () => {
   await resetUsers();
@@ -136,8 +119,7 @@ describe('POST /api/auth/logout', () => {
   });
   test('clears the token cookie', async () => {
     const res = await request(app).post('/api/auth/logout');
-    const cookies = res.headers['set-cookie'] || [];
-    const tokenCookie = cookies.find(c => c.startsWith('token='));
+    const tokenCookie = getTokenCookie(res);
     expect(tokenCookie).toBeDefined();
     // Cookie should be expired (cleared)
     expect(tokenCookie).toMatch(/expires=/i);
@@ -164,5 +146,31 @@ describe('Auth middleware', () => {
     expect(res.status).toBe(200);
     expect(res.body.user.email).toBe('auth@example.com');
   });
-});
 
+  test('GET /api/auth/me returns current user with cookie token', async () => {
+    const registerRes = await request(app)
+      .post('/api/auth/register')
+      .send({ username: 'cookieprofile', email: 'cookieme@example.com', password: 'Password123' });
+
+    const token = extractTokenFromResponse(registerRes);
+
+    const res = await request(app)
+      .get('/api/auth/me')
+      .set('Cookie', `token=${token}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.user).toEqual(
+      expect.objectContaining({
+        username: 'cookieprofile',
+        email: 'cookieme@example.com',
+        role: 'user',
+      })
+    );
+    expect(res.body.user).not.toHaveProperty('passwordBcrypt');
+  });
+
+  test('GET /api/auth/me rejects unauthenticated requests', async () => {
+    const res = await request(app).get('/api/auth/me');
+    expect(res.status).toBe(401);
+  });
+});

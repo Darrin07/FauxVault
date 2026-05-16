@@ -26,20 +26,7 @@ const app = require('../../src/app');
 const { resetUsers } = require('../../src/models/users'); 
 const { resetAccounts } = require('../../src/models/accounts'); 
 const { resetSettings, updateSetting } = require('../../src/models/toggleState');
-
-/** 
-* Extracts the token cookie string from the Set-Cookie header. */
-function getTokenCookie(res) { 
-    const cookies = res.headers['set-cookie'] || []; 
-    return cookies.find(c => c.startsWith('token=')); 
-}
-
-/** 
-* Extracts the JWT value from the token cookie. */
-function extractCookieToken(res) { 
-    const cookie = getTokenCookie(res); 
-    return cookie ? cookie.split(';')[0].replace('token=', '') : null; 
-}
+const { extractCookieToken, getTokenCookie } = require('../helpers/auth');
 
 beforeEach(async () => { 
     await resetUsers(); 
