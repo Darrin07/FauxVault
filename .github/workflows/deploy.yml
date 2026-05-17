@@ -127,9 +127,10 @@ jobs:
               "docker compose up -d --build",
               "echo ==> Waiting for app to start...",
               "sleep 30",
+              "echo ==> Running DB init...",
+              "npm run db:init",
               "echo ==> Health check...",
-              "curl -f http://localhost/api/health || (echo ERROR: Health check failed && exit 1)",
-              "echo ==> Deployment successful"
+              "curl -f http://localhost/api/settings || (echo ERROR: Health check failed && exit 1)"
             ]' \
             --query "Command.CommandId" \
             --output text)

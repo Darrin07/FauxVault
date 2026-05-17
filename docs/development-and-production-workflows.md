@@ -109,23 +109,22 @@ Browser http://localhost:5173
   -> PostgreSQL localhost:5432
 ```
 
-## API-Only Docker Workflow
+## Full-Stack Docker Workflow
 
-Use this when you want the backend and database in Docker and you do not need
-the React dev server.
+Use this when you want the entire stack — frontend, backend, and database — running in Docker with a single command. This is the production topology and the recommended path for demo and portability testing.
 
 ### Topology
 
-- Express runs in Docker and is exposed on `http://localhost:80`
+- nginx serves the React frontend on `http://localhost:80`
+- Express runs in Docker on port `3001` (internal only, accessed via nginx)
 - PostgreSQL runs in Docker on `localhost:5432`
-- There is no frontend container in the current Compose file
 
 ### When to use it
 
-- Backend-only development
-- API smoke testing with `curl`, Postman, or scripted checks
-- Verifying the containerized API path
-- Reproducing bugs that only show up when Express runs inside Compose
+- Full-stack demo and walkthroughs
+- Portability testing on a clean machine
+- EC2 deployment verification
+- Reproducing bugs that only show up when the full stack runs in containers
 
 ### Setup
 
@@ -162,9 +161,10 @@ reaches Postgres through Docker service discovery.
 ### Request flow
 
 ```text
-HTTP client
-  -> http://localhost:80/api/*
-  -> Express container port 3001
+Browser
+  -> http://localhost:80
+  -> nginx container
+  -> /api/* proxied to Express container port 3001
   -> PostgreSQL service db:5432
 ```
 
@@ -177,7 +177,7 @@ This matters because:
 
 - The recommended frontend workflow does not run the backend in Docker
 - Host-run Express reloads quickly with `npm run dev`
-- Port `80` is reserved for the Dockerized API path, which is a separate mode
+- Port `80` is now owned by nginx in the full-stack Docker topology
 - Keeping the proxy on `3001` avoids coupling frontend development to the
   Compose API container
 
@@ -226,7 +226,7 @@ Browser
 | Workflow | Frontend | Backend | Database | Primary URL | Best for |
 |----------|----------|---------|----------|-------------|----------|
 | Recommended local dev | Host Vite `:5173` | Host Express `:3001` | Docker `:5432` | `http://localhost:5173` | Daily frontend and full-stack development |
-| API-only Docker | None | Docker host port `:80` | Docker `:5432` | `http://localhost:80/api` | Backend verification and container-path testing |
+| Full-stack Docker | nginx `:80` | Docker `:3001` (internal) | Docker `:5432` | `http://localhost` | Demo, EC2 deployment, portability testing |
 
 ## Related Files
 

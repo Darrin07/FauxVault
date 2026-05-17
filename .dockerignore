@@ -1,0 +1,12 @@
+.env
+.env.*
+.git
+.gitignore
+node_modules
+dist
+server
+database
+docs
+public
+*.md
+.github
