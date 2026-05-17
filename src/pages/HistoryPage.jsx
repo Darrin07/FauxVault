@@ -14,6 +14,11 @@ import {
     Chip,
     Skeleton,
     Paper,
+    Dialog,
+    DialogTitle,
+    DialogContent,
+    DialogActions,
+    Button,
 } from '@mui/material'
 import { Search as SearchIcon } from '@mui/icons-material'
 import * as transfersApi from '../services/transfers'
@@ -29,13 +34,56 @@ import { useVulnerabilities } from '../hooks/useVulnerabilities'
 export default function HistoryPage() {
 
     const [transactions, setTransactions] = useState([])
-    const [searchQuery, setSearchQuery] = useState('')
     const [loading, setLoading] = useState(true)
     const [searchParams] = useSearchParams()
+    const [searchQuery, setSearchQuery] = useState(searchParams.get('q') || '')
 
     //Vulnerability Module: Stored XSS - when enabled, the description cell wil render raw HTML
     const { modules } = useVulnerabilities()
     const xssVulnerable = modules.find(m => m.id === 'xss_stored')?.enabled
+
+    // VULN MODULE: Reflected XSS — when enabled, search query renders as raw HTML
+    const xssReflectedVulnerable = modules.find(m => m.id === 'xss_reflected')?.enabled
+    const weakSessionVulnerable = modules.find(m => m.id === 'weak_session_tokens')?.enabled
+
+    // Educational notification state set by the reflected XSS detection effect
+    const [xssNotification, setXssNotification] = useState(null)
+
+    // Reflected XSS detection: fires when module is enabled and search query contains HTML
+    // Checks document.cookie at runtime to determine if session token is accessible to user
+    useEffect(() => {
+        if (!xssReflectedVulnerable || !searchQuery || !/<[^>]+>/.test(searchQuery)) {
+            setXssNotification(null)
+            return
+        }
+
+        const cookie = document.cookie
+        const tokenMatch = cookie.match(/token=([^;]+)/)
+
+        if (tokenMatch) {
+            // Both xss_reflected AND weak_session_tokens are vulnerable — full attack chain
+            // Visual flash: red border pulse to signal something bad happened
+            const pageEl = document.getElementById('history-page')
+            if (pageEl) {
+                pageEl.style.transition = 'box-shadow 0.3s ease'
+                pageEl.style.boxShadow = 'inset 0 0 0 3px rgba(231, 76, 60, 0.6)'
+                setTimeout(() => { pageEl.style.boxShadow = 'none' }, 1500)
+            }
+
+            setXssNotification({
+                severity: 'error',
+                title: 'Reflected XSS — Attack Succeeded',
+                message: `As a result of a Reflected XSS attack, your session token "${tokenMatch[1].substring(0, 25)}..." could have been sent to a third party.`,
+            })
+        } else {
+            // xss_reflected is on but token is not in document.cookie — httpOnly protected
+            setXssNotification({
+                severity: 'warning',
+                title: 'Reflected XSS — Attack Blocked',
+                message: 'A Reflected XSS attack attempted to steal your session token, but it appears as empty — you are protected by FauxVault\'s httpOnly cookie flag.',
+            })
+        }
+    }, [xssReflectedVulnerable, searchQuery])
 
     // 'transfers' when navigated from Dashboard quick action; controls heading only
     // Not forwarded to the API — the API filter accepts 'sent'/'received', not 'transfers'
@@ -89,7 +137,7 @@ export default function HistoryPage() {
     }
 
     return (
-        <Box>
+        <Box id="history-page">
             {/* Header: title and search input */}
             <Box
                 sx={{
@@ -218,10 +266,35 @@ export default function HistoryPage() {
 
                     <Typography variant="caption" color="text.disabled" sx={{ mt: 2, display: 'block' }}>
                         {filtered.length} transaction{filtered.length !== 1 ? 's' : ''} found
-                        {searchQuery && ` matching "${searchQuery}"`}
+                        {searchQuery && (
+                            xssReflectedVulnerable
+                                ? <span dangerouslySetInnerHTML={{ __html: ` matching "${searchQuery}"` }} />
+                                : ` matching "${searchQuery}"`
+                        )}
                     </Typography>
                 </>
             )}
+
+            {/* VULN MODULE: Reflected XSS — educational notification dialog */}
+            <Dialog
+                open={Boolean(xssNotification)}
+                onClose={() => setXssNotification(null)}
+                id="xss-reflected-notification"
+            >
+                <DialogTitle sx={{ color: xssNotification?.severity === 'error' ? 'error.main' : 'warning.main' }}>
+                    {xssNotification?.title}
+                </DialogTitle>
+                <DialogContent>
+                    <Typography variant="body2" color="text.secondary">
+                        {xssNotification?.message}
+                    </Typography>
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={() => setXssNotification(null)} color="inherit">
+                        Dismiss
+                    </Button>
+                </DialogActions>
+            </Dialog>
         </Box>
     )
 }
