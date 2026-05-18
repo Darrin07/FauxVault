@@ -116,7 +116,7 @@ Use this when you want the entire stack — frontend, backend, and database — 
 ### Topology
 
 - nginx serves the React frontend on `http://localhost:80`
-- Express runs in Docker on port `3001` (internal only, accessed via nginx)
+- Express runs in Docker on port `3001`; nginx uses the Compose network, and the host can reach it only at `127.0.0.1:3001` for local API testing
 - PostgreSQL runs in Docker on `localhost:5432`
 
 ### When to use it
@@ -157,6 +157,10 @@ The script runs from the host and reaches the `db` container via `docker compose
 
 In this mode, the app container uses `DB_HOST=db` from the root `.env` and
 reaches Postgres through Docker service discovery.
+
+Direct API requests for Postman, OpenAPI checks, and adversarial testing can use
+`http://localhost:3001/api/*` from the host. That binding is loopback-only; the
+public/demo entrypoint remains nginx at `http://localhost/api/*`.
 
 ### Request flow
 
@@ -226,7 +230,7 @@ Browser
 | Workflow | Frontend | Backend | Database | Primary URL | Best for |
 |----------|----------|---------|----------|-------------|----------|
 | Recommended local dev | Host Vite `:5173` | Host Express `:3001` | Docker `:5432` | `http://localhost:5173` | Daily frontend and full-stack development |
-| Full-stack Docker | nginx `:80` | Docker `:3001` (internal) | Docker `:5432` | `http://localhost` | Demo, EC2 deployment, portability testing |
+| Full-stack Docker | nginx `:80` | Docker `127.0.0.1:3001` | Docker `:5432` | `http://localhost` | Demo, EC2 deployment, portability testing |
 
 ## Related Files
 

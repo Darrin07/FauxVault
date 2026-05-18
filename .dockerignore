@@ -7,6 +7,5 @@ dist
 server
 database
 docs
-public
 *.md
 .github

@@ -91,7 +91,7 @@ DOCKER_BUILDKIT=0 docker compose up --build
 
 This starts three services:
 - **frontend** — React app served by nginx on `http://localhost`
-- **app** — Express API on port `3001` (internal only, accessed via nginx)
+- **app** — Express API proxied by nginx and exposed to the host only at `127.0.0.1:3001` for local API testing
 - **db** — PostgreSQL on port `5432`
 
 On first run, bootstrap the database after containers are up:
