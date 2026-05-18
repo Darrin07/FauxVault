@@ -83,21 +83,30 @@ This repo currently supports two local runtime modes:
 The detailed setup, proxy explanation, and production topology notes live in
 [`docs/development-and-production-workflows.md`](docs/development-and-production-workflows.md).
 
-### 3a. Run API-only with Docker Compose
+### 3a. Run the full stack with Docker Compose
 
-```bash
-docker compose up
-```
-
-**Note:** If you encounter `exec format error` when building or starting the
-Docker stack, disable BuildKit:
 ```bash
 DOCKER_BUILDKIT=0 docker compose up --build
 ```
 
-This starts the Express API on `http://localhost:80` and PostgreSQL on port
-`5432`. Use this for API-only Docker testing, not as the default frontend dev
-workflow.
+This starts three services:
+- **frontend** — React app served by nginx on `http://localhost`
+- **app** — Express API proxied by nginx and exposed to the host only at `127.0.0.1:3001` for local API testing
+- **db** — PostgreSQL on port `5432`
+
+On first run, bootstrap the database after containers are up:
+```bash
+npm run db:init
+```
+
+This applies the schema and seeds the database with demo users:
+- User: `test.user@example.com` / `Password123`
+- Admin: `admin@fauxvault.com` / `AdminPass123`
+
+**Note:** If you encounter `exec format error`, disable BuildKit:
+```bash
+DOCKER_BUILDKIT=0 docker compose up --build
+```
 
 ### 3b. Run manually (without Docker)
 
