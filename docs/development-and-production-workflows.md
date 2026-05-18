@@ -38,7 +38,36 @@ Start only the database:
 docker compose up -d db
 ```
 
-Seed the database on first run, or after resetting `pgdata`:
+Seed the database using the npm scripts (recommended):
+
+```bash
+# First-time bootstrap: applies schema, then seed
+npm run db:init
+
+# Later, to reset data after drift (toggles flipped, tests mutated rows,
+# or the seed file changed on main):
+npm run db:reseed
+```
+
+`db:init` runs both `FauxVault_Schema.sql` and `FauxVault_Seed.sql`. `db:reseed` runs only the seed file, which TRUNCATEs the data tables and reinserts, leaving the schema untouched. Use `db:init` once per fresh `pgdata` volume; use `db:reseed` to fix drift without touching schema.
+
+Both scripts read `POSTGRES_USER` and `POSTGRES_DB` from the `db` container's environment (which Compose populates from `.env`), so they work unchanged in dev and on the prod EC2 box as long as `.env` is present.
+
+**When to run `db:reseed`:**
+
+- A vulnerability behaves as vulnerable when the admin toggle shows hardened, or vice versa. On 2026-05-13 a stale `brute_force=TRUE` row survived a seed-default flip from TRUE to FALSE.
+- Login with the documented seed credentials fails (`admin` / `AdminPass123`, or `test_user` / `Password123`). Your local users table has been mutated by prior tests or manual logins.
+- Account `FV-USER-002` balance is not `$500.50`, or more than one transaction exists. Transfer tests didn't clean up after themselves.
+- A vulnerability module is missing from the admin page that you can see in `FauxVault_Seed.sql`. Someone added a new toggle row and your DB never picked it up.
+- A test passes locally but fails in CI (or vice versa) and the failure looks like "wrong row count" or "unexpected boolean" rather than "wrong code path."
+- You just pulled from `main` and behavior feels off without a clear code reason. The pull may include a seed-file change that has not been re-applied locally.
+- The `admin` user is missing, has a different role, or has extra rows. Manual experimentation has drifted the identity pool.
+
+> If you see *schema*-shaped drift instead (missing tables, missing columns, `relation does not exist` errors), run `db:init` rather than `db:reseed`. `db:reseed` only fixes data drift; schema drift needs the schema file re-applied.
+
+#### Manual fallback
+
+The npm scripts wrap the `psql` calls below. Use these directly when debugging connection issues, applying only one file, or doing a one-off operation against the DB. The literals `fauxvault_user` and `fauxvault` match the stock `.env.example`; substitute if you've changed `POSTGRES_USER` or `POSTGRES_DB` locally.
 
 ```bash
 docker compose exec -T db psql -U fauxvault_user -d fauxvault \
@@ -80,23 +109,22 @@ Browser http://localhost:5173
   -> PostgreSQL localhost:5432
 ```
 
-## API-Only Docker Workflow
+## Full-Stack Docker Workflow
 
-Use this when you want the backend and database in Docker and you do not need
-the React dev server.
+Use this when you want the entire stack — frontend, backend, and database — running in Docker with a single command. This is the production topology and the recommended path for demo and portability testing.
 
 ### Topology
 
-- Express runs in Docker and is exposed on `http://localhost:80`
+- nginx serves the React frontend on `http://localhost:80`
+- Express runs in Docker on port `3001`; nginx uses the Compose network, and the host can reach it only at `127.0.0.1:3001` for local API testing
 - PostgreSQL runs in Docker on `localhost:5432`
-- There is no frontend container in the current Compose file
 
 ### When to use it
 
-- Backend-only development
-- API smoke testing with `curl`, Postman, or scripted checks
-- Verifying the containerized API path
-- Reproducing bugs that only show up when Express runs inside Compose
+- Full-stack demo and walkthroughs
+- Portability testing on a clean machine
+- EC2 deployment verification
+- Reproducing bugs that only show up when the full stack runs in containers
 
 ### Setup
 
@@ -119,15 +147,28 @@ If the stack fails with an `exec format error`, retry with BuildKit disabled:
 DOCKER_BUILDKIT=0 docker compose up --build
 ```
 
+Seed the database on first stand-up (or after wiping `pgdata`):
+
+```bash
+npm run db:init
+```
+
+The script runs from the host and reaches the `db` container via `docker compose exec`, so the app being containerized makes no difference. See "Seed the database" in the recommended workflow above for `db:reseed` and drift symptoms.
+
 In this mode, the app container uses `DB_HOST=db` from the root `.env` and
 reaches Postgres through Docker service discovery.
+
+Direct API requests for Postman, OpenAPI checks, and adversarial testing can use
+`http://localhost:3001/api/*` from the host. That binding is loopback-only; the
+public/demo entrypoint remains nginx at `http://localhost/api/*`.
 
 ### Request flow
 
 ```text
-HTTP client
-  -> http://localhost:80/api/*
-  -> Express container port 3001
+Browser
+  -> http://localhost:80
+  -> nginx container
+  -> /api/* proxied to Express container port 3001
   -> PostgreSQL service db:5432
 ```
 
@@ -140,7 +181,7 @@ This matters because:
 
 - The recommended frontend workflow does not run the backend in Docker
 - Host-run Express reloads quickly with `npm run dev`
-- Port `80` is reserved for the Dockerized API path, which is a separate mode
+- Port `80` is now owned by nginx in the full-stack Docker topology
 - Keeping the proxy on `3001` avoids coupling frontend development to the
   Compose API container
 
@@ -189,7 +230,7 @@ Browser
 | Workflow | Frontend | Backend | Database | Primary URL | Best for |
 |----------|----------|---------|----------|-------------|----------|
 | Recommended local dev | Host Vite `:5173` | Host Express `:3001` | Docker `:5432` | `http://localhost:5173` | Daily frontend and full-stack development |
-| API-only Docker | None | Docker host port `:80` | Docker `:5432` | `http://localhost:80/api` | Backend verification and container-path testing |
+| Full-stack Docker | nginx `:80` | Docker `127.0.0.1:3001` | Docker `:5432` | `http://localhost` | Demo, EC2 deployment, portability testing |
 
 ## Related Files
 
