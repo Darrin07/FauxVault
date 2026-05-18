@@ -31,8 +31,8 @@ export default function SessionInspector() {
     const { modules } = useVulnerabilities()
     const isVulnerable = modules.find(m => m.id === 'weak_session_tokens')?.enabled ?? false
 
-    const [cookieValue, setCookieValue] = useState('')
-    const [localStorageToken, setLocalStorageToken] = useState(null)
+    const [cookieValue, setCookieValue] = useState(document.cookie || '')
+    const [localStorageToken, setLocalStorageToken] = useState(localStorage.getItem('token'))
     const [copied, setCopied] = useState(false)
 
     // View what JavaScript can actually see
@@ -42,8 +42,6 @@ export default function SessionInspector() {
     }, [])
 
     useEffect(() => {
-        refreshTokenState()
-        // Check again, cookies can change after login flows
         const interval = setInterval(refreshTokenState, 2000)
         return () => clearInterval(interval)
     }, [refreshTokenState])

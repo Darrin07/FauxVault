@@ -124,7 +124,7 @@ describe('SessionInspector — vulnerable mode', () => {
         mockUseVulnerabilities.mockReturnValue(VULNERABLE_STATE)
         render(<SessionInspector />)
         expect(screen.getAllByText('false')[0]).toBeInTheDocument() // httpOnly: false (Secure also false)
-        expect(screen.getByText('None')).toBeInTheDocument()  // sameSite: None
+        expect(screen.getByText('Lax')).toBeInTheDocument()  // sameSite: Lax
     })
 
     it('shows XSS warning text in vulnerable mode', () => {

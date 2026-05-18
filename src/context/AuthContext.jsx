@@ -1,5 +1,6 @@
-import { createContext, useReducer, useCallback, useEffect } from 'react'
+import { useReducer, useCallback, useEffect } from 'react'
 import { apiFetch } from '../services/client'
+import { AuthContext } from './AuthContextObject'
 
 /**  AuthContext — manages authentication state across the app.
 *
