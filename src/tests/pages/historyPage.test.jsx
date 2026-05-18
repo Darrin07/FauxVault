@@ -375,3 +375,96 @@ describe('HistoryPage — Reflected XSS module (xss_reflected)', () => {
         expect(screen.queryByText(/matching/i)).not.toBeInTheDocument()
     })
 })    
+
+//Educational notification (xss_reflected + weak_session_tokens)
+
+describe('HistoryPage — Educational notification', () => {
+    // Cookie cleanup scoped to this describe block only
+    afterEach(() => {
+        document.cookie.split(';').forEach(c => {
+            document.cookie = c.trim().split('=')[0] + '=;expires=Thu, 01 Jan 1970 00:00:00 GMT'
+        })
+    })
+
+    function enableReflectedXss() {
+        mockUseVulnerabilities.mockReturnValue({
+            modules: [
+                { id: 'xss_stored', name: 'Stored XSS', enabled: false },
+                { id: 'xss_reflected', name: 'Reflected XSS', enabled: true },
+                { id: 'weak_session_tokens', name: 'Weak Session Tokens', enabled: true },
+            ],
+            toggleModule: vi.fn(),
+            isVulnerable: true,
+            notification: null,
+            closeNotification: vi.fn(),
+        })
+    }
+
+    it('shows "Attack Succeeded" dialog when token is in document.cookie', async () => {
+        enableReflectedXss()
+        document.cookie = 'token=fake-jwt-token-abc123'
+        transfersApi.getTransfers.mockResolvedValue({ transactions: MOCK_TRANSACTIONS })
+        renderPage('/history?q=<img src=x>')
+
+        await waitFor(() => {
+            const dialog = document.getElementById('xss-reflected-notification')
+            expect(dialog).toBeInTheDocument()
+        })
+        expect(screen.getByText(/Attack Succeeded/i)).toBeInTheDocument()
+        expect(screen.getByText(/session token/i)).toBeInTheDocument()
+        expect(screen.getByText(/fake-jwt-token-abc123/)).toBeInTheDocument()
+    })
+
+    it('shows "Attack Blocked" dialog when token is not in document.cookie', async () => {
+        enableReflectedXss()
+        // Ensure no token cookie is set
+        document.cookie = 'token=;expires=Thu, 01 Jan 1970 00:00:00 GMT'
+        transfersApi.getTransfers.mockResolvedValue({ transactions: MOCK_TRANSACTIONS })
+        renderPage('/history?q=<img src=x>')
+
+        await waitFor(() => {
+            const dialog = document.getElementById('xss-reflected-notification')
+            expect(dialog).toBeInTheDocument()
+        })
+        expect(screen.getByText(/Attack Blocked/i)).toBeInTheDocument()
+        expect(screen.getByText(/httpOnly/i)).toBeInTheDocument()
+    })
+
+    it('shows no notification when xss_reflected is disabled', async () => {
+        // Default beforeEach mock has xss_reflected disabled
+        transfersApi.getTransfers.mockResolvedValue({ transactions: MOCK_TRANSACTIONS })
+        renderPage('/history?q=<img src=x>')
+
+        // Search query doesn't match any transaction, so table won't render; wait for empty state
+        await screen.findByText(/no matches found/i)
+        expect(document.getElementById('xss-reflected-notification')).not.toBeInTheDocument()
+    })
+
+    it('shows no notification when search query has no HTML', async () => {
+        enableReflectedXss()
+        transfersApi.getTransfers.mockResolvedValue({ transactions: MOCK_TRANSACTIONS })
+        renderPage('/history?q=normaltext')
+
+        // 'normaltext' doesn't match any transaction; wait for empty state 
+        await screen.findByText(/no matches found/i)
+        expect(document.getElementById('xss-reflected-notification')).not.toBeInTheDocument()
+    })
+
+    it('dismiss button closes the notification dialog', async () => {
+        const user = userEvent.setup()
+        enableReflectedXss()
+        document.cookie = 'token=fake-jwt-token-abc123'
+        transfersApi.getTransfers.mockResolvedValue({ transactions: MOCK_TRANSACTIONS })
+        renderPage('/history?q=<img src=x>')
+
+        await waitFor(() => {
+            expect(document.getElementById('xss-reflected-notification')).toBeInTheDocument()
+        })
+
+        await user.click(screen.getByRole('button', { name: /dismiss/i }))
+
+        await waitFor(() => {
+            expect(document.getElementById('xss-reflected-notification')).not.toBeInTheDocument()
+        })
+    })
+})
