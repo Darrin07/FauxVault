@@ -44,7 +44,7 @@ export default function HistoryPage() {
 
     // VULN MODULE: Reflected XSS — when enabled, search query renders as raw HTML
     const xssReflectedVulnerable = modules.find(m => m.id === 'xss_reflected')?.enabled
-    const weakSessionVulnerable = modules.find(m => m.id === 'weak_session_tokens')?.enabled
+ //   const weakSessionVulnerable = modules.find(m => m.id === 'weak_session_tokens')?.enabled  -- placedholder awaiting merge
 
     // Educational notification state set by the reflected XSS detection effect
     const [xssNotification, setXssNotification] = useState(null)
