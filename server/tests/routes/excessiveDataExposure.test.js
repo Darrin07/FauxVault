@@ -3,6 +3,7 @@ const app = require('../../src/app');
 const { resetUsers, findUserById } = require('../../src/models/users');
 const { resetAccounts } = require('../../src/models/accounts');
 const { resetSettings, updateUserSetting } = require('../../src/models/toggleState');
+const { extractTokenFromResponse } = require('../helpers/auth');
 
 let token;
 let userId;
@@ -16,7 +17,7 @@ beforeEach(async () => {
         .post('/api/auth/register')
         .send({ username: 'testuser', email: 'test@example.com', password: 'Password123' });
 
-    token = res.body.token;
+    token = extractTokenFromResponse(res);
     userId = res.body.user.id;
 });
 

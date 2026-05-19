@@ -3,10 +3,29 @@
  * 
  * StatusBar is purely for user reference.  It reads isVulnerable from VulnerabilityContext
  * (in useVulnerabilities) and renders either "Hardened" (green banner) or "Vulnerable" (red)
+ * 
+ *  *  Mock Strategy:
+ *      1. @mui/material: avoids importing full MUI during collecton using lw stubs
+ *      2. @mui/icons-material: stub icon renders as <span>
+ *      3. useVulnerabilities is vi.hoisted mock to control module state
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
+
+//  MUI mocks--------------
+
+vi.mock('@mui/material', () => ({
+    Box: ({ children, role, ...rest }) => <div role={role} {...rest}>{children}</div>,
+    Typography: ({ children }) => <span>{children}</span>,
+}))
+
+vi.mock('@mui/icons-material', () => ({
+    ShieldOutlined: () => <span data-testid="icon-shield-check" />,
+    GppBadOutlined: () => <span data-testid="icon-shield-alert" />,
+}))
+
+// Hook mock--------------
 import StatusBar from '../../components/StatusBar'
 
 // Set-up--------------

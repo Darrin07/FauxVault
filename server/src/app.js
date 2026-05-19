@@ -1,13 +1,36 @@
 const express = require('express');
 const cors = require('cors');
+const cookieParser = require('cookie-parser');
 const morgan = require('morgan');
 const errorHandler = require('./middleware/errorHandler');
 const { authenticate } = require('./middleware/auth');
 
 const app = express();
 
-// Middleware chain
-app.use(cors());
+const defaultCorsOrigins = [
+  'http://localhost',
+  'http://localhost:5173',
+  'http://127.0.0.1',
+  'http://127.0.0.1:5173',
+];
+const allowedCorsOrigins = (process.env.CORS_ORIGINS || process.env.CORS_ORIGIN || defaultCorsOrigins.join(','))
+  .split(',')
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+
+// Middleware chain; credentials added for weak-session-tokens module
+app.use(cors({
+  origin(origin, callback) {
+    if (!origin || allowedCorsOrigins.includes(origin)) {
+      callback(null, true);
+      return;
+    }
+
+    callback(new Error(`CORS origin not allowed: ${origin}`));
+  },
+  credentials: true,
+}));
+app.use(cookieParser());
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 

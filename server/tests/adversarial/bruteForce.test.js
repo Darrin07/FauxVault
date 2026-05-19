@@ -4,6 +4,7 @@ const { resetUsers } = require('../../src/models/users');
 const { resetAccounts } = require('../../src/models/accounts');
 const { resetSettings, updateSetting } = require('../../src/models/toggleState');
 const { resetLimiters } = require('../../src/middleware/rateLimiter');
+const { extractTokenFromResponse } = require('../helpers/auth');
 
 const COMMON_PASSWORDS = [
   'password', '123456', 'admin', 'letmein', 'welcome',
@@ -74,12 +75,12 @@ describe('Adversarial: brute-force attack simulation', () => {
 
       if (res.status === 200) {
         succeeded = true;
-        token = res.body.token;
+        token = extractTokenFromResponse(res);
         break;
       }
     }
 
     expect(succeeded).toBe(true);
-    expect(token).toBeDefined();
+    expect(token).toBeTruthy();
   });
 });

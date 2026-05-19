@@ -23,7 +23,11 @@ export async function login(identifier, password) {
         body: JSON.stringify({ identifier, password }),
     })
 
-    if (data.token) localStorage.setItem('token', data.token)
+    if (data.token) {
+        localStorage.setItem('token', data.token)
+    } else {
+        localStorage.removeItem('token')
+    }
     return data
 }
 
@@ -38,7 +42,11 @@ export async function register({ username, email, password }) {
         body: JSON.stringify({ username, email, password }),
     })
 
-    if (data.token) localStorage.setItem('token', data.token)
+    if (data.token) {
+        localStorage.setItem('token', data.token)
+    } else {
+        localStorage.removeItem('token')
+    }
     return data
 }
 

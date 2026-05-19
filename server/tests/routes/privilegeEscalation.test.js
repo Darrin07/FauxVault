@@ -3,6 +3,7 @@ const app = require('../../src/app');
 const { resetUsers, findUserById } = require('../../src/models/users');
 const { resetAccounts } = require('../../src/models/accounts');
 const { resetSettings, updateUserSetting } = require('../../src/models/toggleState');
+const { extractTokenFromResponse } = require('../helpers/auth');
 
 let userToken;
 let userId;
@@ -19,7 +20,7 @@ beforeEach(async () => {
         .post('/api/auth/register')
         .send({ username: 'regularuser', email: 'regular@example.com', password: 'Password123' });
 
-    userToken = userRes.body.token;
+    userToken = extractTokenFromResponse(userRes);
     userId = userRes.body.user.id;
 
     // Admin user — register, promote in DB, then re-login to get a JWT with role:'admin'
@@ -37,7 +38,7 @@ beforeEach(async () => {
         .post('/api/auth/login')
         .send({ identifier: 'adminuser', password: 'Password123' });
 
-    adminToken = adminLoginRes.body.token;
+    adminToken = extractTokenFromResponse(adminLoginRes);
 });
 
 // HARDENED MODE TESTS (privilege_escalation OFF by default)

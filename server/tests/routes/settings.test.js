@@ -3,6 +3,7 @@ const app = require('../../src/app');
 const { resetSettings } = require('../../src/models/toggleState');
 const { resetUsers } = require('../../src/models/users');
 const { resetAccounts } = require('../../src/models/accounts');
+const { extractTokenFromResponse } = require('../helpers/auth');
 
 beforeEach(async () => {
     await resetSettings();
@@ -55,7 +56,7 @@ describe('GET /api/users/me/vulnerability-settings', () => {
 
         const res = await request(app)
             .get('/api/users/me/vulnerability-settings')
-            .set('Authorization', `Bearer ${registerRes.body.token}`);
+            .set('Authorization', `Bearer ${extractTokenFromResponse(registerRes)}`);
 
         expect(res.status).toBe(200);
         expect(res.body).toBeInstanceOf(Array);
@@ -71,7 +72,7 @@ describe('PUT /api/users/me/vulnerability-settings', () => {
             .post('/api/auth/register')
             .send({ username: 'settingsuser', email: 'settingsuser@example.com', password: 'Password123' });
 
-        return registerRes.body.token;
+        return extractTokenFromResponse(registerRes);
     }
 
     test('persists a signed-in user override', async () => {

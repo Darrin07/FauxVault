@@ -2,18 +2,21 @@ const request = require('supertest');
 const app = require('../../src/app');
 const { resetUsers } = require('../../src/models/users');
 const { resetAccounts } = require('../../src/models/accounts');
+const { resetSettings } = require('../../src/models/toggleState');
+const { extractTokenFromResponse } = require('../helpers/auth');
 
 let token;
 
 beforeEach(async () => {
   await resetUsers();
   await resetAccounts();
+  await resetSettings();
 
   const res = await request(app)
     .post('/api/auth/register')
     .send({ username: 'profileuser', email: 'profile@example.com', password: 'Password123' });
 
-  token = res.body.token;
+  token = extractTokenFromResponse(res);
 });
 
 describe('GET /api/users/profile', () => {

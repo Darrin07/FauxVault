@@ -14,8 +14,7 @@ import {
     TextField, 
     InputAdornment, 
     Alert, 
-    CircularProgress, 
-    Divider, } from '@mui/material'
+    CircularProgress, } from '@mui/material'
 import { 
     Send as SendIcon, 
     History as HistoryIcon, 
@@ -29,6 +28,8 @@ import {
 import * as accountsApi from '../services/accounts'
 import * as transfersApi from '../services/transfers'
 import { fmt } from '../utils/format'
+import { useVulnerabilities } from '../hooks/useVulnerabilities'
+import SessionInspector from '../components/SessionInspector'
 
     // DashboardPage — rendered at /dashboard
     // Loads account balance, deposits, and withdrawals on mount via Promise.all
@@ -191,6 +192,8 @@ function TransferModal({ isOpen, onClose }) {
         const [withdrawals, setWithdrawals] = useState(null) 
         const [showTransfer, setShowTransfer] = useState(false) 
         const navigate = useNavigate()
+        const { modules } = useVulnerabilities()
+        const weakSessionActive = modules.find(m => m.id === 'weak_session_tokens')?.enabled ?? false
 
         // Fetch all three data points in parallel on mount 
         useEffect(() => { async function fetchData() { 
@@ -435,6 +438,9 @@ function TransferModal({ isOpen, onClose }) {
                     </Box> 
                 </CardContent> 
             </Card> 
+            
+            {weakSessionActive && <SessionInspector />}
+
         </Box>
         
         <TransferModal 
