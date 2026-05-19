@@ -12,6 +12,10 @@
  *  2. VULN MODULE: Stored XSS (xss_stored)
  *    a. renders memo as raw HTML in sidebar when xss_stored is enabled
  *    b. renders memo as escaped text in sidebar when xss_stored is disabled
+ * 
+ *  3. VULN MODULE: Refelcted XSS (xss_reflected)
+ *    a. renders server error as raw html in error alert when xss_reflected is enabled
+ *    b. renders server error as escaped test in error alert when xss_reflected is disabled
  *
  * Mock strategy:
  *  useVulnerabilities: vi.hoisted mock, TransferPage imports this hook
@@ -220,5 +224,57 @@ describe('TransferPage — Stored XSS module (xss_stored)', () => {
 
         // React escaping: no <img> element rendered & the string entered is visible text
         expect(container.querySelector('img[src="x"]')).not.toBeInTheDocument()
+    })
+})
+
+// Vulnerability Module: XSS_REFLECTED
+
+describe('TransferPage — Reflected XSS module (xss_reflected)', () => {
+    it('renders server error as a DOM element in error alert when xss_reflected is enabled', async () => {
+        mockUseVulnerabilities.mockReturnValue({
+            modules: [
+                { id: 'xss_stored', name: 'Stored XSS', enabled: false },
+                { id: 'xss_reflected', name: 'Reflected XSS', enabled: true },
+            ],
+            toggleModule: vi.fn(),
+            isVulnerable: true,
+            notification: null,
+            closeNotification: vi.fn(),
+        })
+        const user = userEvent.setup()
+        // Server rejects with an error whose message contains HTML
+        transfersApi.sendTransfer.mockRejectedValue(new Error('<b>bad</b>'))
+        const { container } = renderPage()
+
+        await submitTransfer(user)
+        // Wait for the error Alert to appear after the async rejection
+        await screen.findByRole('alert')
+
+        // dangerouslySetInnerHTML: <b> becomes a real DOM node in the error alert
+        expect(container.querySelector('b')).toBeInTheDocument()
+    })
+
+    it('renders server error as escaped text in error alert when xss_reflected is disabled', async () => {
+        mockUseVulnerabilities.mockReturnValue({
+            modules: [
+                { id: 'xss_stored', name: 'Stored XSS', enabled: false },
+                { id: 'xss_reflected', name: 'Reflected XSS', enabled: false },
+            ],
+            toggleModule: vi.fn(),
+            isVulnerable: false,
+            notification: null,
+            closeNotification: vi.fn(),
+        })
+        const user = userEvent.setup()
+        transfersApi.sendTransfer.mockRejectedValue(new Error('<b>bad</b>'))
+        const { container } = renderPage()
+
+        await submitTransfer(user)
+        await screen.findByRole('alert')
+
+        // React escaping: no <b> element rendered
+        expect(container.querySelector('b')).not.toBeInTheDocument()
+        // The literal string "<b>bad</b>" is visible as text
+        expect(screen.getByText('<b>bad</b>')).toBeInTheDocument()
     })
 })
