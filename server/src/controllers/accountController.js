@@ -2,6 +2,7 @@
 const {
     findAccountByUserId,
     findAccountById,
+    findAccountOwner,
     getDepositSummary,
     getWithdrawalSummary,
 } = require('../models/accounts');
@@ -125,10 +126,10 @@ async function updateMyAccount(req, res, next) {
 }
 
 /**
- * Returns an account by its ID. In hardened mode this will
- * verify ownership; in vulnerable mode (BOLA) it won't.
- * For now, returns the account without ownership check — the
- * vulnerability toggle will be layered on in PR#2.
+ * Returns an account by its ID. Hardened mode binds the RLS session to the
+ * authenticated user, so cross-user reads return 404 (RLS hides the row).
+ * Vulnerable mode (BOLA, A01 / API1) derives the RLS identity from the
+ * requested account itself, which lets the requester read any account.
  * @param {Request} req - express request with :id param
  * @param {Response} res - express response
  * @param {Function} next - express next middleware
@@ -138,14 +139,57 @@ async function updateMyAccount(req, res, next) {
  */
 async function getAccountById(req, res, next) {
     try {
+        if (req.vuln_bola) {
+            // VULNERABLE: A01:2025 / API1:2023 - Broken Object Level Authorization
+            // The session identity (req.user.userId) is ignored. We look up the
+            // account's owner via the shared pool (no RLS context), then bind
+            // RLS to that owner so the read succeeds for any account ID. This
+            // mimics the common real-world bug where authorization is derived
+            // from request data instead of the session.
+            const ownerId = await findAccountOwner(req.params.id);
+
+            if (!ownerId) {
+                return res.status(404).json({
+                    error: { status: 404, message: 'Account not found', code: 'ACCOUNT_NOT_FOUND' },
+                });
+            }
+
+            const account = await executeSecurely(ownerId, async (client) => {
+                return findAccountById(req.params.id, client);
+            });
+
+            if (!account) {
+                // findAccountOwner saw a row but the RLS-scoped read did not.
+                // Account was deleted between the two queries, or the owner
+                // lookup was stale. Treat as 404 rather than crash on null.
+                return res.status(404).json({
+                    error: { status: 404, message: 'Account not found', code: 'ACCOUNT_NOT_FOUND' },
+                });
+            }
+
+            return res.json({
+                account: {
+                    id: account.id,
+                    accountNumber: account.accountNumber,
+                    balance: account.balance,
+                    accountType: account.accountType,
+                    createdAt: account.createdAt,
+                    ownerId: account.userId,
+                    vulnerableMode: true,
+                },
+            });
+        }
+
+        // HARDENED: explicit application-layer ownership check. The RLS
+        // session is bound to the requesting user, but RLS alone cannot be
+        // trusted as the only barrier (e.g. a superuser DB role bypasses
+        // policies). Comparing account.userId to req.user.userId is the
+        // direct BOLA mitigation and the teaching point of this module.
         const account = await executeSecurely(req.user.userId, async (client) => {
-            // Even a simple "lookup by account id" becomes RLS-sensitive after
-            // enabling policies on the accounts table, so the read must stay on
-            // the request-scoped client instead of falling back to pool.query.
             return findAccountById(req.params.id, client);
         });
 
-        if (!account) {
+        if (!account || account.userId !== req.user.userId) {
             return res.status(404).json({
                 error: { status: 404, message: 'Account not found', code: 'ACCOUNT_NOT_FOUND' },
             });

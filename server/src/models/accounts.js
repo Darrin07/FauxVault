@@ -79,6 +79,23 @@ async function findAccountById(id, client) {
 }
 
 /**
+ * Looks up the owning user_id for an account, intentionally on the shared
+ * pool so the read is not constrained by the caller's RLS session context.
+ * Used by the BOLA module (A01 / API1) to demonstrate how an application
+ * can derive an identity from request data and feed it to RLS instead of
+ * the session identity, defeating the row-isolation policy.
+ * @param {string} accountId - the account's UUID
+ * @returns {string|null} the owner's user_id, or null if not found
+ */
+async function findAccountOwner(accountId) {
+  const result = await pool.query(
+    'SELECT user_id FROM accounts WHERE account_id = $1',
+    [accountId]
+  );
+  return result.rows[0] ? result.rows[0].user_id : null;
+}
+
+/**
  * Returns the current balance for an account.
  * @param {string} accountId - the account's UUID
  * @returns {number|null} balance in dollars, or null if account not found
@@ -244,6 +261,7 @@ module.exports = {
   resetAccounts,
   findAccountByUserId,
   findAccountById,
+  findAccountOwner,
   getBalance,
   transfer,
   getTransactions,
