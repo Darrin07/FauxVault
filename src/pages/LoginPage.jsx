@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useNavigate, Link } from 'react-router-dom'
+import { useNavigate, useLocation, Link } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import {
     Box,
@@ -32,6 +32,7 @@ export default function LoginPage() {
     const [loading, setLoading] = useState(false)
 
     const { login } = useAuth()
+    const location = useLocation()
     const navigate = useNavigate()
 
     async function handleSubmit(e) {
@@ -47,7 +48,7 @@ export default function LoginPage() {
         try {
             const { user, token } = await authApi.login(identifier, password)
             login(user, token)
-            navigate('/dashboard')
+            navigate(location.state?.from?.pathname ?? '/dashboard')
         } catch (err) {
             setError(err.message || 'Login failed. Please try again.')
         } finally {
