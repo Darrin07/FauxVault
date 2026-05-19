@@ -158,6 +158,15 @@ async function getAccountById(req, res, next) {
                 return findAccountById(req.params.id, client);
             });
 
+            if (!account) {
+                // findAccountOwner saw a row but the RLS-scoped read did not.
+                // Account was deleted between the two queries, or the owner
+                // lookup was stale. Treat as 404 rather than crash on null.
+                return res.status(404).json({
+                    error: { status: 404, message: 'Account not found', code: 'ACCOUNT_NOT_FOUND' },
+                });
+            }
+
             return res.json({
                 account: {
                     id: account.id,

@@ -9,6 +9,7 @@ let attackerToken;
 let attackerUserId;
 let victimUserId;
 let victimAccountId;
+let victimBalance;
 
 beforeEach(async () => {
   await resetUsers();
@@ -37,6 +38,7 @@ beforeEach(async () => {
     .set('Authorization', `Bearer ${victimToken}`);
 
   victimAccountId = victimMe.body.account.id;
+  victimBalance = victimMe.body.account.balance;
 });
 
 // ---------------------------------------------------------------------------
@@ -85,7 +87,7 @@ describe('Adversarial: Broken Object Level Authorization (BOLA / IDOR)', () => {
     expect(res.body.account.ownerId).toBe(victimUserId);
     expect(res.body.account.ownerId).not.toBe(attackerUserId);
     expect(res.body.account.vulnerableMode).toBe(true);
-    expect(res.body.account.balance).toBe(1000);
+    expect(res.body.account.balance).toBe(victimBalance);
   });
 
   test('vulnerable mode still 404s for a nonexistent account ID', async () => {
