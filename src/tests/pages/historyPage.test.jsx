@@ -76,7 +76,7 @@ vi.mock('@mui/material', () => ({
     Chip: ({ label }) => <span>{label}</span>,
     Skeleton: () => <div data-testid="skeleton" />,
     Paper: ({ children }) => <div>{children}</div>,
-    Dialog: ({ open, children, onClose, id }) =>
+    Dialog: ({ open, children, id }) =>
         open ? <div id={id} role="dialog">{children}</div> : null,
     DialogTitle: ({ children }) => <div>{children}</div>,
     DialogContent: ({ children }) => <div>{children}</div>,

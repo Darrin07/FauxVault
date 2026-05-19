@@ -17,7 +17,7 @@ import PhishingEmailDialog from '../../components/PhishingEmailDialog'
 
 // Full MUI mock — avoids bundling real @mui/material during collect.
 vi.mock('@mui/material', () => ({
-    Dialog: ({ open, children, onClose, id }) =>
+    Dialog: ({ open, children, id }) =>
         open ? <div id={id} role="dialog">{children}</div> : null,
     DialogTitle: ({ children }) => <div>{children}</div>,
     DialogContent: ({ children }) => <div>{children}</div>,

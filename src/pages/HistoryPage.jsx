@@ -47,46 +47,40 @@ export default function HistoryPage() {
  //   const weakSessionVulnerable = modules.find(m => m.id === 'weak_session_tokens')?.enabled  -- placedholder awaiting merge
 
     // Educational notification state set by the reflected XSS detection effect
-    const [xssNotification, setXssNotification] = useState(null)
+    const shouldShowNotification = !!xssReflectedVulnerable && !!searchQuery && /<[^>]+>/.test(searchQuery)
+    const [notificationDismissed, setNotificationDismissed] = useState(false)
 
     // Reflected XSS detection: fires when module is enabled and search query contains HTML
-    // Checks document.cookie at runtime to determine if session token is accessible to user
-    useEffect(() => {
-        if (!xssReflectedVulnerable || !searchQuery || !/<[^>]+>/.test(searchQuery)) {
-            setXssNotification(null)
-            return
-        }
+    const xssNotification = useMemo(() => {
+        if (!shouldShowNotification || notificationDismissed) return null
 
         const cookie = document.cookie
         const tokenMatch = cookie.match(/token=([^;]+)/)
 
         if (tokenMatch) {
-            // Both xss_reflected AND weak_session_tokens are vulnerable — full attack chain
-            // Visual flash: red border pulse to signal something bad happened
-            const pageEl = document.getElementById('history-page')
-            if (pageEl) {
-                pageEl.style.transition = 'box-shadow 0.3s ease'
-                pageEl.style.boxShadow = 'inset 0 0 0 3px rgba(231, 76, 60, 0.6)'
-                setTimeout(() => { pageEl.style.boxShadow = 'none' }, 1500)
-            }
-
-            setXssNotification({
+            return {
                 severity: 'error',
                 title: 'Reflected XSS — Attack Succeeded',
                 message: `As a result of a Reflected XSS attack, your session token "${tokenMatch[1].substring(0, 25)}..." could have been sent to a third party.`,
-            })
-        } else {
-            // xss_reflected is on but token is not in document.cookie — httpOnly protected
-            setXssNotification({
-                severity: 'warning',
-                title: 'Reflected XSS — Attack Blocked',
-                message: 'A Reflected XSS attack attempted to steal your session token, but it appears as empty — you are protected by FauxVault\'s httpOnly cookie flag.',
-            })
+            }
         }
-    }, [xssReflectedVulnerable, searchQuery])
+        return {
+            severity: 'warning',
+            title: 'Reflected XSS — Attack Blocked',
+            message: 'A Reflected XSS attack attempted to steal your session token, but it appears as empty — you are protected by FauxVault\'s httpOnly cookie flag.',
+        }
+    }, [shouldShowNotification, notificationDismissed])
 
-    // 'transfers' when navigated from Dashboard quick action; controls heading only
-    // Not forwarded to the API — the API filter accepts 'sent'/'received', not 'transfers'
+    useEffect(() => {
+        if (!shouldShowNotification) return
+        const pageEl = document.getElementById('history-page')
+        if (pageEl) {
+            pageEl.style.transition = 'box-shadow 0.3s ease'
+            pageEl.style.boxShadow = 'inset 0 0 0 3px rgba(231, 76, 60, 0.6)'
+            setTimeout(() => { pageEl.style.boxShadow = 'none' }, 1500)
+        }
+    }, [shouldShowNotification])
+
     const typeFilter = searchParams.get('type')
 
     // Fetch on mount and when URL type param changes
@@ -278,7 +272,7 @@ export default function HistoryPage() {
             {/* VULN MODULE: Reflected XSS — educational notification dialog */}
             <Dialog
                 open={Boolean(xssNotification)}
-                onClose={() => setXssNotification(null)}
+                onClose={() => setNotificationDismissed(true)}
                 id="xss-reflected-notification"
             >
                 <DialogTitle sx={{ color: xssNotification?.severity === 'error' ? 'error.main' : 'warning.main' }}>
@@ -290,7 +284,7 @@ export default function HistoryPage() {
                     </Typography>
                 </DialogContent>
                 <DialogActions>
-                    <Button onClick={() => setXssNotification(null)} color="inherit">
+                    <Button onClick={() => setNotificationDismissed(true)} color="inherit">
                         Dismiss
                     </Button>
                 </DialogActions>
