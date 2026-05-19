@@ -11,6 +11,7 @@ const { resetUsers } = require('../../src/models/users');
 const { resetAccounts } = require('../../src/models/accounts');
 const { resetSettings, updateSetting } = require('../../src/models/toggleState');
 const { resetLimiters } = require('../../src/middleware/rateLimiter');
+const { extractTokenFromResponse } = require('../helpers/auth');
 
 let authToken;
 
@@ -29,7 +30,7 @@ beforeEach(async () => {
         .post('/api/auth/login')
         .send({ identifier: 'test@example.com', password: 'TestPass123' });
 
-    authToken = loginRes.body.token;
+    authToken = extractTokenFromResponse(loginRes);
 
     // Reset limiters after setup requests consumed safety-net quota
     await resetLimiters();
