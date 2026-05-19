@@ -427,7 +427,7 @@ describe('HistoryPage — Educational notification', () => {
             expect(dialog).toBeInTheDocument()
         })
         expect(screen.getByText(/Attack Blocked/i)).toBeInTheDocument()
-        expect(screen.getByText(/httpOnly/i)).toBeInTheDocument()
+        expect(screen.getByText(/hardening on session tokens/i)).toBeInTheDocument()
     })
 
     it('shows no notification when xss_reflected is disabled', async () => {

@@ -60,14 +60,14 @@ export default function HistoryPage() {
         if (tokenMatch) {
             return {
                 severity: 'error',
-                title: 'Reflected XSS — Attack Succeeded',
+                title: 'Reflected XSS: Attack Succeeded',
                 message: `As a result of a Reflected XSS attack, your session token "${tokenMatch[1].substring(0, 25)}..." could have been sent to a third party.`,
             }
         }
         return {
             severity: 'warning',
-            title: 'Reflected XSS — Attack Blocked',
-            message: 'A Reflected XSS attack attempted to steal your session token, but it appears as empty — you are protected by FauxVault\'s httpOnly cookie flag.',
+            title: 'Reflected XSS: Attack Blocked',
+            message: 'A Reflected XSS attack attempted to steal your session token, but it appears as empty. You are protected by FauxVault\'s hardening on session tokens.',
         }
     }, [shouldShowNotification, notificationDismissed])
 
