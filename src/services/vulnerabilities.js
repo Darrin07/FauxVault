@@ -18,6 +18,16 @@ export async function getModules() {
 }
 
 /**
+ * GET /api/users/me/vulnerability-settings
+ * Returns the merged effective vulnerability toggle state for the authenticated user:
+ * per-user override when present, otherwise the global default. Ordered by module_key.
+ * @returns {Array<{ module_key, module_name, is_vulnerable, global_default, has_user_override, updated_at }>}
+ */
+export async function getUserModules() {
+    return await apiFetch('/users/me/vulnerability-settings')
+}
+
+/**
  * PUT /api/users/me/vulnerability-settings
  * Persists a single module toggle for the authenticated user.
  * @param {string} module_name - e.g. 'privilege_escalation'
