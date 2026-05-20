@@ -4,13 +4,13 @@ const { resetUsers } = require('../../src/models/users');
 const { resetAccounts } = require('../../src/models/accounts');
 const { resetSettings, updateSetting } = require('../../src/models/toggleState');
 const { resetLimiters } = require('../../src/middleware/rateLimiter');
+const { extractTokenFromResponse } = require('../helpers/auth');
 
 let attackerToken;
 let attackerUserId;
 let victimUserId;
 let victimAccountId;
 let victimBalance;
-let victimToken;
 
 beforeEach(async () => {
   await resetUsers();
@@ -23,10 +23,7 @@ beforeEach(async () => {
     .post('/api/auth/register')
     .send({ username: 'attacker', email: 'attacker@example.com', password: 'Password123' });
 
-  attackerToken = attackerRes.headers['set-cookie']
-    ?.find(c => c.startsWith('token='))
-    ?.split(';')[0]
-    ?.replace('token=', '');
+  attackerToken = extractTokenFromResponse(attackerRes);
   attackerUserId = attackerRes.body.user.id;
 
   // Victim: someone else whose account ID the attacker will probe.
@@ -35,14 +32,11 @@ beforeEach(async () => {
     .send({ username: 'victim', email: 'victim@example.com', password: 'Password123' });
 
   victimUserId = victimRes.body.user.id;
-  victimToken = victimRes.headers['set-cookie']
-    ?.find(c => c.startsWith('token='))
-    ?.split(';')[0]
-    ?.replace('token=', '');
+  const victimToken = extractTokenFromResponse(victimRes);
 
   const victimMe = await request(app)
     .get('/api/accounts/me')
-    .set('Cookie', `token=${victimToken}`);
+    .set('Authorization', `Bearer ${victimToken}`);
 
   victimAccountId = victimMe.body.account.id;
   victimBalance = victimMe.body.account.balance;
@@ -58,7 +52,7 @@ describe('Adversarial: Broken Object Level Authorization (BOLA / IDOR)', () => {
 
     const res = await request(app)
       .get(`/api/accounts/${victimAccountId}`)
-      .set('Cookie', `token=${attackerToken}`);
+      .set('Authorization', `Bearer ${attackerToken}`);
 
     expect(res.status).toBe(404);
     expect(res.body.error.code).toBe('ACCOUNT_NOT_FOUND');
@@ -69,12 +63,12 @@ describe('Adversarial: Broken Object Level Authorization (BOLA / IDOR)', () => {
 
     const meRes = await request(app)
       .get('/api/accounts/me')
-      .set('Cookie', `token=${attackerToken}`);
+      .set('Authorization', `Bearer ${attackerToken}`);
     const attackerAccountId = meRes.body.account.id;
 
     const res = await request(app)
       .get(`/api/accounts/${attackerAccountId}`)
-      .set('Cookie', `token=${attackerToken}`);
+      .set('Authorization', `Bearer ${attackerToken}`);
 
     expect(res.status).toBe(200);
     expect(res.body.account.id).toBe(attackerAccountId);
@@ -87,7 +81,7 @@ describe('Adversarial: Broken Object Level Authorization (BOLA / IDOR)', () => {
 
     const res = await request(app)
       .get(`/api/accounts/${victimAccountId}`)
-      .set('Cookie', `token=${attackerToken}`);
+      .set('Authorization', `Bearer ${attackerToken}`);
 
     expect(res.status).toBe(200);
     expect(res.body.account.id).toBe(victimAccountId);
@@ -102,7 +96,7 @@ describe('Adversarial: Broken Object Level Authorization (BOLA / IDOR)', () => {
 
     const res = await request(app)
       .get('/api/accounts/00000000-0000-0000-0000-000000000000')
-      .set('Cookie', `token=${attackerToken}`);
+      .set('Authorization', `Bearer ${attackerToken}`);
 
     expect(res.status).toBe(404);
     expect(res.body.error.code).toBe('ACCOUNT_NOT_FOUND');
@@ -113,7 +107,7 @@ describe('Adversarial: Broken Object Level Authorization (BOLA / IDOR)', () => {
 
     const before = await request(app)
       .get(`/api/accounts/${victimAccountId}`)
-      .set('Cookie', `token=${attackerToken}`);
+      .set('Authorization', `Bearer ${attackerToken}`);
 
     expect(before.status).toBe(404);
 
@@ -121,7 +115,7 @@ describe('Adversarial: Broken Object Level Authorization (BOLA / IDOR)', () => {
 
     const after = await request(app)
       .get(`/api/accounts/${victimAccountId}`)
-      .set('Cookie', `token=${attackerToken}`);
+      .set('Authorization', `Bearer ${attackerToken}`);
 
     expect(after.status).toBe(200);
     expect(after.body.account.ownerId).toBe(victimUserId);
