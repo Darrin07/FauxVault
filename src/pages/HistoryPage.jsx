@@ -51,6 +51,14 @@ export default function HistoryPage() {
     const shouldShowNotification = !!xssReflectedVulnerable && !!searchQuery && /<[^>]+>/.test(searchQuery)
     const [notificationDismissed, setNotificationDismissed] = useState(false)
 
+    // Keep search box in sync w/URL-driven demo links, inc repeated phishing-link
+    const [prevURLQuery, setPrevUrlQuery] = useState(urlSearchQuery)
+    if (prevURLQuery !== urlSearchQuery) {
+        setPrevUrlQuery(urlSearchQuery)
+        setSearchQuery(urlSearchQuery)
+        setNotificationDismissed(false)
+    }
+
     // Reflected XSS detection: fires when module is enabled and search query contains HTML
     const xssNotification = useMemo(() => {
         if (!shouldShowNotification || notificationDismissed) return null
@@ -83,13 +91,6 @@ export default function HistoryPage() {
     }, [shouldShowNotification])
 
     const typeFilter = searchParams.get('type')
-
-    // Keep the search box in sync with URL-driven demo links, including
-    // repeated phishing-link clicks while already on /history.
-    useEffect(() => {
-        setSearchQuery(urlSearchQuery)
-        setNotificationDismissed(false)
-    }, [urlSearchQuery])
 
     // Fetch on mount and when URL type param changes
     useEffect(() => {
