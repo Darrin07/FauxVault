@@ -32,7 +32,7 @@
  * 
  *  7. Vulnerability Module: Reflected XSS (xss_reflected)
  *    a. URL ?q= param seeds the search field
- *    b. renders search query as HTML when xss_reflected is enabled
+ *    b. renders search query as HTML when xss_reflected is enabled, even with no matching rows
  *    c. renders search query as escaped text when xss_reflected is disabled
  *    d. empty ?q= does not show "matching" label
  *
@@ -316,17 +316,6 @@ describe('HistoryPage — Stored XSS module (xss_stored)', () => {
 
 // Vulnerability Module: Reflected XSS (xss_reflected)
 
-// Mock transaction whose description matches the reflected XSS search query exactly
-const REFLECTED_XSS_MATCH = {
-    id: 'txn-rxss',
-    fromAccountId: 'acc-001',
-    toAccountId: 'acc-002',
-    amount: 5.00,
-    reference: '<img src=x>',
-    memo: '<img src=x>',
-    createdAt: '2026-05-01T12:00:00.000Z',
-}
-
 describe('HistoryPage — Reflected XSS module (xss_reflected)', () => {
     it('seeds the search field from the ?q= URL parameter', async () => {
         transfersApi.getTransfers.mockResolvedValue({ transactions: MOCK_TRANSACTIONS })
@@ -338,7 +327,7 @@ describe('HistoryPage — Reflected XSS module (xss_reflected)', () => {
         expect(screen.getByText(/matching "Rent"/i)).toBeInTheDocument()
     })
 
-    it('renders the search query as HTML when xss_reflected is enabled', async () => {
+    it('renders the search query as HTML when xss_reflected is enabled, even with no matching rows', async () => {
         mockUseVulnerabilities.mockReturnValue({
             modules: [
                 { id: 'xss_stored', name: 'Stored XSS', enabled: false },
@@ -350,20 +339,20 @@ describe('HistoryPage — Reflected XSS module (xss_reflected)', () => {
             notification: null,
             closeNotification: vi.fn(),
         })
-        transfersApi.getTransfers.mockResolvedValue({ transactions: [REFLECTED_XSS_MATCH] })
+        transfersApi.getTransfers.mockResolvedValue({ transactions: MOCK_TRANSACTIONS })
         const { container } = renderPage('/history?q=<img src=x>')
 
-        await screen.findByRole('table')
+        await screen.findByText(/no matches found/i)
         // dangerouslySetInnerHTML: <img src=x> in the search summary becomes a real DOM node
         expect(container.querySelector('img[src="x"]')).toBeInTheDocument()
     })
 
     it('renders the search query as escaped text when xss_reflected is disabled', async () => {
         // Default beforeEach mock has xss_reflected disabled
-        transfersApi.getTransfers.mockResolvedValue({ transactions: [REFLECTED_XSS_MATCH] })
+        transfersApi.getTransfers.mockResolvedValue({ transactions: MOCK_TRANSACTIONS })
         const { container } = renderPage('/history?q=<img src=x>')
 
-        await screen.findByRole('table')
+        await screen.findByText(/no matches found/i)
         expect(container.querySelector('img[src="x"]')).not.toBeInTheDocument()
     })
 

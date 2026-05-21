@@ -36,7 +36,8 @@ export default function HistoryPage() {
     const [transactions, setTransactions] = useState([])
     const [loading, setLoading] = useState(true)
     const [searchParams] = useSearchParams()
-    const [searchQuery, setSearchQuery] = useState(searchParams.get('q') || '')
+    const urlSearchQuery = searchParams.get('q') || ''
+    const [searchQuery, setSearchQuery] = useState(urlSearchQuery)
 
     //Vulnerability Module: Stored XSS - when enabled, the description cell wil render raw HTML
     const { modules } = useVulnerabilities()
@@ -82,6 +83,13 @@ export default function HistoryPage() {
     }, [shouldShowNotification])
 
     const typeFilter = searchParams.get('type')
+
+    // Keep the search box in sync with URL-driven demo links, including
+    // repeated phishing-link clicks while already on /history.
+    useEffect(() => {
+        setSearchQuery(urlSearchQuery)
+        setNotificationDismissed(false)
+    }, [urlSearchQuery])
 
     // Fetch on mount and when URL type param changes
     useEffect(() => {
@@ -168,6 +176,16 @@ export default function HistoryPage() {
                     }}
                 />
             </Box>
+
+            {!loading && searchQuery && (
+                <Typography variant="caption" color="text.disabled" sx={{ mb: 2, display: 'block' }}>
+                    {filtered.length} transaction{filtered.length !== 1 ? 's' : ''} found
+                    {xssReflectedVulnerable
+                        ? <span dangerouslySetInnerHTML={{ __html: ` matching "${searchQuery}"` }} />
+                        : ` matching "${searchQuery}"`
+                    }
+                </Typography>
+            )}
 
             {/* Loading: skeleton rows */}
             {loading ? (
@@ -258,14 +276,11 @@ export default function HistoryPage() {
                         </Table>
                     </TableContainer>
 
-                    <Typography variant="caption" color="text.disabled" sx={{ mt: 2, display: 'block' }}>
-                        {filtered.length} transaction{filtered.length !== 1 ? 's' : ''} found
-                        {searchQuery && (
-                            xssReflectedVulnerable
-                                ? <span dangerouslySetInnerHTML={{ __html: ` matching "${searchQuery}"` }} />
-                                : ` matching "${searchQuery}"`
-                        )}
-                    </Typography>
+                    {!searchQuery && (
+                        <Typography variant="caption" color="text.disabled" sx={{ mt: 2, display: 'block' }}>
+                            {filtered.length} transaction{filtered.length !== 1 ? 's' : ''} found
+                        </Typography>
+                    )}
                 </>
             )}
 
