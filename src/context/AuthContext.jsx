@@ -1,6 +1,7 @@
 import { useReducer, useCallback, useEffect } from 'react'
 import { apiFetch } from '../services/client'
 import { AuthContext } from './AuthContextObject'
+import * as authService from '../services/auth'
 
 /**  AuthContext — manages authentication state across the app.
 *
@@ -37,7 +38,7 @@ function getInitialState() {
         localStorage.removeItem('token')
         localStorage.removeItem('user')
     }
-    return { ...EMPTY_STATE }
+    return { ...EMPTY_STATE, isLoading: true }
 }
 
 function authReducer(state, action) {
@@ -128,7 +129,12 @@ export function AuthProvider({ children }) {
         dispatch({ type: 'UPDATE_PROFILE', payload: updates })
     }, [])
 
-    const logout = useCallback(() => {
+    const logout = useCallback(async () => {
+        try {
+            await authService.logout()
+        } catch {
+            // intentionally empty; proceed w local logout even if servre call fails
+        }
         dispatch({ type: 'LOGOUT' })
     }, [])
 
