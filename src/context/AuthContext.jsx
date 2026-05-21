@@ -129,13 +129,11 @@ export function AuthProvider({ children }) {
         dispatch({ type: 'UPDATE_PROFILE', payload: updates })
     }, [])
 
-    const logout = useCallback(async () => {
-        try {
-            await authService.logout()
-        } catch {
-            // intentionally empty; proceed w local logout even if servre call fails
-        }
+    const logout = useCallback(() => {
         dispatch({ type: 'LOGOUT' })
+        authService.logout().catch(() => {
+            // Local logout still succeeds even if server cookie cleanup fails.
+        })
     }, [])
 
     // Separated into two distinct concerns — loading state and error state

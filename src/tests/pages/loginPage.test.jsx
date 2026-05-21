@@ -141,14 +141,14 @@ describe('LoginPage — redirect after login', () => {
     it('redirects to location.state.from the time a prior route is captured', async () => {
         const user = userEvent.setup()
         authService.login.mockResolvedValue({ user: MOCK_USER, token: MOCK_TOKEN })
-        renderPage({ pathname: '/login', state: { from: { pathname: '/transfer' } } })
+        renderPage({ pathname: '/login', state: { from: { pathname: '/history', search: '?q=test', hash: '#recent' } } })
 
         await user.type(screen.getByLabelText(/username or email/i), 'test@example.com')
         await user.type(screen.getByLabelText(/password/i), 'Password123')
         await user.click(screen.getByRole('button', { name: /log in/i }))
 
         await waitFor(() => {
-            expect(mockNavigate).toHaveBeenCalledWith('/transfer')
+            expect(mockNavigate).toHaveBeenCalledWith('/history?q=test#recent')
         })
     })
 })

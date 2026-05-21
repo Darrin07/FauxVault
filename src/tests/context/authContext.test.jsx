@@ -94,13 +94,13 @@ describe('LOGIN_SUCCESS', () => {
 })
 
 describe('LOGOUT', () => {
-    it('sets isAuthenticated to false', async () => {
+    it('sets isAuthenticated to false', () => {
         localStorage.setItem('token', MOCK_TOKEN)
         localStorage.setItem('user', JSON.stringify(MOCK_USER))
 
         const { result } = renderAuthHook()
 
-        await act(() => {
+        act(() => {
             result.current.logout()
         })
 
@@ -108,13 +108,13 @@ describe('LOGOUT', () => {
         expect(result.current.user).toBeNull()
     })
 
-    it('clears token and user from localStorage', async () => {
+    it('clears token and user from localStorage', () => {
         localStorage.setItem('token', MOCK_TOKEN)
         localStorage.setItem('user', JSON.stringify(MOCK_USER))
 
         const { result } = renderAuthHook()
 
-        await act(() => {
+        act(() => {
             result.current.logout()
         })
 

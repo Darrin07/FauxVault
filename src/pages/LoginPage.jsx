@@ -48,7 +48,12 @@ export default function LoginPage() {
         try {
             const { user, token } = await authApi.login(identifier, password)
             login(user, token)
-            navigate(location.state?.from?.pathname ?? '/dashboard')
+            const from = location.state?.from
+            const destination = from
+                ? `${from.pathname}${from.search ?? ''}${from.hash ?? ''}`
+                : '/dashboard'
+
+            navigate(destination)
         } catch (err) {
             setError(err.message || 'Login failed. Please try again.')
         } finally {
