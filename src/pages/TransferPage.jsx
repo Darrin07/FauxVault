@@ -39,6 +39,9 @@ export default function TransferPage() {
     const { modules } = useVulnerabilities()
     const xssVulnerable = modules.find(m => m.id === 'xss_stored')?.enabled
 
+    //Vulnerability Module: Reflected XSS - when enabled, server error messages render as raw HTML
+    const xssReflectedVulnerable = modules.find(m => m.id === 'xss_reflected')?.enabled
+
     function handleChange(field) {
         return (e) => setForm((prev) => ({ ...prev, [field]: e.target.value }))
     }
@@ -103,7 +106,17 @@ export default function TransferPage() {
                     <CardContent sx={{ p: 3 }}>
                         <Box component="form" onSubmit={handleSubmit} sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
 
-                            {error && <Alert severity="error">{error}</Alert>}
+                            {/* VULN MODULE: Reflected XSS - server error echo rendering
+                                Vulnerable: dangerouslySetInnerHTML renders server's echoed HTML
+                                Hardened: React's default JSX escaping displays as text */}
+                            {error && (
+                                <Alert severity="error">
+                                    {xssReflectedVulnerable
+                                        ? <span dangerouslySetInnerHTML={{ __html: error }} />
+                                        : error
+                                    }
+                                </Alert>
+                            )}
 
                             {success && (
                                 <Alert severity="success" icon={<CheckIcon />}>
