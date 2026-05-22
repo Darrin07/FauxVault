@@ -11,13 +11,15 @@ TRUNCATE users, accounts, transactions, vulnerability_settings, user_vulnerabili
 INSERT INTO users (username, email, name, password_plaintext, password_md5, password_bcrypt, role)
 VALUES
 ('admin', 'admin@fauxvault.com', 'Admin User', 'AdminPass123', 'a1c7f67b09808249b3a2dce888784324', '$2b$10$eir2VzXdvLT36H7L9rl.1u.UnTuO/g0yMRnLYj0QWKft1mCFMdfm6', 'admin'),
-('test_user', 'test.user@example.com', 'Test User', 'Password123', '42f749ade7f9e195bf475f37a44cafcb', '$2b$10$F2Egr5GdMJ/uj9CtWWZTleAfSANq8L.MqtQnPnFPCpPKCGnqi18QK', 'user');
+('test_user', 'test.user@example.com', 'Test User', 'Password123', '42f749ade7f9e195bf475f37a44cafcb', '$2b$10$F2Egr5GdMJ/uj9CtWWZTleAfSANq8L.MqtQnPnFPCpPKCGnqi18QK', 'user'),
+('test_user_2', 'test.user2@example.com', 'Test User Two', 'Password123', '42f749ade7f9e195bf475f37a44cafcb', '$2b$10$lCfZpHc2PwQLw3/MfPyy8OGCtnLJxYG.LeMuGuMVcpOUvjT8mdBR2', 'user');
 
 -- 2. Seed Accounts (reference users by subquery since UUIDs are auto-generated)
 INSERT INTO accounts (user_id, account_number, balance, account_type)
 VALUES
 ((SELECT user_id FROM users WHERE username = 'admin'), 'FV-ADMIN-001', 10000.00, 'savings'),
-((SELECT user_id FROM users WHERE username = 'test_user'), 'FV-USER-002', 500.50, 'checking');
+((SELECT user_id FROM users WHERE username = 'test_user'), 'FV-USER-002', 500.50, 'checking'),
+((SELECT user_id FROM users WHERE username = 'test_user_2'), 'FV-USER-003', 250.00, 'checking');
 
 -- 3. Seed a Sample Transaction
 INSERT INTO transactions (sender_account_id, receiver_account_id, amount, reference)
