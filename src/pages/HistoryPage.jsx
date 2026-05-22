@@ -14,6 +14,11 @@ import {
     Chip,
     Skeleton,
     Paper,
+    Dialog,
+    DialogTitle,
+    DialogContent,
+    DialogActions,
+    Button,
 } from '@mui/material'
 import { Search as SearchIcon } from '@mui/icons-material'
 import * as transfersApi from '../services/transfers'
@@ -29,16 +34,62 @@ import { useVulnerabilities } from '../hooks/useVulnerabilities'
 export default function HistoryPage() {
 
     const [transactions, setTransactions] = useState([])
-    const [searchQuery, setSearchQuery] = useState('')
     const [loading, setLoading] = useState(true)
     const [searchParams] = useSearchParams()
+    const urlSearchQuery = searchParams.get('q') || ''
+    const [searchQuery, setSearchQuery] = useState(urlSearchQuery)
 
     //Vulnerability Module: Stored XSS - when enabled, the description cell wil render raw HTML
     const { modules } = useVulnerabilities()
     const xssVulnerable = modules.find(m => m.id === 'xss_stored')?.enabled
 
-    // 'transfers' when navigated from Dashboard quick action; controls heading only
-    // Not forwarded to the API — the API filter accepts 'sent'/'received', not 'transfers'
+    // VULN MODULE: Reflected XSS — when enabled, search query renders as raw HTML
+    const xssReflectedVulnerable = modules.find(m => m.id === 'xss_reflected')?.enabled
+ //   const weakSessionVulnerable = modules.find(m => m.id === 'weak_session_tokens')?.enabled  -- placedholder awaiting merge
+
+    // Educational notification state set by the reflected XSS detection effect
+    const shouldShowNotification = !!xssReflectedVulnerable && !!searchQuery && /<[^>]+>/.test(searchQuery)
+    const [notificationDismissed, setNotificationDismissed] = useState(false)
+
+    // Keep search box in sync w/URL-driven demo links, inc repeated phishing-link
+    const [prevURLQuery, setPrevUrlQuery] = useState(urlSearchQuery)
+    if (prevURLQuery !== urlSearchQuery) {
+        setPrevUrlQuery(urlSearchQuery)
+        setSearchQuery(urlSearchQuery)
+        setNotificationDismissed(false)
+    }
+
+    // Reflected XSS detection: fires when module is enabled and search query contains HTML
+    const xssNotification = useMemo(() => {
+        if (!shouldShowNotification || notificationDismissed) return null
+
+        const cookie = document.cookie
+        const tokenMatch = cookie.match(/token=([^;]+)/)
+
+        if (tokenMatch) {
+            return {
+                severity: 'error',
+                title: 'Reflected XSS: Attack Succeeded',
+                message: `As a result of a Reflected XSS attack, your session token "${tokenMatch[1].substring(0, 25)}..." could have been sent to a third party.`,
+            }
+        }
+        return {
+            severity: 'warning',
+            title: 'Reflected XSS: Attack Blocked',
+            message: 'A Reflected XSS attack attempted to steal your session token, but it appears as empty. You are protected by FauxVault\'s hardening on session tokens.',
+        }
+    }, [shouldShowNotification, notificationDismissed])
+
+    useEffect(() => {
+        if (!shouldShowNotification) return
+        const pageEl = document.getElementById('history-page')
+        if (pageEl) {
+            pageEl.style.transition = 'box-shadow 0.3s ease'
+            pageEl.style.boxShadow = 'inset 0 0 0 3px rgba(231, 76, 60, 0.6)'
+            setTimeout(() => { pageEl.style.boxShadow = 'none' }, 1500)
+        }
+    }, [shouldShowNotification])
+
     const typeFilter = searchParams.get('type')
 
     // Fetch on mount and when URL type param changes
@@ -89,7 +140,7 @@ export default function HistoryPage() {
     }
 
     return (
-        <Box>
+        <Box id="history-page">
             {/* Header: title and search input */}
             <Box
                 sx={{
@@ -126,6 +177,16 @@ export default function HistoryPage() {
                     }}
                 />
             </Box>
+
+            {!loading && searchQuery && (
+                <Typography variant="caption" color="text.disabled" sx={{ mb: 2, display: 'block' }}>
+                    {filtered.length} transaction{filtered.length !== 1 ? 's' : ''} found
+                    {xssReflectedVulnerable
+                        ? <span dangerouslySetInnerHTML={{ __html: ` matching "${searchQuery}"` }} />
+                        : ` matching "${searchQuery}"`
+                    }
+                </Typography>
+            )}
 
             {/* Loading: skeleton rows */}
             {loading ? (
@@ -216,12 +277,34 @@ export default function HistoryPage() {
                         </Table>
                     </TableContainer>
 
-                    <Typography variant="caption" color="text.disabled" sx={{ mt: 2, display: 'block' }}>
-                        {filtered.length} transaction{filtered.length !== 1 ? 's' : ''} found
-                        {searchQuery && ` matching "${searchQuery}"`}
-                    </Typography>
+                    {!searchQuery && (
+                        <Typography variant="caption" color="text.disabled" sx={{ mt: 2, display: 'block' }}>
+                            {filtered.length} transaction{filtered.length !== 1 ? 's' : ''} found
+                        </Typography>
+                    )}
                 </>
             )}
+
+            {/* VULN MODULE: Reflected XSS — educational notification dialog */}
+            <Dialog
+                open={Boolean(xssNotification)}
+                onClose={() => setNotificationDismissed(true)}
+                id="xss-reflected-notification"
+            >
+                <DialogTitle sx={{ color: xssNotification?.severity === 'error' ? 'error.main' : 'warning.main' }}>
+                    {xssNotification?.title}
+                </DialogTitle>
+                <DialogContent>
+                    <Typography variant="body2" color="text.secondary">
+                        {xssNotification?.message}
+                    </Typography>
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={() => setNotificationDismissed(true)} color="inherit">
+                        Dismiss
+                    </Button>
+                </DialogActions>
+            </Dialog>
         </Box>
     )
 }

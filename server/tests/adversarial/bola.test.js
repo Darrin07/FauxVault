@@ -4,6 +4,7 @@ const { resetUsers } = require('../../src/models/users');
 const { resetAccounts } = require('../../src/models/accounts');
 const { resetSettings, updateSetting } = require('../../src/models/toggleState');
 const { resetLimiters } = require('../../src/middleware/rateLimiter');
+const { extractTokenFromResponse } = require('../helpers/auth');
 
 let attackerToken;
 let attackerUserId;
@@ -22,7 +23,7 @@ beforeEach(async () => {
     .post('/api/auth/register')
     .send({ username: 'attacker', email: 'attacker@example.com', password: 'Password123' });
 
-  attackerToken = attackerRes.body.token;
+  attackerToken = extractTokenFromResponse(attackerRes);
   attackerUserId = attackerRes.body.user.id;
 
   // Victim: someone else whose account ID the attacker will probe.
@@ -31,7 +32,7 @@ beforeEach(async () => {
     .send({ username: 'victim', email: 'victim@example.com', password: 'Password123' });
 
   victimUserId = victimRes.body.user.id;
-  const victimToken = victimRes.body.token;
+  const victimToken = extractTokenFromResponse(victimRes);
 
   const victimMe = await request(app)
     .get('/api/accounts/me')

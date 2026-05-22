@@ -1,6 +1,7 @@
 import { useReducer, useCallback, useEffect } from 'react'
 import { apiFetch } from '../services/client'
 import { AuthContext } from './AuthContextObject'
+import * as authService from '../services/auth'
 
 /**  AuthContext — manages authentication state across the app.
 *
@@ -37,7 +38,7 @@ function getInitialState() {
         localStorage.removeItem('token')
         localStorage.removeItem('user')
     }
-    return { ...EMPTY_STATE }
+    return { ...EMPTY_STATE, isLoading: true }
 }
 
 function authReducer(state, action) {
@@ -130,6 +131,9 @@ export function AuthProvider({ children }) {
 
     const logout = useCallback(() => {
         dispatch({ type: 'LOGOUT' })
+        authService.logout().catch(() => {
+            // Local logout still succeeds even if server cookie cleanup fails.
+        })
     }, [])
 
     // Separated into two distinct concerns — loading state and error state
