@@ -62,10 +62,10 @@ describe('Excessive Data Exposure / Mass Assignment (API3:2023)', () => {
         });
     });
 
-    describe('POST /api/accounts/me - Hardened mode', () => {
+    describe('PUT /api/accounts/me - Hardened mode', () => {
         test('ignores isAdmin field and does not escalate privileges', async () => {
             const res = await request(app)
-                .post('/api/accounts/me')
+                .put('/api/accounts/me')
                 .set('Authorization', `Bearer ${token}`)
                 .send({ isAdmin: true });
 
@@ -76,12 +76,12 @@ describe('Excessive Data Exposure / Mass Assignment (API3:2023)', () => {
         });
     });
 
-    describe('POST /api/accounts/me - Vulnerable mode', () => {
+    describe('PUT /api/accounts/me - Vulnerable mode', () => {
         test('accepts isAdmin field and escalates to admin role', async () => {
             await updateUserSetting(userId, 'excessive_data_exposure', true);
 
             const res = await request(app)
-                .post('/api/accounts/me')
+                .put('/api/accounts/me')
                 .set('Authorization', `Bearer ${token}`)
                 .send({ isAdmin: true });
 
