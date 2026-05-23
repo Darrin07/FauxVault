@@ -5,7 +5,7 @@ const accountController = require('../controllers/accountController');
 const { vulnerabilityToggle } = require('../middleware/vulnerabilityToggle');
 
 router.get('/me', authenticate, vulnerabilityToggle('excessive_data_exposure'), accountController.getMyAccount);
-router.post('/me', authenticate, vulnerabilityToggle('excessive_data_exposure'), accountController.updateMyAccount);
+router.put('/me', authenticate, vulnerabilityToggle('excessive_data_exposure'), accountController.updateMyAccount);
 router.get('/deposits', authenticate, accountController.getDeposits);
 router.get('/withdrawals', authenticate, accountController.getWithdrawals);
 // BOLA / IDOR module (A01 / API1): toggle picks whether the RLS session is

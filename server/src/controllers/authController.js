@@ -34,7 +34,7 @@ function generateToken(user){
     * @returns {Object} user object without password fields
  */
 function sanitizeUser(user){
-    return { id: user.id, username: user.username, email: user.email, role: user.role };
+    return { id: user.id, username: user.username, email: user.email, name: user.name || '', role: user.role };
 }
 
 /**

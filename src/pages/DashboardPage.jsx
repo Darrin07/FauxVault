@@ -222,11 +222,11 @@ function TransferModal({ isOpen, onClose }) {
         fetchData() 
     }, [])
 
-    // Shows 'last updated today' or a date string based on the account's createdAt 
-    const updatedLabel = balance?.lastUpdated 
-        ? `last updated ${new Date(balance.lastUpdated).toLocaleDateString() === new Date().toLocaleDateString() 
-            ? 'today' 
-            : new Date(balance.lastUpdated).toLocaleDateString()}` 
+    // Shows 'opened today' or a date string based on the account's creation date
+    const updatedLabel = balance?.openedAt
+        ? `opened ${new Date(balance.openedAt).toLocaleDateString() === new Date().toLocaleDateString()
+            ? 'today'
+            : new Date(balance.openedAt).toLocaleDateString()}`
             : ''
     
     return (

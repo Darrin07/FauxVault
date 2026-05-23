@@ -45,6 +45,7 @@ async function getMyAccount(req, res, next) {
                     userId: account.userId,
                     accountNumber: account.accountNumber,
                     balance: account.balance,
+                    accountType: account.accountType,
                     createdAt: account.createdAt,
                     user: {
                         id: user.id,
@@ -113,7 +114,7 @@ async function updateMyAccount(req, res, next) {
 
         res.json({
             message: 'Account updated',
-            user: {
+            account: {
                 id: updated.id,
                 username: updated.username,
                 email: updated.email,

@@ -93,11 +93,13 @@ export default function HistoryPage() {
     const typeFilter = searchParams.get('type')
 
     // Fetch on mount and when URL type param changes
+    // Only 'sent' and 'received' are recognized by the server; other values fetch all
     useEffect(() => {
         async function fetchData() {
             setLoading(true)
             try {
-                const raw = await transfersApi.getTransfers()
+                const serverType = ['sent', 'received'].includes(typeFilter) ? typeFilter : null
+                const raw = await transfersApi.getTransfers(serverType)
                 const normalized = (raw.transactions ?? []).map(normalizeTransaction)
                 setTransactions(normalized)
             } catch (err) {
@@ -128,14 +130,10 @@ export default function HistoryPage() {
         : 'Complete activity log for your account'
 
     const typeColor = {
-        deposit: 'success',
-        withdrawal: 'error',
         transfer: 'info',
     }
 
     const typeLabel = {
-        deposit: 'Deposit',
-        withdrawal: 'Withdrawal',
         transfer: 'Transfer',
     }
 
