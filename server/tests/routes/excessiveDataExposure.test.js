@@ -5,6 +5,12 @@ const { resetAccounts } = require('../../src/models/accounts');
 const { resetSettings, updateUserSetting } = require('../../src/models/toggleState');
 const { extractTokenFromResponse } = require('../helpers/auth');
 
+// Each beforeEach chains: resetSettings (transaction) + register (2 vuln-toggle
+// pool queries + 4 user/account queries) + executeSecurely in the test body.
+// That's enough sequential DB round-trips to exceed Jest's default 5 s on a
+// Docker or CI database where the host is remote.
+jest.setTimeout(15000);
+
 let token;
 let userId;
 
