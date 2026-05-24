@@ -114,7 +114,7 @@ async function updateMyAccount(req, res, next) {
 
         res.json({
             message: 'Account updated',
-            account: {
+            user: {
                 id: updated.id,
                 username: updated.username,
                 email: updated.email,
