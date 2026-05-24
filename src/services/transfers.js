@@ -22,7 +22,7 @@ import { apiFetch } from './client'
  * POST /api/transfers
  * Function: Transfers funds to another account
  * @param {{ toAccountId: string, amount: number, memo?: string }} fields
- * @returns {{ transaction: { id, fromAccountId, toAccountId, amount, reference, createdAt } }}
+ * @returns {{ transaction: { id, fromAccountId, toAccountId, amount, reference, memo, createdAt } }}
  */
 
 export async function sendTransfer({ toAccountId, amount, memo }) {

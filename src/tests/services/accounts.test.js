@@ -6,7 +6,7 @@
  * Tested in this file:
  *  getBalance() --> calls GET /accounts/me
  *  getBalance() --> normalises { account: { ... } } into flattened shape
- *  getBalance() --> maps createdAt → lastUpdated
+ *  getBalance() --> maps createdAt → openedAt
  *  getBalance() --> preserves accountType from the server
  *  getDeposits() --> calls GET /accounts/deposits
  *  getWithdrawals() --> calls GET /accounts/withdrawals

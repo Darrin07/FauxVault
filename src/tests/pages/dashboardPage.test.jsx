@@ -134,7 +134,7 @@ beforeEach(() => {
         id: 'acc-001',
         accountNumber: 'FAUX-TEST123',
         balance: 1000.00,
-        accountType: 'Checking',
+        accountType: 'checking',
         openedAt: '2026-04-27T12:00:00.000Z',
     })
     mockGetDeposits.mockResolvedValue({ total: 500.00, period: 'this month' })
