@@ -39,6 +39,7 @@ describe('Excessive Data Exposure / Mass Assignment (API3:2023)', () => {
             expect(res.body.account).toHaveProperty('id');
             expect(res.body.account).toHaveProperty('accountNumber');
             expect(res.body.account).toHaveProperty('balance');
+            expect(res.body.account).toHaveProperty('accountType');
             expect(res.body.account).toHaveProperty('createdAt');
             expect(res.body.account).not.toHaveProperty('userId');
             expect(res.body.account).not.toHaveProperty('user');
@@ -54,6 +55,7 @@ describe('Excessive Data Exposure / Mass Assignment (API3:2023)', () => {
                 .set('Authorization', `Bearer ${token}`);
 
             expect(res.status).toBe(200);
+            expect(res.body.account).toHaveProperty('accountType');
             expect(res.body.account).toHaveProperty('userId');
             expect(res.body.account).toHaveProperty('user');
             expect(res.body.account.user).toHaveProperty('passwordBcrypt');
