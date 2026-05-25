@@ -6,7 +6,7 @@
  * Tested in this file:
  *  getBalance() --> calls GET /accounts/me
  *  getBalance() --> normalises { account: { ... } } into flattened shape
- *  getBalance() --> maps createdAt → lastUpdated
+ *  getBalance() --> maps createdAt → openedAt
  *  getBalance() --> preserves accountType from the server
  *  getDeposits() --> calls GET /accounts/deposits
  *  getWithdrawals() --> calls GET /accounts/withdrawals
@@ -60,11 +60,11 @@ describe('accounts.getBalance()', () => {
         expect(result).toHaveProperty('balance', 500.50)
     })
 
-    it('maps createdAt to lastUpdated', async () => {
+    it('maps createdAt to openedAt', async () => {
         vi.stubGlobal('fetch', mockFetch(serverResponse))
         const result = await accountsService.getBalance()
 
-        expect(result).toHaveProperty('lastUpdated', '2024-01-15T10:00:00.000Z')
+        expect(result).toHaveProperty('openedAt', '2024-01-15T10:00:00.000Z')
         expect(result).not.toHaveProperty('createdAt')
     })
 

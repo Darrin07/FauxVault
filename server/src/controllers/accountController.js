@@ -45,6 +45,7 @@ async function getMyAccount(req, res, next) {
                     userId: account.userId,
                     accountNumber: account.accountNumber,
                     balance: account.balance,
+                    accountType: account.accountType,
                     createdAt: account.createdAt,
                     user: {
                         id: user.id,

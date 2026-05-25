@@ -5,7 +5,7 @@ import { apiFetch } from './client'
 *   POST /auth/login    body: { identifier, password }   (identifier = email OR username)
 *   POST /auth/register body: { username, email, password }
 *   POST /auth/logout   (stateless — client discards token)
-* Note: Server's sanitizeUser() returns: { id, username, email, role }
+* Note: Server's sanitizeUser() returns: { id, username, email, name, role }
 */
 
 
@@ -15,7 +15,7 @@ import { apiFetch } from './client'
  * Function authenticates a user
  * @param {string} identifier - can be an email address or username
  * @param {string} password
- * @returns {{ token: string, user: { id, username, email, role } }}
+ * @returns {{ token: string, user: { id, username, email, name, role } }}
  */
 export async function login(identifier, password) {
     const data = await apiFetch('/auth/login', {
@@ -34,7 +34,7 @@ export async function login(identifier, password) {
 /**
  * Function:  Registers a new user
  * @param {{ username: string, email: string, password: string }} fields
- * @returns {{ token: string, user: { id, username, email, role } }}
+ * @returns {{ token: string, user: { id, username, email, name, role } }}
  */
 export async function register({ username, email, password }) {
     const data = await apiFetch('/auth/register', {

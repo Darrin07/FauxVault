@@ -4,11 +4,14 @@ import { apiFetch } from './client'
 * Transfers service: POST /transfers and GET /transfers
 * Work with: server - transferController.js
 *   POST /transfers   body: { toAccountId, amount, memo? }
-*                     → { transaction: { id, fromAccountId, toAccountId, amount, reference, createdAt } }
+*                     → { transaction: { id, fromAccountId, toAccountId, amount, reference, memo, createdAt } }
 *   GET  /transfers   query: ?type=sent|received (optional)
-*                     → { transactions: [ { id, fromAccountId, toAccountId, amount, reference, createdAt } ] }
+*                     → { transactions: [ { id, fromAccountId, toAccountId, amount, reference, memo, createdAt } ] }
 *
-*  NOTE:  Both require a Bearer JWT (injected automatically by apiFetch).
+*  NOTE: The server stores the note as `reference` (DB column name) and aliases it as `memo` on the
+*        response. Both fields are present and carry the same value. The frontend normalize.js reads
+*        `memo ?? reference` so either name in the payload resolves correctly.
+*  NOTE: Both require a Bearer JWT (injected automatically by apiFetch).
 */
 
 //Note — possible server need: the server returns account IDs only, not recipient names.
@@ -19,7 +22,7 @@ import { apiFetch } from './client'
  * POST /api/transfers
  * Function: Transfers funds to another account
  * @param {{ toAccountId: string, amount: number, memo?: string }} fields
- * @returns {{ transaction: { id, fromAccountId, toAccountId, amount, reference, createdAt } }}
+ * @returns {{ transaction: { id, fromAccountId, toAccountId, amount, reference, memo, createdAt } }}
  */
 
 export async function sendTransfer({ toAccountId, amount, memo }) {
