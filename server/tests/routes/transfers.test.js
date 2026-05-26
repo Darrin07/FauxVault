@@ -143,4 +143,33 @@ describe('GET /api/transfers', () => {
     const res = await request(app).get('/api/transfers');
     expect(res.status).toBe(401);
   });
+
+  test('filters by memo substring (case-insensitive)', async () => {
+    const res = await request(app)
+      .get('/api/transfers?memo=coffee')
+      .set('Authorization', `Bearer ${senderToken}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.transactions).toHaveLength(1);
+    expect(res.body.transactions[0].memo).toBe('Coffee reimbursement');
+  });
+
+  test('memo filter returns empty when no transaction matches', async () => {
+    const res = await request(app)
+      .get('/api/transfers?memo=nonexistent')
+      .set('Authorization', `Bearer ${senderToken}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.transactions).toHaveLength(0);
+  });
+
+  test('hardened mode treats SQLi payloads in memo as literal strings', async () => {
+    const payload = "' OR '1'='1' --";
+    const res = await request(app)
+      .get('/api/transfers?memo=' + encodeURIComponent(payload))
+      .set('Authorization', `Bearer ${senderToken}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.transactions).toHaveLength(0);
+  });
 });

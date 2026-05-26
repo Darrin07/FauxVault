@@ -1,5 +1,5 @@
 /** Transfer Controller - handles fund transfer requests */
-const { findAccountByUserId, transfer, getTransactions } = require('../models/accounts');
+const { findAccountByUserId, transfer, getTransactions, searchTransactions } = require('../models/accounts');
 const { executeSecurely } = require('../config/db');
 
 /**
@@ -115,9 +115,12 @@ async function getTransferHistory(req, res, next) {
             }
 
             const accountId = senderAccounts[0].id;
-            let history = await getTransactions(accountId, client);
+            const { type, memo } = req.query;
 
-            const { type } = req.query;
+            let history = memo
+                ? await searchTransactions(accountId, memo, client)
+                : await getTransactions(accountId, client);
+
             if (type === 'sent') {
                 history = history.filter(t => t.fromAccountId === accountId);
             } else if (type === 'received') {
