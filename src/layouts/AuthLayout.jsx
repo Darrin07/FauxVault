@@ -57,7 +57,7 @@ export default function AuthLayout() {
                         }}>
 
                         {/* Header */}
-                        <Box sx={{ textAlight: 'center', mb: 3 }}>
+                        <Box sx={{ textAlign: 'center', mb: 3 }}>
                             <Typography
                                 variant="h1"
                                 sx={{

@@ -138,7 +138,7 @@ export default function AdminPage() {
                                     const isDirty = pending !== undefined && pending !== u.role
                                     return (
                                         <TableRow key={u.id} hover>
-                                            <TableCell sx={{ fontFamily: 'monospace' }}>
+                                            <TableCell sx={{ fontFamily: "'JetBrains Mono', monospace" }}>
                                                 {u.username}
                                             </TableCell>
                                             <TableCell>{u.email}</TableCell>

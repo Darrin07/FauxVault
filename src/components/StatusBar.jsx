@@ -9,7 +9,7 @@ import { useVulnerabilities } from '../hooks/useVulnerabilities'
 export default function StatusBar() {
 
     //Get state of site
-    var { isVulnerable } = useVulnerabilities()
+    const { isVulnerable } = useVulnerabilities()
     return (
 
         //Build our status bar:  box w/information central
