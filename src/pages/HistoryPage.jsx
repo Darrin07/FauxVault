@@ -161,6 +161,7 @@ export default function HistoryPage() {
 
                 <TextField
                     id="transaction-search"
+                    label="Search transactions"
                     placeholder="Search by description, type, amount…"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
