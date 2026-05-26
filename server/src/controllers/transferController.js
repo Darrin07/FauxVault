@@ -1,6 +1,25 @@
 /** Transfer Controller - handles fund transfer requests */
-const { findAccountByUserId, transfer, getTransactions, searchTransactions } = require('../models/accounts');
+const {
+  findAccountByUserId,
+  transfer,
+  getTransactions,
+  searchTransactions,
+  normalizeTransaction,
+} = require('../models/accounts');
 const { executeSecurely } = require('../config/db');
+const { restrictedPool } = require('../config/restrictedDb');
+
+/** Resolves the caller's first account id via a parameterized lookup on the
+ *  app role pool. The vulnerable SQLi branch uses this id directly in a
+ *  string-concatenated SQL run on the restricted pool. Lookup is intentionally
+ *  parameterized so the demo's injection surface is the memo search, not the
+ *  account lookup. */
+async function resolveCallerAccountId(userId) {
+  return executeSecurely(userId, async (client) => {
+    const accounts = await findAccountByUserId(userId, client);
+    return accounts.length ? accounts[0].id : null;
+  });
+}
 
 /**
  * Transfers funds from the authenticated user's account to a destination account.
@@ -103,6 +122,48 @@ async function createTransfer(req, res, next){
  */
 async function getTransferHistory(req, res, next) {
     try {
+        const { type, memo } = req.query;
+
+        if (req.vuln_sql_injection === true) {
+            // VULNERABLE: A03:2025 Injection (SQL) -- string concatenation
+            // Toggle: a03-injection-sql
+            const accountId = await resolveCallerAccountId(req.user.userId);
+            if (!accountId) {
+                return res.status(404).json({
+                    error: { status: 404, message: 'No account found for auth user', code: 'ACCOUNT_NOT_FOUND' },
+                });
+            }
+
+            const memoFragment = memo ?? '';
+            // ORDER BY uses the alias "createdAt" so UNION-based payloads work cleanly
+            // -- the union result keeps the alias as its column label, while the raw
+            // column name `transaction_date` would not exist on the UNIONed output.
+            const sql = `
+                SELECT transaction_id AS id,
+                       sender_account_id AS "fromAccountId",
+                       receiver_account_id AS "toAccountId",
+                       amount, reference,
+                       transaction_date AS "createdAt"
+                FROM transactions
+                WHERE (sender_account_id = '${accountId}' OR receiver_account_id = '${accountId}')
+                  AND reference ILIKE '%${memoFragment}%'
+                ORDER BY "createdAt" DESC
+                LIMIT 50
+            `;
+
+            try {
+                const result = await restrictedPool.query(sql);
+                return res.json({
+                    transactions: result.rows.map(normalizeTransaction),
+                    vulnerableMode: true,
+                });
+            } catch (err) {
+                return res.status(500).json({
+                    error: { status: 500, message: 'Search failed', code: 'SEARCH_FAILED' },
+                });
+            }
+        }
+
         const response = await executeSecurely(req.user.userId, async (client) => {
             // History is also RLS-sensitive because it reads both the user's
             // account row and transaction rows. Keeping both reads on the same
@@ -115,7 +176,6 @@ async function getTransferHistory(req, res, next) {
             }
 
             const accountId = senderAccounts[0].id;
-            const { type, memo } = req.query;
 
             let history = memo
                 ? await searchTransactions(accountId, memo, client)
