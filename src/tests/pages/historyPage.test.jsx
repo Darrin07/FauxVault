@@ -150,7 +150,7 @@ beforeEach(() => {
 
 // Loading test
 
-describe('HistoryPage — loading state', () => {
+describe('HistoryPage: loading state', () => {
     it('shows skeleton rows while the API call is in flight', () => {
         transfersApi.getTransfers.mockReturnValue(new Promise(() => { }))
         renderPage()
@@ -161,17 +161,17 @@ describe('HistoryPage — loading state', () => {
 
 // Empty state test
 
-describe('HistoryPage — empty state', () => {
-    it('shows No matches found when server returns an empty transaction list', async () => {
+describe('HistoryPage: empty state', () => {
+    it('shows No transactions yet when server returns an empty transaction list', async () => {
         transfersApi.getTransfers.mockResolvedValue({ transactions: [] })
         renderPage()
-        expect(await screen.findByText(/no matches found/i)).toBeInTheDocument()
+        expect(await screen.findByText(/no transactions yet/i)).toBeInTheDocument()
     })
 })
 
 // Data render test
 
-describe('HistoryPage — data rendering', () => {
+describe('HistoryPage: data rendering', () => {
     it('renders one row per transaction returned by the server', async () => {
         transfersApi.getTransfers.mockResolvedValue({ transactions: MOCK_TRANSACTIONS })
         renderPage()
@@ -215,7 +215,7 @@ describe('HistoryPage — data rendering', () => {
 
 // Page heading tests
 
-describe('HistoryPage — page heading', () => {
+describe('HistoryPage: page heading', () => {
     it('shows Transfer History when URL has ?type=transfers', async () => {
         transfersApi.getTransfers.mockResolvedValue({ transactions: [] })
         renderPage('/history?type=transfers')
@@ -231,7 +231,7 @@ describe('HistoryPage — page heading', () => {
 
 // Client-side searches test
 
-describe('HistoryPage — client-side search', () => {
+describe('HistoryPage: client-side search', () => {
     it('filters visible rows by description when user types in search', async () => {
         const user = userEvent.setup()
         transfersApi.getTransfers.mockResolvedValue({ transactions: MOCK_TRANSACTIONS })
@@ -279,7 +279,7 @@ const XSS_TRANSACTION = {
     createdAt: '2026-05-01T12:00:00.000Z',
 }
 
-describe('HistoryPage — Stored XSS module (xss_stored)', () => {
+describe('HistoryPage: Stored XSS module (xss_stored)', () => {
     it('renders description HTML as a DOM element when xss_stored is enabled', async () => {
         mockUseVulnerabilities.mockReturnValue({
             modules: [
@@ -316,7 +316,7 @@ describe('HistoryPage — Stored XSS module (xss_stored)', () => {
 
 // Vulnerability Module: Reflected XSS (xss_reflected)
 
-describe('HistoryPage — Reflected XSS module (xss_reflected)', () => {
+describe('HistoryPage: Reflected XSS module (xss_reflected)', () => {
     it('seeds the search field from the ?q= URL parameter', async () => {
         transfersApi.getTransfers.mockResolvedValue({ transactions: MOCK_TRANSACTIONS })
         renderPage('/history?q=Rent')
@@ -367,7 +367,7 @@ describe('HistoryPage — Reflected XSS module (xss_reflected)', () => {
 
 //Educational notification (xss_reflected + weak_session_tokens)
 
-describe('HistoryPage — Educational notification', () => {
+describe('HistoryPage: Educational notification', () => {
     // Cookie cleanup scoped to this describe block only
     afterEach(() => {
         document.cookie.split(';').forEach(c => {

@@ -195,7 +195,11 @@ export default function HistoryPage() {
                     ))}
                 </Box>
 
-                /* No results */
+            ) : transactions.length === 0 ? (
+                <Box sx={{ textAlign: 'center', py: 6 }}>
+                    <Typography color="text.secondary">No transactions yet</Typography>
+                </Box>
+
             ) : filtered.length === 0 ? (
                 <Box sx={{ textAlign: 'center', py: 6 }}>
                     <Typography color="text.secondary">No matches found</Typography>
