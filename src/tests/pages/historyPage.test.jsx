@@ -238,7 +238,7 @@ describe('HistoryPage — client-side search', () => {
         renderPage()
 
         await screen.findByRole('table')
-        await user.type(screen.getByPlaceholderText(/search/i), 'Rent')
+        await user.type(screen.getByPlaceholderText(/description, type, amount/i), 'Rent')
 
         expect(screen.getByText('Rent for May')).toBeInTheDocument()
         expect(screen.queryByText('Coffee reimbursement')).not.toBeInTheDocument()
@@ -250,7 +250,7 @@ describe('HistoryPage — client-side search', () => {
         renderPage()
 
         await screen.findByRole('table')
-        await user.type(screen.getByPlaceholderText(/search/i), 'zzzznotexist')
+        await user.type(screen.getByPlaceholderText(/description, type, amount/i), 'zzzznotexist')
 
         expect(await screen.findByText(/no matches found/i)).toBeInTheDocument()
     })
@@ -261,7 +261,7 @@ describe('HistoryPage — client-side search', () => {
         renderPage()
 
         await screen.findByRole('table')
-        await user.type(screen.getByPlaceholderText(/search/i), 'Rent')
+        await user.type(screen.getByPlaceholderText(/description, type, amount/i), 'Rent')
 
         expect(await screen.findByText(/1 transaction found/i)).toBeInTheDocument()
     })
@@ -322,7 +322,7 @@ describe('HistoryPage — Reflected XSS module (xss_reflected)', () => {
         renderPage('/history?q=Rent')
 
         await screen.findByRole('table')
-        const input = screen.getByPlaceholderText(/search/i)
+        const input = screen.getByPlaceholderText(/description, type, amount/i)
         expect(input).toHaveValue('Rent')
         expect(screen.getByText(/matching "Rent"/i)).toBeInTheDocument()
     })
@@ -454,6 +454,63 @@ describe('HistoryPage — Educational notification', () => {
 
         await waitFor(() => {
             expect(document.getElementById('xss-reflected-notification')).not.toBeInTheDocument()
+        })
+    })
+})
+
+// Server-side memo search (SQL injection module, a03-injection-sql)
+describe('HistoryPage -- server-side search via ?memo=', () => {
+    it('fires a server fetch with the memo value when ?memo= is in the URL', async () => {
+        transfersApi.getTransfers.mockResolvedValue({ transactions: MOCK_TRANSACTIONS })
+        renderPage('/history?memo=Rent')
+
+        await waitFor(() => {
+            expect(transfersApi.getTransfers).toHaveBeenCalledWith(null, 'Rent')
+        })
+    })
+
+    it('combines ?memo= with ?type= when both are in the URL', async () => {
+        transfersApi.getTransfers.mockResolvedValue({ transactions: MOCK_TRANSACTIONS })
+        renderPage('/history?type=sent&memo=Coffee')
+
+        await waitFor(() => {
+            expect(transfersApi.getTransfers).toHaveBeenCalledWith('sent', 'Coffee')
+        })
+    })
+
+    it('shows the server-search banner when ?memo= is set', async () => {
+        transfersApi.getTransfers.mockResolvedValue({ transactions: MOCK_TRANSACTIONS })
+        renderPage('/history?memo=Rent')
+
+        expect(await screen.findByText(/server search active for memo: "Rent"/i)).toBeInTheDocument()
+    })
+
+    it('does NOT show the banner when ?memo= is absent', async () => {
+        transfersApi.getTransfers.mockResolvedValue({ transactions: MOCK_TRANSACTIONS })
+        renderPage('/history')
+
+        await waitFor(() => expect(transfersApi.getTransfers).toHaveBeenCalled())
+        expect(screen.queryByText(/server search active/i)).not.toBeInTheDocument()
+    })
+
+    it('typing in the server-search input fires a server fetch after the debounce', async () => {
+        transfersApi.getTransfers.mockResolvedValue({ transactions: [] })
+        const user = userEvent.setup()
+        renderPage('/history')
+
+        // Wait for the initial mount fetch (no memo) so we can isolate the typing-driven call
+        await waitFor(() => expect(transfersApi.getTransfers).toHaveBeenCalledWith(null, null))
+        transfersApi.getTransfers.mockClear()
+        transfersApi.getTransfers.mockResolvedValue({ transactions: [] })
+
+        await user.type(
+            screen.getByPlaceholderText(/find any transaction/i),
+            'Coffee',
+        )
+
+        // Debounce is 300ms; waitFor's default 1000ms is plenty
+        await waitFor(() => {
+            expect(transfersApi.getTransfers).toHaveBeenCalledWith(null, 'Coffee')
         })
     })
 })

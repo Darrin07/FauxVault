@@ -35,9 +35,15 @@ export default function HistoryPage() {
 
     const [transactions, setTransactions] = useState([])
     const [loading, setLoading] = useState(true)
-    const [searchParams] = useSearchParams()
+    const [searchParams, setSearchParams] = useSearchParams()
     const urlSearchQuery = searchParams.get('q') || ''
     const [searchQuery, setSearchQuery] = useState(urlSearchQuery)
+
+    // VULN MODULE: SQL Injection (a03-injection-sql) -- server-side memo search
+    // URL ?memo= drives a GET /transfers?memo=... call; the existing client-side
+    // search (?q=) remains untouched and continues to filter the rendered table.
+    const memoParam = searchParams.get('memo') || ''
+    const [serverSearchInput, setServerSearchInput] = useState(memoParam)
 
     //Vulnerability Module: Stored XSS - when enabled, the description cell wil render raw HTML
     const { modules } = useVulnerabilities()
@@ -92,14 +98,16 @@ export default function HistoryPage() {
 
     const typeFilter = searchParams.get('type')
 
-    // Fetch on mount and when URL type param changes
+    // Fetch on mount and when URL type or memo param changes
     // Only 'sent' and 'received' are recognized by the server; other values fetch all
+    // When ?memo= is present, the server applies its own ILIKE filter (parameterized
+    // in hardened mode; string-concatenated when sql_injection toggle is on).
     useEffect(() => {
         async function fetchData() {
             setLoading(true)
             try {
                 const serverType = ['sent', 'received'].includes(typeFilter) ? typeFilter : null
-                const raw = await transfersApi.getTransfers(serverType)
+                const raw = await transfersApi.getTransfers(serverType, memoParam || null)
                 const normalized = (raw.transactions ?? []).map(normalizeTransaction)
                 setTransactions(normalized)
             } catch (err) {
@@ -109,7 +117,25 @@ export default function HistoryPage() {
             }
         }
         fetchData()
-    }, [typeFilter])
+    }, [typeFilter, memoParam])
+
+    // Debounce the server-search input → URL ?memo= so each keystroke does not fire
+    // a fresh server request. replace:true keeps browser history clean.
+    useEffect(() => {
+        const handle = setTimeout(() => {
+            const next = new URLSearchParams(searchParams)
+            if (serverSearchInput) {
+                next.set('memo', serverSearchInput)
+            } else {
+                next.delete('memo')
+            }
+            if (next.toString() !== searchParams.toString()) {
+                setSearchParams(next, { replace: true })
+            }
+        }, 300)
+        return () => clearTimeout(handle)
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [serverSearchInput])
 
     // Client-side search across description, type, date, and amount
     const filtered = useMemo(() => {
@@ -174,6 +200,35 @@ export default function HistoryPage() {
                         ),
                     }}
                 />
+            </Box>
+
+            {/* VULN MODULE: SQL Injection (a03-injection-sql) -- server-side memo search */}
+            <Box sx={{ mb: 2 }}>
+                <TextField
+                    id="server-transaction-search"
+                    placeholder="Find any transaction across the bank (server search)…"
+                    value={serverSearchInput}
+                    onChange={(e) => setServerSearchInput(e.target.value)}
+                    size="small"
+                    fullWidth
+                    InputProps={{
+                        startAdornment: (
+                            <InputAdornment position="start">
+                                <SearchIcon sx={{ fontSize: 18, color: 'text.disabled' }} />
+                            </InputAdornment>
+                        ),
+                    }}
+                />
+                {memoParam && (
+                    <Typography
+                        id="server-search-banner"
+                        variant="caption"
+                        color="warning.main"
+                        sx={{ mt: 0.5, display: 'block' }}
+                    >
+                        Server search active for memo: "{memoParam}"
+                    </Typography>
+                )}
             </Box>
 
             {!loading && searchQuery && (
