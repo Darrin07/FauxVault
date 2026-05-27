@@ -167,6 +167,7 @@ export default function TransferPage() {
                                 value={form.memo}
                                 onChange={handleChange('memo')}
                                 placeholder="What's this for?"
+                                inputProps={{ maxLength: 140 }}
                                 fullWidth
                                 InputProps={{
                                     startAdornment: (
