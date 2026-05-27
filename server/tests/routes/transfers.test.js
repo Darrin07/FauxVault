@@ -259,4 +259,36 @@ describe('GET /api/transfers -- vulnerable mode (SQLi)', () => {
     expect(t).toHaveProperty('reference');
     expect(t).toHaveProperty('createdAt');
   });
+
+  test('error-based SQLi leaks role name when verbose_errors is also on', async () => {
+    await updateSetting('verbose_errors', true);
+
+    // `CAST(... AS INT) = 1` defers the type error to runtime (the AND operand is
+    // now boolean from the equality, so the parser is happy). At runtime, the CAST
+    // evaluates and pg throws "invalid input syntax for type integer: ...role name...".
+    const payload = "' AND CAST((SELECT current_user) AS INT) = 1 --";
+    const res = await request(app)
+      .get('/api/transfers?memo=' + encodeURIComponent(payload))
+      .set('Authorization', `Bearer ${senderToken}`);
+
+    expect(res.status).toBe(500);
+    // Raw pg error includes the role name in `invalid input syntax for type integer: "fauxvault_sqli_lab"`.
+    expect(JSON.stringify(res.body)).toContain('fauxvault_sqli_lab');
+  });
+
+  test('error-based SQLi returns generic 500 when only sql_injection is on (verbose_errors off)', async () => {
+    // verbose_errors defaults to FALSE via resetSettings in the outer beforeEach;
+    // only sql_injection is flipped on by this describe block's beforeEach.
+    // `CAST(... AS INT) = 1` defers the type error to runtime (the AND operand is
+    // now boolean from the equality, so the parser is happy). At runtime, the CAST
+    // evaluates and pg throws "invalid input syntax for type integer: ...role name...".
+    const payload = "' AND CAST((SELECT current_user) AS INT) = 1 --";
+    const res = await request(app)
+      .get('/api/transfers?memo=' + encodeURIComponent(payload))
+      .set('Authorization', `Bearer ${senderToken}`);
+
+    expect(res.status).toBe(500);
+    expect(res.body.error.code).toBe('SEARCH_FAILED');
+    expect(JSON.stringify(res.body)).not.toContain('fauxvault_sqli_lab');
+  });
 });

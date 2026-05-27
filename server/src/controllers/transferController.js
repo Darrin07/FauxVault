@@ -158,6 +158,22 @@ async function getTransferHistory(req, res, next) {
                     vulnerableMode: true,
                 });
             } catch (err) {
+                if (req.vuln_verbose_errors === true) {
+                    // VULNERABLE: A02:2025 Security Misconfiguration -- verbose errors
+                    // Composes with sql_injection per the C2 design (per-user toggle).
+                    // Inline because the global errorHandler reads the global verbose_errors
+                    // setting, not per-user.
+                    return res.status(500).json({
+                        error: {
+                            status: 500,
+                            message: err.message,
+                            code: err.code || 'INTERNAL_ERROR',
+                            stack: err.stack,
+                            detail: err.detail || null,
+                            hint: err.hint || null,
+                        },
+                    });
+                }
                 return res.status(500).json({
                     error: { status: 500, message: 'Search failed', code: 'SEARCH_FAILED' },
                 });
