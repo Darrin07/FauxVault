@@ -23,7 +23,7 @@ beforeEach(async () => {
 // ---------------------------------------------------------------------------
 
 describe('R2.3.1 — Dual password storage', () => {
-  test('vulnerable mode: register response exposes hashInfo with all three formats', async () => {
+  test('vulnerable mode: register response exposes hashInfo with plaintext and md5 only', async () => {
     await updateSetting('weak_password_storage', true);
 
     const res = await request(app)
@@ -33,10 +33,11 @@ describe('R2.3.1 — Dual password storage', () => {
     expect(res.status).toBe(201);
     expect(res.body.hashInfo).toBeDefined();
     expect(res.body.hashInfo.vulnerableMode).toBe(true);
-    expect(res.body.hashInfo.storedFormats).toEqual(expect.arrayContaining(['plaintext', 'md5', 'bcrypt']));
+    expect(res.body.hashInfo.storedFormats).toEqual(expect.arrayContaining(['plaintext', 'md5']));
+    expect(res.body.hashInfo.storedFormats).not.toContain('bcrypt');
     expect(res.body.hashInfo.plaintext).toBe('Secret123');
     expect(res.body.hashInfo.md5).toBe(md5('Secret123'));
-    expect(res.body.hashInfo.bcrypt).toMatch(/^\$2[ab]\$/);
+    expect(res.body.hashInfo.bcrypt).toBeUndefined();
   });
 
   test('hardened mode: register response does not expose hashInfo', async () => {
@@ -179,22 +180,20 @@ describe('R4.2.2 — Hardened login path (bcrypt comparison)', () => {
 // ---------------------------------------------------------------------------
 
 describe('Toggle switching between register and login', () => {
-  test('user registered in vulnerable mode can still log in after switching to hardened', async () => {
-    // Register in vulnerable mode - MD5 and plaintext columns populated, bcrypt also stored
+  test('user registered in vulnerable mode cannot log in after switching to hardened', async () => {
+    // Register in vulnerable mode - only MD5 and plaintext stored, no bcrypt
     await updateSetting('weak_password_storage', true);
     await request(app)
       .post('/api/auth/register')
       .send({ username: 'switcher', email: 'switcher@example.com', password: 'FlipFlop1' });
     await resetLimiters();
 
-    // Switch to hardened - login must use bcrypt
+    // Switch to hardened - login requires bcrypt, but none was stored at register time
     await updateSetting('weak_password_storage', false);
     const res = await request(app)
       .post('/api/auth/login')
       .send({ identifier: 'switcher@example.com', password: 'FlipFlop1' });
 
-    expect(res.status).toBe(200);
-    expect(extractTokenFromResponse(res)).toBeTruthy();
-    expect(res.body.hashInfo).toBeUndefined();
+    expect(res.status).toBe(401);
   });
 });
