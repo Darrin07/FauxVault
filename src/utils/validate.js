@@ -16,6 +16,9 @@
 export function validateRegistration(form) {
     const errs = {}
 
+    //validate name
+    if (!form.name?.trim()) errs.name = 'Full name is required'
+
     //validate username
     if (!form.username.trim()) errs.username = 'Username is required'
     else if (form.username.length < 3) errs.username = 'Username must be at least 3 characters'
