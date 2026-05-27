@@ -8,6 +8,7 @@ import TransferPage from './pages/TransferPage';
 import AdminPage from './pages/AdminPage';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
+import ModulePage from './pages/ModulePage';
 
 //Check if user is authenticated, else route to login
 function ProtectedRoute({children}) {
@@ -44,6 +45,7 @@ function App() {
           <Route path="/transfer" element={<ProtectedRoute><TransferPage /></ProtectedRoute>} />
           <Route path="/history" element={<ProtectedRoute><HistoryPage /></ProtectedRoute>} />
           <Route path="/admin" element={<ProtectedRoute><AdminPage /></ProtectedRoute>} />
+          <Route path="/module/:moduleId" element={<ProtectedRoute><ModulePage /></ProtectedRoute>} />
       </Route>
     </Routes>
     </BrowserRouter>
