@@ -66,9 +66,13 @@ jobs:
           PGPASSWORD: ${{ env.POSTGRES_PASSWORD }}
 
       - name: Provision SQLi sandbox role
-        run: psql -h "$DB_HOST" -U "$POSTGRES_USER" -d "$POSTGRES_DB"
-          -v sqli_lab_password="$RESTRICTED_DB_PASSWORD"
-          -f ../database/FauxVault_SQLi_Lab_Role.sql
+        # Use sed (not psql -v) because :'foo' inside DO $$ ... $$ is dollar-quoted
+        # text and psql variable substitution does not enter dollar-quoted blocks.
+        # Matches the sed approach in package.json's db:init script.
+        run: |
+          set -o pipefail
+          sed "s|:'sqli_lab_password'|'$RESTRICTED_DB_PASSWORD'|g" ../database/FauxVault_SQLi_Lab_Role.sql \
+            | psql -h "$DB_HOST" -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v ON_ERROR_STOP=1
         env:
           PGPASSWORD: ${{ env.POSTGRES_PASSWORD }}
 
