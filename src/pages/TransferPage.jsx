@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
     Box,
     Typography,
@@ -34,6 +34,13 @@ export default function TransferPage() {
     const [success, setSuccess] = useState(null)
     const [loading, setLoading] = useState(false)
     const [recentTransfers, setRecentTransfers] = useState([])
+
+    // Auto-dismiss success alert after 4.5 seconds
+    useEffect(() => {
+        if (!success) return
+        const timer = setTimeout(() => setSuccess(null), 4500)
+        return () => clearTimeout(timer)
+    }, [success])
 
     //Vulnerability Module: Stored XSS - when enabled, the description cell will render raw HTML
     const { modules } = useVulnerabilities()
