@@ -1,0 +1,11 @@
+.env
+.env.*
+.git
+.gitignore
+node_modules
+dist
+server
+database
+docs
+*.md
+.github

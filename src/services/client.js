@@ -37,6 +37,7 @@ export async function apiFetch(endpoint, options = {}) {
     const response = await fetch(`${BASE_URL}${endpoint}`, {
         ...options,
         headers,
+        credentials: 'include',
     })
 
     // Error case: non-JSON responses (proxy errors, HTML 404 pages, etc)

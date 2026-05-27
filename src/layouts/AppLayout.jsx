@@ -27,7 +27,7 @@ export default function AppLayout() {
             >
                 {/* Use Outlet to serve as placeholder for child routes */}
                 <Box
-                    compnent="main"
+                    component="main"
                     sx={{
                         flex: 1,
                         overflowY: 'auto',

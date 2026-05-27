@@ -5,6 +5,7 @@ const { resetUsers } = require('../../src/models/users');
 const { resetAccounts } = require('../../src/models/accounts');
 const { updateSetting } = require('../../src/models/toggleState');
 const { resetLimiters } = require('../../src/middleware/rateLimiter');
+const { extractTokenFromResponse } = require('../helpers/auth');
 
 function md5(str) {
   return crypto.createHash('md5').update(str).digest('hex');
@@ -81,7 +82,7 @@ describe('R4.2.1 — Vulnerable login path (MD5 comparison)', () => {
       .send({ identifier: 'victim@example.com', password: 'Letmein99' });
 
     expect(res.status).toBe(200);
-    expect(res.body.token).toBeDefined();
+    expect(extractTokenFromResponse(res)).toBeTruthy();
   });
 
   test('login response exposes hashInfo with MD5 details in vulnerable mode', async () => {
@@ -129,7 +130,7 @@ describe('R4.2.1 — Vulnerable login path (MD5 comparison)', () => {
       .send({ identifier: 'victim@example.com', password: cracked });
 
     expect(res.status).toBe(200);
-    expect(res.body.token).toBeDefined();
+    expect(extractTokenFromResponse(res)).toBeTruthy();
   });
 });
 
@@ -152,7 +153,7 @@ describe('R4.2.2 — Hardened login path (bcrypt comparison)', () => {
       .send({ identifier: 'hardened@example.com', password: 'StrongPass1' });
 
     expect(res.status).toBe(200);
-    expect(res.body.token).toBeDefined();
+    expect(extractTokenFromResponse(res)).toBeTruthy();
   });
 
   test('login response does not expose hashInfo in hardened mode', async () => {
@@ -192,7 +193,7 @@ describe('Toggle switching between register and login', () => {
       .send({ identifier: 'switcher@example.com', password: 'FlipFlop1' });
 
     expect(res.status).toBe(200);
-    expect(res.body.token).toBeDefined();
+    expect(extractTokenFromResponse(res)).toBeTruthy();
     expect(res.body.hashInfo).toBeUndefined();
   });
 });

@@ -25,12 +25,16 @@ export default defineConfig({
     testTimeout: 10000,
     hookTimeout: 10000,
     pool: 'forks',
+    poolOptions: {
+      forks: {
+        singleFork: true,
+      }
+    },
     deps: {
       optimizer: {
         web: {
           include: [
             '@mui/material',
-            '@mui/icons-material',
             '@emotion/react',
             '@emotion/styled',
             'react-router',
@@ -41,7 +45,7 @@ export default defineConfig({
     },
     server: {
       deps: {
-        inline: ['react-router', 'react-router-dom'],
+        inline: ['react-router', 'react-router-dom', '@mui/icons-material'],
       },
     },
   },

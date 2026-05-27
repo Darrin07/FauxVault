@@ -3,8 +3,11 @@ const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const config = require('../config');
-const { createUser, findUserByEmail, findUserByEmailAllHashes, findUserByUsername, findUserByUsernameAllHashes } = require('../models/users');
+const { createUser, findUserByEmail, findUserByEmailAllHashes, findUserById, findUserByUsername, findUserByUsernameAllHashes } = require('../models/users');
 const { createAccount } = require('../models/accounts');
+
+const isProduction = config.nodeEnv === 'production';
+const COOKIE_MAX_AGE = 24 * 60 * 60 * 1000; // 24 hr, JWT expiresIn
 
 function md5(str) {
   return crypto.createHash('md5').update(str).digest('hex');
@@ -31,7 +34,36 @@ function generateToken(user){
     * @returns {Object} user object without password fields
  */
 function sanitizeUser(user){
-    return { id: user.id, username: user.username, email: user.email, role: user.role };
+    return { id: user.id, username: user.username, email: user.email, name: user.name || '', role: user.role };
+}
+
+/**
+ * Sets the session token as a cookie with flags determined by the vulnerability module.
+ * Vulnerability Module: weak_session_tokens (A07)
+ *   Vulnerable:  httpOnly=false, secure=false, sameSite='Lax': JS-accessible
+ *   Hardened:    httpOnly=true, secure=true (prod), sameSite='Strict': JS-inaccessible
+ * @param {Response} res - express response object
+ * @param {string} token - the signed JWT
+ * @param {boolean} isVulnerable - whether the weak_session_tokens module is enabled
+ */
+function setSessionCookie(res, token, isVulnerable) {
+    if (isVulnerable) {
+        res.cookie('token', token, {
+            httpOnly: false,
+            secure: false,
+            sameSite: 'Lax',
+            maxAge: COOKIE_MAX_AGE,
+            path: '/',
+        });
+    } else {
+        res.cookie('token', token, {
+            httpOnly: true,
+            secure: isProduction,
+            sameSite: 'Strict',
+            maxAge: COOKIE_MAX_AGE,
+            path: '/',
+        });
+    }
 }
 
 /**
@@ -94,7 +126,12 @@ async function register(req, res, next){
         await createAccount(user.id, 1000);
 
         const token = generateToken(user);
-        const body = { token, user: sanitizeUser(user) };
+
+        //Vulnerability Module:  weak_session_tokens - set cookie with appropriate flags
+        setSessionCookie(res, token, req.vuln_weak_session_tokens);
+
+        const body = { user: sanitizeUser(user) };
+        if (req.vuln_weak_session_tokens) body.token = token; //vulnerable: token in body
         if (hashInfo) body.hashInfo = hashInfo;
 
         res.status(201).json(body);
@@ -175,7 +212,11 @@ async function login(req, res, next){
         }
 
         const token = generateToken(user);
-        const body = { token, user: sanitizeUser(user) };
+
+        //vulnerability module: weak_session_tokens - set cookie w/appropriate flags
+        setSessionCookie(res, token, req.vuln_weak_session_tokens);
+        const body = { user: sanitizeUser(user) };
+        if (req.vuln_weak_session_tokens) body.token = token; //vulnerable: token in body as well
         if (hashInfo) body.hashInfo = hashInfo;
 
         res.json(body);
@@ -186,13 +227,41 @@ async function login(req, res, next){
 
 
 /**
- * Logs out the current user (stateless — client discards token)
+ * Logs out the current user.
+ * Clears the session cookie regardless of module state.
+ * Client is responsbile for discarding localStorage token.
  * @param {Request} req - express request
  * @param {Response} res - express response
  * @requirement R1.1
  */
 function logout(req, res) {
+    res.clearCookie('token', { path: '/' });
     res.json({ message: 'Logged out'});
 }
 
-module.exports = { register, login, logout };
+/**
+ * Returns the current authenticated user.
+ * Supports hardened weak_session_tokens mode by hydrating frontend auth state
+ * from the HttpOnly session cookie.
+ * @param {Request} req - express request with req.user set by authenticate
+ * @param {Response} res - express response
+ * @param {Function} next - express next middleware
+ * @requirement R1.1
+ */
+async function me(req, res, next) {
+    try {
+        const user = await findUserById(req.user.userId);
+
+        if (!user) {
+            return res.status(404).json({
+                error: { status: 404, message: 'User not found', code: 'USER_NOT_FOUND' },
+            });
+        }
+
+        res.json({ user: sanitizeUser(user) });
+    } catch (err) {
+        next(err);
+    }
+}
+
+module.exports = { register, login, logout, me };

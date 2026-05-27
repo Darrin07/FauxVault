@@ -15,7 +15,7 @@ const { executeSecurely } = require('../config/db');
  * @throws {422} insufficient funds
  * @requirement R1.2.2
  */
-// VULN MODULE: Stored XSS (A03) — add memo/reference field; toggle sanitization on output
+// VULN MODULE: Stored XSS (A05) — add memo/reference field; toggle sanitization on output
 async function createTransfer(req, res, next){
     try{
         const{ toAccountId, amount, memo, reference } = req.body;
@@ -28,7 +28,20 @@ async function createTransfer(req, res, next){
                 error: { status: 400, message: 'toAccountId and amount are required', code: 'VALIDATION_FAILED'},
             });
         }
-        
+       
+        // Vulnerability Module: Reflected XSS (A05) - UUID format validation
+        // Hardened: generic error reveals nothing about submitted value
+        // Vulnerable: raw toAccountId echoced in error message (the server-side reflection)
+        const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+        if (!UUID_REGEX.test(toAccountId)) {
+            const message = req.vuln_xss_reflected
+                ? `toAccountId "${toAccountId}" is not a valid account ID`
+                : 'toAccountId must be a valid account ID';
+            return res.status(400).json({
+                error: { status: 400, message, code: 'VALIDATION_FAILED' },
+            });
+        }
+
         if(typeof amount !== 'number' || amount <= 0){
             return res.status(400).json({
                 error: { status: 400, message: 'Amount must be a positive number', code: 'VALIDATION_FAILED'},

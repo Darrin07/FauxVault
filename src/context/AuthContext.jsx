@@ -1,5 +1,7 @@
-import { useReducer, useCallback } from 'react'
+import { useReducer, useCallback, useEffect } from 'react'
+import { apiFetch } from '../services/client'
 import { AuthContext } from './AuthContextObject'
+import * as authService from '../services/auth'
 
 /**  AuthContext — manages authentication state across the app.
 *
@@ -36,7 +38,7 @@ function getInitialState() {
         localStorage.removeItem('token')
         localStorage.removeItem('user')
     }
-    return { ...EMPTY_STATE }
+    return { ...EMPTY_STATE, isLoading: true }
 }
 
 function authReducer(state, action) {
@@ -86,6 +88,16 @@ function authReducer(state, action) {
         case 'LOADING_DONE':
             return { ...state, isLoading: false }
 
+        case 'HYDRATE_SUCCESS':
+            return {
+                ...state,
+                user: action.payload.user,
+                token: null,
+                isAuthenticated: true,
+                isLoading: false,
+                error: null,
+            }
+
         case 'CLEAR_ERROR':
             return { ...state, error: null }
 
@@ -99,6 +111,15 @@ export function AuthProvider({ children }) {
     // The third argument: getInitialState is called once by React to set up initial state, restoring
     // the session from localStorage on a page refresh.
     const [state, dispatch] = useReducer(authReducer, undefined, getInitialState)
+    const needsHydration = !state.isAuthenticated  // snapshot at mount time
+
+    useEffect(() => {
+        if (!needsHydration) return
+        dispatch({ type: 'LOGIN_START' })
+        apiFetch('/auth/me')
+            .then(data => dispatch({ type: 'HYDRATE_SUCCESS', payload: { user: data.user } }))
+            .catch(() => dispatch({ type: 'LOADING_DONE' }))
+    }, [needsHydration])
 
     const login = useCallback((user, token) => {
         dispatch({ type: 'LOGIN_SUCCESS', payload: { user, token } })
@@ -108,7 +129,12 @@ export function AuthProvider({ children }) {
         dispatch({ type: 'UPDATE_PROFILE', payload: updates })
     }, [])
 
-    const logout = useCallback(() => {
+    const logout = useCallback(async () => {
+        try {
+            await authService.logout()
+        } catch {
+            // Local logout still succeeds even if server cookie cleanup fails.
+        }
         dispatch({ type: 'LOGOUT' })
     }, [])
 

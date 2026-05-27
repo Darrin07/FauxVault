@@ -38,8 +38,8 @@ export default function NavBar() {
         : ''
 
     //helper to logout
-    function handleLogout() {
-        logout()
+    async function handleLogout() {
+        await logout()
         navigate('/login')
     }
 

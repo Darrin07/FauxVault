@@ -14,8 +14,7 @@ import {
     TextField, 
     InputAdornment, 
     Alert, 
-    CircularProgress, 
-    Divider, } from '@mui/material'
+    CircularProgress, } from '@mui/material'
 import { 
     Send as SendIcon, 
     History as HistoryIcon, 
@@ -29,6 +28,8 @@ import {
 import * as accountsApi from '../services/accounts'
 import * as transfersApi from '../services/transfers'
 import { fmt } from '../utils/format'
+import { useVulnerabilities } from '../hooks/useVulnerabilities'
+import SessionInspector from '../components/SessionInspector'
 
     // DashboardPage — rendered at /dashboard
     // Loads account balance, deposits, and withdrawals on mount via Promise.all
@@ -63,21 +64,20 @@ function TransferModal({ isOpen, onClose }) {
     }
     
     async function handleSubmit(e) {
-        console.log('form state on submit:', form)
         e.preventDefault()
         setError('')
         setSuccess('')
             
-        // Validation: amount must be a positive number 
-        if (!form.amount || Number(form.amount) <= 0) { 
-            setError('Please enter a valid amount') 
-            return 
+        // Validation: recipient account ID required
+        if (!form.toAccountId.trim()) {
+            setError('Recipient Account ID is required')
+            return
         }
 
-        // Validation: recipient account ID required 
-        if (!form.toAccountId.trim()) { 
-            setError('Recipient Account ID is required') 
-            return 
+        // Validation: amount must be a positive number
+        if (!form.amount || Number(form.amount) <= 0) {
+            setError('Please enter a valid amount')
+            return
         }
 
         setLoading(true) 
@@ -87,7 +87,7 @@ function TransferModal({ isOpen, onClose }) {
             amount: Number(form.amount), 
             memo: form.memo, })
             setSuccess('Successfully transferred!')
-            setForm((prev) => ({ ...prev, toAccountId: '', memo: ''}))
+            setForm({ toAccountId: '', amount: '', memo: '' })
         } catch (err) { 
             setError(err.message || 'Transfer failed. Please try again.') 
         } 
@@ -150,7 +150,8 @@ function TransferModal({ isOpen, onClose }) {
                                 label="Memo (optional)" 
                                 value={form.memo} 
                                 onChange={handleChange('memo')} 
-                                placeholder="What's this for?" 
+                                placeholder="What's this for?"
+                                inputProps={{ maxLength: 140 }} 
                                 fullWidth 
                                 InputProps={{ 
                                     startAdornment: (
@@ -191,6 +192,8 @@ function TransferModal({ isOpen, onClose }) {
         const [withdrawals, setWithdrawals] = useState(null) 
         const [showTransfer, setShowTransfer] = useState(false) 
         const navigate = useNavigate()
+        const { modules } = useVulnerabilities()
+        const weakSessionActive = modules.find(m => m.id === 'weak_session_tokens')?.enabled ?? false
 
         // Fetch all three data points in parallel on mount 
         useEffect(() => { async function fetchData() { 
@@ -219,11 +222,11 @@ function TransferModal({ isOpen, onClose }) {
         fetchData() 
     }, [])
 
-    // Shows 'last updated today' or a date string based on the account's createdAt 
-    const updatedLabel = balance?.lastUpdated 
-        ? `last updated ${new Date(balance.lastUpdated).toLocaleDateString() === new Date().toLocaleDateString() 
-            ? 'today' 
-            : new Date(balance.lastUpdated).toLocaleDateString()}` 
+    // Shows 'opened today' or a date string based on the account's creation date
+    const updatedLabel = balance?.openedAt
+        ? `opened ${new Date(balance.openedAt).toLocaleDateString() === new Date().toLocaleDateString()
+            ? 'today'
+            : new Date(balance.openedAt).toLocaleDateString()}`
             : ''
     
     return (
@@ -435,6 +438,9 @@ function TransferModal({ isOpen, onClose }) {
                     </Box> 
                 </CardContent> 
             </Card> 
+            
+            {weakSessionActive && <SessionInspector />}
+
         </Box>
         
         <TransferModal 

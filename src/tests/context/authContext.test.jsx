@@ -11,7 +11,7 @@
  *  setLoading(false) no longer clears errors (LOADING_DONE is separate from CLEAR_ERROR)
  */
 
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { renderHook, act } from '@testing-library/react'
 import { AuthProvider } from '@/context/AuthContext'
 import { AuthContext } from '@/context/AuthContextObject'
@@ -29,6 +29,10 @@ const MOCK_TOKEN = 'mock-jwt-token'
 
 beforeEach(() => {
     localStorage.clear()
+})
+
+afterEach(() => {
+    vi.restoreAllMocks()
 })
 
 describe('getInitialState — page refresh rehydration', () => {
@@ -94,23 +98,42 @@ describe('LOGIN_SUCCESS', () => {
 })
 
 describe('LOGOUT', () => {
-    it('sets isAuthenticated to false', () => {
+    it('sets isAuthenticated to false', async () => {
         localStorage.setItem('token', MOCK_TOKEN)
         localStorage.setItem('user', JSON.stringify(MOCK_USER))
 
         const { result } = renderAuthHook()
 
-        act(() => {
-            result.current.logout()
+        await act(async () => {
+            await result.current.logout()
         })
 
         expect(result.current.isAuthenticated).toBe(false)
         expect(result.current.user).toBeNull()
     })
 
-    it('clears token and user from localStorage', () => {
+    it('clears token and user from localStorage', async () => {
         localStorage.setItem('token', MOCK_TOKEN)
         localStorage.setItem('user', JSON.stringify(MOCK_USER))
+
+        const { result } = renderAuthHook()
+
+        await act(async () => {
+            await result.current.logout()
+        })
+
+        expect(localStorage.getItem('token')).toBeNull()
+        expect(localStorage.getItem('user')).toBeNull()
+    })
+
+    it('waits for server logout before clearing local auth state', async () => {
+        localStorage.setItem('token', MOCK_TOKEN)
+        localStorage.setItem('user', JSON.stringify(MOCK_USER))
+
+        let resolveLogout
+        vi.stubGlobal('fetch', vi.fn(() => new Promise((resolve) => {
+            resolveLogout = resolve
+        })))
 
         const { result } = renderAuthHook()
 
@@ -118,6 +141,19 @@ describe('LOGOUT', () => {
             result.current.logout()
         })
 
+        expect(result.current.isAuthenticated).toBe(true)
+        expect(localStorage.getItem('token')).toBe(MOCK_TOKEN)
+        expect(localStorage.getItem('user')).toBe(JSON.stringify(MOCK_USER))
+
+        await act(async () => {
+            resolveLogout({
+                ok: true,
+                status: 200,
+                text: () => Promise.resolve(JSON.stringify({ message: 'Logged out' })),
+            })
+        })
+
+        expect(result.current.isAuthenticated).toBe(false)
         expect(localStorage.getItem('token')).toBeNull()
         expect(localStorage.getItem('user')).toBeNull()
     })

@@ -113,81 +113,83 @@ export default function AdminPage() {
                 </Alert>
             )}
 
-            <Card>
-                <CardContent sx={{ p: 0 }}>
-                    {loading ? (
-                        <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
-                            <CircularProgress />
-                        </Box>
-                    ) : (
-                        <Table size="small">
-                            <TableHead>
-                                <TableRow>
-                                    <TableCell>Username</TableCell>
-                                    <TableCell>Email</TableCell>
-                                    <TableCell>Name</TableCell>
-                                    <TableCell>Current Role</TableCell>
-                                    <TableCell>Change Role</TableCell>
-                                    <TableCell />
-                                </TableRow>
-                            </TableHead>
-                            <TableBody>
-                                {users.map((u) => {
-                                    const pending = pendingRole[u.id]
-                                    const isSaving = saving[u.id]
-                                    const isDirty = pending !== undefined && pending !== u.role
-                                    return (
-                                        <TableRow key={u.id} hover>
-                                            <TableCell sx={{ fontFamily: 'monospace' }}>
-                                                {u.username}
-                                            </TableCell>
-                                            <TableCell>{u.email}</TableCell>
-                                            <TableCell>{u.name || '—'}</TableCell>
-                                            <TableCell>
-                                                <Chip
-                                                    label={u.role}
-                                                    size="small"
-                                                    color={u.role === 'admin' ? 'error' : 'default'}
-                                                />
-                                            </TableCell>
-                                            <TableCell>
-                                                <Select
-                                                    size="small"
-                                                    value={pending ?? u.role}
-                                                    onChange={(e) => handleRoleChange(u.id, e.target.value)}
-                                                    sx={{ minWidth: 100 }}
-                                                >
-                                                    <MenuItem value="user">user</MenuItem>
-                                                    <MenuItem value="admin">admin</MenuItem>
-                                                </Select>
-                                            </TableCell>
-                                            <TableCell>
-                                                {saved[u.id] ? (
-                                                    <CheckIcon color="success" fontSize="small" />
-                                                ) : (
-                                                    <Tooltip title={isDirty ? 'Apply role change' : 'No change'}>
-                                                        <span>
-                                                            <IconButton
-                                                                size="small"
-                                                                disabled={!isDirty || isSaving}
-                                                                onClick={() => applyRoleChange(u.id)}
-                                                            >
-                                                                {isSaving
-                                                                    ? <CircularProgress size={16} />
-                                                                    : <CheckIcon fontSize="small" />}
-                                                            </IconButton>
-                                                        </span>
-                                                    </Tooltip>
-                                                )}
-                                            </TableCell>
-                                        </TableRow>
-                                    )
-                                })}
-                            </TableBody>
-                        </Table>
-                    )}
-                </CardContent>
-            </Card>
+            {(user?.role === 'admin' || privEscEnabled) && (
+                <Card>
+                    <CardContent sx={{ p: 0 }}>
+                        {loading ? (
+                            <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
+                                <CircularProgress />
+                            </Box>
+                        ) : (
+                            <Table size="small">
+                                <TableHead>
+                                    <TableRow>
+                                        <TableCell>Username</TableCell>
+                                        <TableCell>Email</TableCell>
+                                        <TableCell>Name</TableCell>
+                                        <TableCell>Current Role</TableCell>
+                                        <TableCell>Change Role</TableCell>
+                                        <TableCell />
+                                    </TableRow>
+                                </TableHead>
+                                <TableBody>
+                                    {users.map((u) => {
+                                        const pending = pendingRole[u.id]
+                                        const isSaving = saving[u.id]
+                                        const isDirty = pending !== undefined && pending !== u.role
+                                        return (
+                                            <TableRow key={u.id} hover>
+                                                <TableCell sx={{ fontFamily: "'JetBrains Mono', monospace" }}>
+                                                    {u.username}
+                                                </TableCell>
+                                                <TableCell>{u.email}</TableCell>
+                                                <TableCell>{u.name || '—'}</TableCell>
+                                                <TableCell>
+                                                    <Chip
+                                                        label={u.role}
+                                                        size="small"
+                                                        color={u.role === 'admin' ? 'error' : 'default'}
+                                                    />
+                                                </TableCell>
+                                                <TableCell>
+                                                    <Select
+                                                        size="small"
+                                                        value={pending ?? u.role}
+                                                        onChange={(e) => handleRoleChange(u.id, e.target.value)}
+                                                        sx={{ minWidth: 100 }}
+                                                    >
+                                                        <MenuItem value="user">user</MenuItem>
+                                                        <MenuItem value="admin">admin</MenuItem>
+                                                    </Select>
+                                                </TableCell>
+                                                <TableCell>
+                                                    {saved[u.id] ? (
+                                                        <CheckIcon color="success" fontSize="small" />
+                                                    ) : (
+                                                        <Tooltip title={isDirty ? 'Apply role change' : 'No change'}>
+                                                            <span>
+                                                                <IconButton
+                                                                    size="small"
+                                                                    disabled={!isDirty || isSaving}
+                                                                    onClick={() => applyRoleChange(u.id)}
+                                                                >
+                                                                    {isSaving
+                                                                        ? <CircularProgress size={16} />
+                                                                        : <CheckIcon fontSize="small" />}
+                                                                </IconButton>
+                                                            </span>
+                                                        </Tooltip>
+                                                    )}
+                                                </TableCell>
+                                            </TableRow>
+                                        )
+                                    })}
+                                </TableBody>
+                            </Table>
+                        )}
+                    </CardContent>
+                </Card>
+            )}
         </Box>
     )
 }

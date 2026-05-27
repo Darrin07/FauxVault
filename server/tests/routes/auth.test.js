@@ -2,20 +2,24 @@ const request = require('supertest');
 const app = require('../../src/app');
 const { resetUsers } = require('../../src/models/users');
 const { resetAccounts } = require('../../src/models/accounts');
+const { resetSettings } = require('../../src/models/toggleState');
+const { extractTokenFromResponse, getTokenCookie } = require('../helpers/auth');
 
 beforeEach(async () => {
   await resetUsers();
   await resetAccounts();
+  await resetSettings();
 });
 
 describe('POST /api/auth/register', () => {
-  test('creates a user and returns a token', async () => {
+  test('creates a user and returns a token (via cookie in hardened mode)', async () => {
     const res = await request(app)
       .post('/api/auth/register')
       .send({ username: 'testuser', email: 'test@example.com', password: 'Password123' });
 
     expect(res.status).toBe(201);
-    expect(res.body.token).toBeDefined();
+    const token = extractTokenFromResponse(res);
+    expect(token).toBeTruthy();
     expect(res.body.user.username).toBe('testuser');
     expect(res.body.user.email).toBe('test@example.com');
     expect(res.body.user.role).toBe('user');
@@ -71,7 +75,8 @@ describe('POST /api/auth/login', () => {
       .send({ identifier: 'login@example.com', password: 'Password123' });
 
     expect(res.status).toBe(200);
-    expect(res.body.token).toBeDefined();
+    const token = extractTokenFromResponse(res);
+    expect(token).toBeTruthy();
     expect(res.body.user.email).toBe('login@example.com');
     expect(res.body.user.username).toBe('loginuser');
   });
@@ -82,7 +87,8 @@ describe('POST /api/auth/login', () => {
       .send({ identifier: 'loginuser', password: 'Password123' });
 
     expect(res.status).toBe(200);
-    expect(res.body.token).toBeDefined();
+    const token = extractTokenFromResponse(res);
+    expect(token).toBeTruthy();
     expect(res.body.user.username).toBe('loginuser');
   });
 
@@ -111,6 +117,13 @@ describe('POST /api/auth/logout', () => {
     expect(res.status).toBe(200);
     expect(res.body.message).toBe('Logged out');
   });
+  test('clears the token cookie', async () => {
+    const res = await request(app).post('/api/auth/logout');
+    const tokenCookie = getTokenCookie(res);
+    expect(tokenCookie).toBeDefined();
+    // Cookie should be expired (cleared)
+    expect(tokenCookie).toMatch(/expires=/i);
+  });
 });
 
 describe('Auth middleware', () => {
@@ -119,12 +132,12 @@ describe('Auth middleware', () => {
     expect(res.status).toBe(401);
   });
 
-  test('protected route accepts valid token', async () => {
+  test('protected route accepts valid token via Authorization header', async () => {
     const registerRes = await request(app)
       .post('/api/auth/register')
       .send({ username: 'authtest', email: 'auth@example.com', password: 'Password123' });
 
-    const token = registerRes.body.token;
+    const token = extractTokenFromResponse(registerRes);
 
     const res = await request(app)
       .get('/api/health/protected')
@@ -132,5 +145,32 @@ describe('Auth middleware', () => {
 
     expect(res.status).toBe(200);
     expect(res.body.user.email).toBe('auth@example.com');
+  });
+
+  test('GET /api/auth/me returns current user with cookie token', async () => {
+    const registerRes = await request(app)
+      .post('/api/auth/register')
+      .send({ username: 'cookieprofile', email: 'cookieme@example.com', password: 'Password123' });
+
+    const token = extractTokenFromResponse(registerRes);
+
+    const res = await request(app)
+      .get('/api/auth/me')
+      .set('Cookie', `token=${token}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.user).toEqual(
+      expect.objectContaining({
+        username: 'cookieprofile',
+        email: 'cookieme@example.com',
+        role: 'user',
+      })
+    );
+    expect(res.body.user).not.toHaveProperty('passwordBcrypt');
+  });
+
+  test('GET /api/auth/me rejects unauthenticated requests', async () => {
+    const res = await request(app).get('/api/auth/me');
+    expect(res.status).toBe(401);
   });
 });

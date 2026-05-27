@@ -1,5 +1,11 @@
 // The test set-up will run before every test file. Adds jest-dom matchers.
 import '@testing-library/jest-dom'
+import { cleanup } from '@testing-library/react'
+import { afterEach } from 'vitest'
+
+// singleFork: true shares one jsdom instance across all test files.
+// Without this, renders from file A pollute the DOM when file B runs.
+afterEach(() => cleanup())
 
 // 2026-05-03: before syncing feature/dashboard-ui to origin/feature/dashboard-ui
 // The service and page tests use localStorage directly, so provide a deterministic

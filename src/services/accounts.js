@@ -11,7 +11,7 @@ import { apiFetch } from './client'
 /**
  * GET /api/accounts/me
  * Returns the authenticated user's account balance and info.
- * @returns {{ id, accountNumber, balance, accountType, lastUpdated }}
+ * @returns {{ id, accountNumber, balance, accountType, openedAt }}
  */
 
 export async function getBalance() {
@@ -23,7 +23,7 @@ export async function getBalance() {
         accountNumber: account.accountNumber,
         balance: account.balance,
         accountType: account.accountType,
-        lastUpdated: account.createdAt,
+        openedAt: account.createdAt,
     }
 }
 
