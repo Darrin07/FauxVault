@@ -2,7 +2,7 @@ const request = require('supertest');
 const app = require('../../src/app');
 const { resetUsers } = require('../../src/models/users');
 const { resetAccounts } = require('../../src/models/accounts');
-const { resetSettings, updateSetting } = require('../../src/models/toggleState');
+const { updateSetting } = require('../../src/models/toggleState');
 const { resetLimiters } = require('../../src/middleware/rateLimiter');
 
 const COMMON_PASSWORDS = [
@@ -13,7 +13,6 @@ const COMMON_PASSWORDS = [
 beforeEach(async () => {
   await resetUsers();
   await resetAccounts();
-  await resetSettings();
   await resetLimiters();
 
   // Register target account — password is last in COMMON_PASSWORDS list

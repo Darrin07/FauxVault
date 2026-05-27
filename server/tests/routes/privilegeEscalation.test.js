@@ -2,7 +2,7 @@ const request = require('supertest');
 const app = require('../../src/app');
 const { resetUsers, findUserById } = require('../../src/models/users');
 const { resetAccounts } = require('../../src/models/accounts');
-const { resetSettings, updateUserSetting } = require('../../src/models/toggleState');
+const { updateUserSetting } = require('../../src/models/toggleState');
 
 let userToken;
 let userId;
@@ -12,7 +12,6 @@ let adminId;
 beforeEach(async () => {
     await resetUsers();
     await resetAccounts();
-    await resetSettings();
 
     // Regular user
     const userRes = await request(app)

@@ -3,7 +3,7 @@ const request = require('supertest');
 const app = require('../../src/app');
 const { resetUsers } = require('../../src/models/users');
 const { resetAccounts } = require('../../src/models/accounts');
-const { resetSettings, updateSetting } = require('../../src/models/toggleState');
+const { updateSetting } = require('../../src/models/toggleState');
 const { resetLimiters } = require('../../src/middleware/rateLimiter');
 
 function md5(str) {
@@ -13,7 +13,6 @@ function md5(str) {
 beforeEach(async () => {
   await resetUsers();
   await resetAccounts();
-  await resetSettings();
   await resetLimiters();
 });
 
