@@ -19,8 +19,9 @@ import {
     DialogContent,
     DialogActions,
     Button,
+    Collapse,
 } from '@mui/material'
-import { Search as SearchIcon } from '@mui/icons-material'
+import { Search as SearchIcon, ExpandMore, ExpandLess } from '@mui/icons-material'
 import * as transfersApi from '../services/transfers'
 import { normalizeTransaction } from '../utils/normalize'
 import { fmt, formatDate } from '../utils/format'
@@ -35,9 +36,22 @@ export default function HistoryPage() {
 
     const [transactions, setTransactions] = useState([])
     const [loading, setLoading] = useState(true)
-    const [searchParams] = useSearchParams()
+    const [searchParams, setSearchParams] = useSearchParams()
     const urlSearchQuery = searchParams.get('q') || ''
     const [searchQuery, setSearchQuery] = useState(urlSearchQuery)
+
+    // VULN MODULE: SQL Injection (a03-injection-sql) -- server-side memo search
+    // URL ?memo= drives a GET /transfers?memo=... call; the existing client-side
+    // search (?q=) remains untouched and continues to filter the rendered table.
+    const memoParam = searchParams.get('memo') || ''
+    const [serverSearchInput, setServerSearchInput] = useState(memoParam)
+
+    // Advanced Search panel: collapsible container for server-side memo search +
+    // date range filter. Defaults to open if ?memo= is already in the URL so the
+    // user lands with their search state visible.
+    const [advancedOpen, setAdvancedOpen] = useState(Boolean(memoParam))
+    const [fromDate, setFromDate] = useState('')
+    const [toDate, setToDate] = useState('')
 
     //Vulnerability Module: Stored XSS - when enabled, the description cell wil render raw HTML
     const { modules } = useVulnerabilities()
@@ -92,36 +106,77 @@ export default function HistoryPage() {
 
     const typeFilter = searchParams.get('type')
 
-    // Fetch on mount and when URL type param changes
+    // Fetch on mount and when URL type or memo param changes
     // Only 'sent' and 'received' are recognized by the server; other values fetch all
+    // When ?memo= is present, the server applies its own ILIKE filter (parameterized
+    // in hardened mode; string-concatenated when sql_injection toggle is on).
     useEffect(() => {
+        // Guard against stale resolutions: if the user types a new memo (or
+        // unmounts) before the previous fetch returns, the stale flag suppresses
+        // the late setState. Avoids setTransactions on an unmounted component
+        // and avoids overwriting fresh results with an older response.
+        let stale = false
         async function fetchData() {
             setLoading(true)
             try {
                 const serverType = ['sent', 'received'].includes(typeFilter) ? typeFilter : null
-                const raw = await transfersApi.getTransfers(serverType)
+                const raw = await transfersApi.getTransfers(serverType, memoParam || null)
+                if (stale) return
                 const normalized = (raw.transactions ?? []).map(normalizeTransaction)
                 setTransactions(normalized)
             } catch (err) {
+                if (stale) return
                 console.error('Failed to load transaction history:', err)
             } finally {
-                setLoading(false)
+                if (!stale) setLoading(false)
             }
         }
         fetchData()
-    }, [typeFilter])
+        return () => { stale = true }
+    }, [typeFilter, memoParam])
 
-    // Client-side search across description, type, date, and amount
+    // Debounce the server-search input → URL ?memo= so each keystroke does not fire
+    // a fresh server request. replace:true keeps browser history clean.
+    useEffect(() => {
+        const handle = setTimeout(() => {
+            const next = new URLSearchParams(searchParams)
+            if (serverSearchInput) {
+                next.set('memo', serverSearchInput)
+            } else {
+                next.delete('memo')
+            }
+            if (next.toString() !== searchParams.toString()) {
+                setSearchParams(next, { replace: true })
+            }
+        }, 300)
+        return () => clearTimeout(handle)
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [serverSearchInput])
+
+    // Advanced Search date range filter (client-side). Applies before the
+    // client-side keyword search so combinations compose: "show me Coffee
+    // transactions between Apr 1 and Apr 30" works without server changes.
+    const filteredByDate = useMemo(() => {
+        if (!fromDate && !toDate) return transactions
+        return transactions.filter((txn) => {
+            const txnDay = (txn.date || '').substring(0, 10)
+            if (fromDate && txnDay < fromDate) return false
+            if (toDate && txnDay > toDate) return false
+            return true
+        })
+    }, [transactions, fromDate, toDate])
+
+    // Client-side keyword search across description, type, date, and amount
     const filtered = useMemo(() => {
-        if (!searchQuery.trim()) return transactions
+        if (!searchQuery.trim()) return filteredByDate
         const q = searchQuery.toLowerCase()
-        return transactions.filter((txn) =>
+        return filteredByDate.filter((txn) =>
             txn.description.toLowerCase().includes(q) ||
             txn.type.toLowerCase().includes(q) ||
             txn.date.includes(q) ||
             String(txn.amount).includes(q)
         )
-    }, [transactions, searchQuery])
+    }, [filteredByDate, searchQuery])
 
     // Heading changes based on how the user arrived at this page
     const heading = typeFilter === 'transfers' ? 'Transfer History' : 'Transaction History'
@@ -175,6 +230,78 @@ export default function HistoryPage() {
                         ),
                     }}
                 />
+            </Box>
+
+            {/* Advanced Search: collapsible panel housing server-side memo search
+                (SQL Injection module surface) and client-side date range filter. */}
+            <Box sx={{ mb: 2 }}>
+                <Button
+                    id="advanced-search-toggle"
+                    onClick={() => setAdvancedOpen(!advancedOpen)}
+                    startIcon={<SearchIcon />}
+                    endIcon={advancedOpen ? <ExpandLess /> : <ExpandMore />}
+                    size="small"
+                    sx={{ mb: 1 }}
+                >
+                    Advanced Search
+                </Button>
+                <Collapse in={advancedOpen}>
+                    <Box
+                        sx={{
+                            display: 'flex',
+                            gap: 2,
+                            flexDirection: { xs: 'column', sm: 'row' },
+                            alignItems: { sm: 'center' },
+                            mb: 0.5,
+                        }}
+                    >
+                        <TextField
+                            id="server-transaction-search"
+                            placeholder="Search by memo (across the bank)…"
+                            value={serverSearchInput}
+                            onChange={(e) => setServerSearchInput(e.target.value)}
+                            size="small"
+                            fullWidth
+                            InputProps={{
+                                startAdornment: (
+                                    <InputAdornment position="start">
+                                        <SearchIcon sx={{ fontSize: 18, color: 'text.disabled' }} />
+                                    </InputAdornment>
+                                ),
+                            }}
+                        />
+                        <TextField
+                            id="advanced-search-from-date"
+                            type="date"
+                            label="From"
+                            aria-label="From date"
+                            InputLabelProps={{ shrink: true }}
+                            value={fromDate}
+                            onChange={(e) => setFromDate(e.target.value)}
+                            size="small"
+                        />
+                        <TextField
+                            id="advanced-search-to-date"
+                            type="date"
+                            label="To"
+                            aria-label="To date"
+                            InputLabelProps={{ shrink: true }}
+                            value={toDate}
+                            onChange={(e) => setToDate(e.target.value)}
+                            size="small"
+                        />
+                    </Box>
+                    {memoParam && (
+                        <Typography
+                            id="server-search-banner"
+                            variant="caption"
+                            color="warning.main"
+                            sx={{ display: 'block' }}
+                        >
+                            Server search active for memo: "{memoParam}"
+                        </Typography>
+                    )}
+                </Collapse>
             </Box>
 
             {!loading && searchQuery && (

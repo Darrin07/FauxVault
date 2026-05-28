@@ -45,7 +45,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import HistoryPage from '@/pages/HistoryPage'
@@ -65,7 +65,15 @@ vi.mock('@mui/material', () => ({
         dangerouslySetInnerHTML
             ? <span dangerouslySetInnerHTML={dangerouslySetInnerHTML} />
             : <span>{children}</span>,
-    TextField: (props) => <input placeholder={props.placeholder} onChange={props.onChange} value={props.value} />,
+    TextField: (props) => (
+        <input
+            type={props.type || 'text'}
+            aria-label={props.label || props['aria-label']}
+            placeholder={props.placeholder}
+            onChange={props.onChange}
+            value={props.value}
+        />
+    ),
     InputAdornment: ({ children }) => <div>{children}</div>,
     Table: ({ children }) => <table>{children}</table>,
     TableBody: ({ children }) => <tbody>{children}</tbody>,
@@ -84,10 +92,13 @@ vi.mock('@mui/material', () => ({
     Button: ({ children, onClick, disabled, type }) => (
         <button type={type} onClick={onClick} disabled={disabled}>{children}</button>
     ),
+    Collapse: ({ in: open, children }) => open ? <div>{children}</div> : null,
 }))
 
 vi.mock('@mui/icons-material', () => ({
     Search: () => <span>search</span>,
+    ExpandMore: () => <span>expand-more</span>,
+    ExpandLess: () => <span>expand-less</span>,
 }))
 
 vi.mock('@/hooks/useVulnerabilities', () => ({
@@ -238,7 +249,7 @@ describe('HistoryPage: client-side search', () => {
         renderPage()
 
         await screen.findByRole('table')
-        await user.type(screen.getByPlaceholderText(/search/i), 'Rent')
+        await user.type(screen.getByPlaceholderText(/description, type, amount/i), 'Rent')
 
         expect(screen.getByText('Rent for May')).toBeInTheDocument()
         expect(screen.queryByText('Coffee reimbursement')).not.toBeInTheDocument()
@@ -250,7 +261,7 @@ describe('HistoryPage: client-side search', () => {
         renderPage()
 
         await screen.findByRole('table')
-        await user.type(screen.getByPlaceholderText(/search/i), 'zzzznotexist')
+        await user.type(screen.getByPlaceholderText(/description, type, amount/i), 'zzzznotexist')
 
         expect(await screen.findByText(/no matches found/i)).toBeInTheDocument()
     })
@@ -261,7 +272,7 @@ describe('HistoryPage: client-side search', () => {
         renderPage()
 
         await screen.findByRole('table')
-        await user.type(screen.getByPlaceholderText(/search/i), 'Rent')
+        await user.type(screen.getByPlaceholderText(/description, type, amount/i), 'Rent')
 
         expect(await screen.findByText(/1 transaction found/i)).toBeInTheDocument()
     })
@@ -322,7 +333,7 @@ describe('HistoryPage: Reflected XSS module (xss_reflected)', () => {
         renderPage('/history?q=Rent')
 
         await screen.findByRole('table')
-        const input = screen.getByPlaceholderText(/search/i)
+        const input = screen.getByPlaceholderText(/description, type, amount/i)
         expect(input).toHaveValue('Rent')
         expect(screen.getByText(/matching "Rent"/i)).toBeInTheDocument()
     })
@@ -455,5 +466,149 @@ describe('HistoryPage: Educational notification', () => {
         await waitFor(() => {
             expect(document.getElementById('xss-reflected-notification')).not.toBeInTheDocument()
         })
+    })
+})
+
+// Server-side memo search (SQL injection module, a03-injection-sql)
+describe('HistoryPage -- server-side search via ?memo=', () => {
+    it('fires a server fetch with the memo value when ?memo= is in the URL', async () => {
+        transfersApi.getTransfers.mockResolvedValue({ transactions: MOCK_TRANSACTIONS })
+        renderPage('/history?memo=Rent')
+
+        await waitFor(() => {
+            expect(transfersApi.getTransfers).toHaveBeenCalledWith(null, 'Rent')
+        })
+    })
+
+    it('combines ?memo= with ?type= when both are in the URL', async () => {
+        transfersApi.getTransfers.mockResolvedValue({ transactions: MOCK_TRANSACTIONS })
+        renderPage('/history?type=sent&memo=Coffee')
+
+        await waitFor(() => {
+            expect(transfersApi.getTransfers).toHaveBeenCalledWith('sent', 'Coffee')
+        })
+    })
+
+    it('shows the server-search banner when ?memo= is set', async () => {
+        transfersApi.getTransfers.mockResolvedValue({ transactions: MOCK_TRANSACTIONS })
+        renderPage('/history?memo=Rent')
+
+        expect(await screen.findByText(/server search active for memo: "Rent"/i)).toBeInTheDocument()
+    })
+
+    it('does NOT show the banner when ?memo= is absent', async () => {
+        transfersApi.getTransfers.mockResolvedValue({ transactions: MOCK_TRANSACTIONS })
+        renderPage('/history')
+
+        await waitFor(() => expect(transfersApi.getTransfers).toHaveBeenCalled())
+        expect(screen.queryByText(/server search active/i)).not.toBeInTheDocument()
+    })
+
+    it('typing in the server-search input fires a server fetch after the debounce', async () => {
+        transfersApi.getTransfers.mockResolvedValue({ transactions: [] })
+        const user = userEvent.setup()
+        renderPage('/history')
+
+        // Wait for the initial mount fetch (no memo) so we can isolate the typing-driven call
+        await waitFor(() => expect(transfersApi.getTransfers).toHaveBeenCalledWith(null, null))
+        transfersApi.getTransfers.mockClear()
+        transfersApi.getTransfers.mockResolvedValue({ transactions: [] })
+
+        // Panel is collapsed by default when no ?memo= is in URL; expand it first.
+        await user.click(screen.getByRole('button', { name: /advanced search/i }))
+
+        await user.type(
+            screen.getByPlaceholderText(/search by memo/i),
+            'Coffee',
+        )
+
+        // Debounce is 300ms; waitFor's default 1000ms is plenty
+        await waitFor(() => {
+            expect(transfersApi.getTransfers).toHaveBeenCalledWith(null, 'Coffee')
+        })
+    })
+})
+
+// Advanced Search panel + date range filter (companion to server-side memo search)
+describe('HistoryPage -- Advanced Search panel', () => {
+    it('starts collapsed when no ?memo= is in the URL (server-search input is hidden)', async () => {
+        transfersApi.getTransfers.mockResolvedValue({ transactions: MOCK_TRANSACTIONS })
+        renderPage('/history')
+
+        await waitFor(() => expect(transfersApi.getTransfers).toHaveBeenCalled())
+        expect(screen.queryByPlaceholderText(/search by memo/i)).not.toBeInTheDocument()
+        // The button to expand the panel is present
+        expect(screen.getByRole('button', { name: /advanced search/i })).toBeInTheDocument()
+    })
+
+    it('auto-opens when ?memo= is present in the URL on mount', async () => {
+        transfersApi.getTransfers.mockResolvedValue({ transactions: MOCK_TRANSACTIONS })
+        renderPage('/history?memo=Coffee')
+
+        // The server-search input is visible without needing a click
+        expect(await screen.findByPlaceholderText(/search by memo/i)).toBeInTheDocument()
+    })
+
+    it('toggles open and closed when the Advanced Search button is clicked', async () => {
+        transfersApi.getTransfers.mockResolvedValue({ transactions: MOCK_TRANSACTIONS })
+        const user = userEvent.setup()
+        renderPage('/history')
+
+        await waitFor(() => expect(transfersApi.getTransfers).toHaveBeenCalled())
+        const button = screen.getByRole('button', { name: /advanced search/i })
+
+        await user.click(button)
+        expect(screen.getByPlaceholderText(/search by memo/i)).toBeInTheDocument()
+
+        await user.click(button)
+        expect(screen.queryByPlaceholderText(/search by memo/i)).not.toBeInTheDocument()
+    })
+})
+
+describe('HistoryPage -- Advanced Search date range filter', () => {
+    // MOCK_TRANSACTIONS has txn-001 on 2026-04-27 and txn-002 on 2026-04-28.
+    it('filters out transactions earlier than the From date', async () => {
+        transfersApi.getTransfers.mockResolvedValue({ transactions: MOCK_TRANSACTIONS })
+        const user = userEvent.setup()
+        renderPage('/history')
+
+        await waitFor(() => expect(transfersApi.getTransfers).toHaveBeenCalled())
+        await user.click(screen.getByRole('button', { name: /advanced search/i }))
+
+        const fromInput = screen.getByLabelText(/from/i)
+        fireEvent.change(fromInput, { target: { value: '2026-04-28' } })
+
+        // txn-001 (Apr 27) hidden; txn-002 (Apr 28) visible
+        expect(screen.queryByText('Rent for May')).not.toBeInTheDocument()
+        expect(screen.getByText('Coffee reimbursement')).toBeInTheDocument()
+    })
+
+    it('filters out transactions later than the To date', async () => {
+        transfersApi.getTransfers.mockResolvedValue({ transactions: MOCK_TRANSACTIONS })
+        const user = userEvent.setup()
+        renderPage('/history')
+
+        await waitFor(() => expect(transfersApi.getTransfers).toHaveBeenCalled())
+        await user.click(screen.getByRole('button', { name: /advanced search/i }))
+
+        const toInput = screen.getByLabelText(/to/i)
+        fireEvent.change(toInput, { target: { value: '2026-04-27' } })
+
+        // txn-001 (Apr 27) visible; txn-002 (Apr 28) hidden
+        expect(screen.getByText('Rent for May')).toBeInTheDocument()
+        expect(screen.queryByText('Coffee reimbursement')).not.toBeInTheDocument()
+    })
+
+    it('shows all transactions when both date inputs are empty', async () => {
+        transfersApi.getTransfers.mockResolvedValue({ transactions: MOCK_TRANSACTIONS })
+        const user = userEvent.setup()
+        renderPage('/history')
+
+        await waitFor(() => expect(transfersApi.getTransfers).toHaveBeenCalled())
+        await user.click(screen.getByRole('button', { name: /advanced search/i }))
+
+        // Both inputs untouched, both transactions render
+        expect(screen.getByText('Rent for May')).toBeInTheDocument()
+        expect(screen.getByText('Coffee reimbursement')).toBeInTheDocument()
     })
 })
