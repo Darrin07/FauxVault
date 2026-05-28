@@ -40,9 +40,8 @@ async function executeSecurely(userId, callback) {
 }
 
 /**
- * Test the database connection. Call this at server startup,
- * not on module import, so the app can still run without
- * a database (e.g., when using the mock data layer in tests).
+ * Test the database connection. Call this at server startup
+ * to verify PostgreSQL availability.
  */
 async function testConnection() {
   try {

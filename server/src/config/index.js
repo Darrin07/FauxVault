@@ -1,4 +1,11 @@
-require('dotenv').config();
+// Load .env from the project root (worktree root) regardless of cwd. Without
+// the explicit path, dotenv resolves relative to process.cwd() -- which is
+// `server/` when running `npm run dev` from there, so it would silently load
+// zero variables (the .env lives one directory up, at the worktree root). The
+// Docker Compose flow masks this because it injects env vars directly via
+// env_file, but local `npm run dev` and any future tooling needs this fix.
+const path = require('path');
+require('dotenv').config({ path: path.resolve(__dirname, '..', '..', '..', '.env') });
 
 module.exports = {
   port: process.env.PORT || 3001,

@@ -2,7 +2,7 @@ const request = require('supertest');
 const app = require('../../src/app');
 const { resetUsers, findUserById } = require('../../src/models/users');
 const { resetAccounts } = require('../../src/models/accounts');
-const { resetSettings, updateUserSetting } = require('../../src/models/toggleState');
+const { updateUserSetting } = require('../../src/models/toggleState');
 const { extractTokenFromResponse } = require('../helpers/auth');
 
 // Each beforeEach chains: resetSettings (transaction) + register (2 vuln-toggle
@@ -17,7 +17,6 @@ let userId;
 beforeEach(async () => {
     await resetUsers();
     await resetAccounts();
-    await resetSettings();
 
     const res = await request(app)
         .post('/api/auth/register')

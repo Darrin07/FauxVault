@@ -54,7 +54,6 @@ Key root `.env` values:
 
 ```env
 # Frontend (Vite)
-VITE_USE_MOCK=true
 VITE_API_BASE_URL=/api
 
 # Docker / Postgres Initialization
@@ -82,6 +81,12 @@ This repo currently supports two local runtime modes:
 
 The detailed setup, proxy explanation, and production topology notes live in
 [`docs/development-and-production-workflows.md`](docs/development-and-production-workflows.md).
+
+The vulnerability toggle data flow is documented in
+[`docs/vulnerability-toggle-architecture.md`](docs/vulnerability-toggle-architecture.md).
+In short, `GET /api/settings` returns read only global defaults; anonymous users
+use local session overrides sent with `X-Vulnerability-Overrides`; and signed in
+users persist their own overrides through `/api/users/me/vulnerability-settings`.
 
 ### 3a. Run the full stack with Docker Compose
 
@@ -139,7 +144,6 @@ npm run dev
 
 Vite serves the frontend on `http://localhost:5173`.
 
-> The frontend uses mock data by default (`VITE_USE_MOCK=true`). Set it to
 > `false` in the root `.env` when you want the UI talking to the real Express
 > backend through the Vite `/api` proxy.
 

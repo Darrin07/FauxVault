@@ -68,16 +68,16 @@ function TransferModal({ isOpen, onClose }) {
         setError('')
         setSuccess('')
             
-        // Validation: amount must be a positive number 
-        if (!form.amount || Number(form.amount) <= 0) { 
-            setError('Please enter a valid amount') 
-            return 
+        // Validation: recipient account ID required
+        if (!form.toAccountId.trim()) {
+            setError('Recipient Account ID is required')
+            return
         }
 
-        // Validation: recipient account ID required 
-        if (!form.toAccountId.trim()) { 
-            setError('Recipient Account ID is required') 
-            return 
+        // Validation: amount must be a positive number
+        if (!form.amount || Number(form.amount) <= 0) {
+            setError('Please enter a valid amount')
+            return
         }
 
         setLoading(true) 
@@ -87,7 +87,7 @@ function TransferModal({ isOpen, onClose }) {
             amount: Number(form.amount), 
             memo: form.memo, })
             setSuccess('Successfully transferred!')
-            setForm((prev) => ({ ...prev, toAccountId: '', memo: ''}))
+            setForm({ toAccountId: '', amount: '', memo: '' })
         } catch (err) { 
             setError(err.message || 'Transfer failed. Please try again.') 
         } 
@@ -150,7 +150,8 @@ function TransferModal({ isOpen, onClose }) {
                                 label="Memo (optional)" 
                                 value={form.memo} 
                                 onChange={handleChange('memo')} 
-                                placeholder="What's this for?" 
+                                placeholder="What's this for?"
+                                inputProps={{ maxLength: 140 }} 
                                 fullWidth 
                                 InputProps={{ 
                                     startAdornment: (
@@ -193,6 +194,12 @@ function TransferModal({ isOpen, onClose }) {
         const navigate = useNavigate()
         const { modules } = useVulnerabilities()
         const weakSessionActive = modules.find(m => m.id === 'weak_session_tokens')?.enabled ?? false
+        const hasJsReadableToken = document.cookie
+            .split(';')
+            .map(c => c.trim())
+            .some(c => c.startsWith('token='))
+            || Boolean(localStorage.getItem('token'))
+        const showSessionInspector = weakSessionActive || hasJsReadableToken
 
         // Fetch all three data points in parallel on mount 
         useEffect(() => { async function fetchData() { 
@@ -438,7 +445,7 @@ function TransferModal({ isOpen, onClose }) {
                 </CardContent> 
             </Card> 
             
-            {weakSessionActive && <SessionInspector />}
+            {showSessionInspector && <SessionInspector />}
 
         </Box>
         

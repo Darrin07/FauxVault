@@ -9,7 +9,7 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "test": "vitest",
-    "db:init": "docker compose exec -T db sh -c 'psql -U \"$POSTGRES_USER\" -d \"$POSTGRES_DB\"' < database/FauxVault_Schema.sql && docker compose exec -T db sh -c 'psql -U \"$POSTGRES_USER\" -d \"$POSTGRES_DB\"' < database/FauxVault_Seed.sql",
+    "db:init": "docker compose exec -T db sh -c 'psql -U \"$POSTGRES_USER\" -d \"$POSTGRES_DB\"' < database/FauxVault_Schema.sql && docker compose exec -T db sh -c 'psql -U \"$POSTGRES_USER\" -d \"$POSTGRES_DB\"' < database/FauxVault_Seed.sql && sed \"s|:'sqli_lab_password'|'$RESTRICTED_DB_PASSWORD'|g\" database/FauxVault_SQLi_Lab_Role.sql | docker compose exec -T db sh -c 'psql -U \"$POSTGRES_USER\" -d \"$POSTGRES_DB\"'",
     "db:reseed": "docker compose exec -T db sh -c 'psql -U \"$POSTGRES_USER\" -d \"$POSTGRES_DB\"' < database/FauxVault_Seed.sql"
   },
   "dependencies": {

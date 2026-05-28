@@ -30,6 +30,11 @@ jobs:
       DB_HOST: localhost
       DB_PORT: 5432
       JWT_SECRET: ci-test-secret
+      RESTRICTED_DB_USER: fauxvault_sqli_lab
+      # CI-only placeholder. The CI Postgres is ephemeral and localhost-bound;
+      # this value is the agreement between role provisioning (below) and the
+      # restrictedPool config in tests. Not a real secret -- do not reuse anywhere.
+      RESTRICTED_DB_PASSWORD: ci_only_not_a_real_secret
     defaults:
       run:
         working-directory: ./server
@@ -57,6 +62,17 @@ jobs:
       - name: Seed database
         run: psql -h "$DB_HOST" -U "$POSTGRES_USER" -d "$POSTGRES_DB" -f
           ../database/FauxVault_Seed.sql
+        env:
+          PGPASSWORD: ${{ env.POSTGRES_PASSWORD }}
+
+      - name: Provision SQLi sandbox role
+        # Use sed (not psql -v) because :'foo' inside DO $$ ... $$ is dollar-quoted
+        # text and psql variable substitution does not enter dollar-quoted blocks.
+        # Matches the sed approach in package.json's db:init script.
+        run: |
+          set -o pipefail
+          sed "s|:'sqli_lab_password'|'$RESTRICTED_DB_PASSWORD'|g" ../database/FauxVault_SQLi_Lab_Role.sql \
+            | psql -h "$DB_HOST" -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v ON_ERROR_STOP=1
         env:
           PGPASSWORD: ${{ env.POSTGRES_PASSWORD }}
 
@@ -138,18 +154,44 @@ jobs:
           echo "SSM Command ID: $COMMAND_ID"
 
           set +e
-          aws ssm wait command-executed \
-            --command-id "$COMMAND_ID" \
-            --instance-id ${{ secrets.EC2_INSTANCE_ID }} \
-            --cli-read-timeout 300
-          WAIT_STATUS=$?
+          WAIT_SECONDS=0
+          MAX_WAIT=600
+          POLL_INTERVAL=15
+          STATUS="Pending"
+          while [ $WAIT_SECONDS -lt $MAX_WAIT ]; do
+            STATUS=$(aws ssm get-command-invocation \
+              --command-id "$COMMAND_ID" \
+              --instance-id ${{ secrets.EC2_INSTANCE_ID }} \
+              --query "Status" \
+              --output text)
+            STATUS_RC=$?
+            echo "SSM status after ${WAIT_SECONDS}s: $STATUS"
+
+            if [ $STATUS_RC -ne 0 ]; then
+              echo "SSM status check failed; retrying..."
+            else
+              case "$STATUS" in
+                Success|Failed|Cancelled|TimedOut|Cancelling)
+                  break
+                  ;;
+                Pending|InProgress|Delayed)
+                  ;;
+                *)
+                  echo "Unknown SSM status: $STATUS"
+                  break
+                  ;;
+              esac
+            fi
+
+            sleep $POLL_INTERVAL
+            WAIT_SECONDS=$((WAIT_SECONDS + POLL_INTERVAL))
+          done
           set -e
 
-          STATUS=$(aws ssm get-command-invocation \
-            --command-id "$COMMAND_ID" \
-            --instance-id ${{ secrets.EC2_INSTANCE_ID }} \
-            --query "Status" \
-            --output text)
+          WAIT_STATUS=0
+          if [ "$STATUS" != "Success" ]; then
+            WAIT_STATUS=1
+          fi
 
           echo "SSM status: $STATUS"
           echo "==> SSM stdout"

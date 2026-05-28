@@ -1,4 +1,4 @@
-/** Vulnerability toggle model — PostgreSQL queries replacing the in-memory mock store */
+/** Vulnerability toggle model — PostgreSQL queries */
 const { pool } = require('../config/db');
 const MAX_ACTIVE_VULNERABILITIES = 3;
 
@@ -57,7 +57,7 @@ async function updateSetting(module_name, is_vulnerable) {
 }
 
 /**
- * Resets all settings to vulnerable (TRUE). Used in test teardown.
+ * Resets all settings to hardened (FALSE). Used in test teardown.
  */
 async function resetSettings() {
   const client = await pool.connect();
