@@ -3,6 +3,45 @@
 -- SELECT-only grants on transactions and public_accounts contain the blast radius:
 -- DROP, writes, and identity-pool reads (users, raw accounts) are rejected at the DB.
 -- Idempotent: re-runs cleanly so test setup and local-dev provisioning can both invoke it.
+--
+-- Re-running this script briefly drops `public_accounts` before recreating it,
+-- which transiently breaks UNION-based payloads targeting the view. The hardened
+-- read path does not depend on `public_accounts`, so normal app traffic and the
+-- non-injection vulnerable path are unaffected during the window.
+
+-- Precheck: the public_accounts view runs in default security_invoker = false
+-- mode, so RLS on `accounts` is evaluated under the view OWNER's session. If
+-- this script is run as a role that does not own `accounts` and is not
+-- BYPASSRLS/SUPERUSER, the view would silently return zero rows to
+-- fauxvault_sqli_lab and break the demo without raising an error. Fail loud here.
+DO $$
+DECLARE
+  role_super BOOLEAN;
+  role_bypass BOOLEAN;
+  owns_accounts BOOLEAN;
+BEGIN
+  SELECT rolsuper, rolbypassrls
+    INTO role_super, role_bypass
+    FROM pg_roles
+    WHERE rolname = current_user;
+
+  SELECT EXISTS (
+    SELECT 1
+    FROM pg_class c
+    JOIN pg_roles r ON c.relowner = r.oid
+    WHERE c.relname = 'accounts'
+      AND r.rolname = current_user
+  ) INTO owns_accounts;
+
+  IF NOT (COALESCE(role_super, FALSE)
+          OR COALESCE(role_bypass, FALSE)
+          OR COALESCE(owns_accounts, FALSE)) THEN
+    RAISE EXCEPTION
+      'SQLi lab provisioning must run as a role that owns the accounts table, has BYPASSRLS, or is SUPERUSER. Current role % does not qualify; the public_accounts view would silently return zero rows when queried by fauxvault_sqli_lab.',
+      current_user;
+  END IF;
+END
+$$;
 
 DROP VIEW IF EXISTS public_accounts;
 
