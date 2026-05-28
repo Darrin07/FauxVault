@@ -53,17 +53,21 @@ export default function HistoryPage() {
     const [fromDate, setFromDate] = useState('')
     const [toDate, setToDate] = useState('')
 
-    //Vulnerability Module: Stored XSS - when enabled, the description cell wil render raw HTML
+    // Vulnerabile Module: Stored XSS - when enabled, the description cell wil render raw HTML
     const { modules } = useVulnerabilities()
     const xssVulnerable = modules.find(m => m.id === 'xss_stored')?.enabled
 
-    // VULN MODULE: Reflected XSS — when enabled, search query renders as raw HTML
+    // Vulnerable module: Reflected XSS — when enabled, search query renders as raw HTML
     const xssReflectedVulnerable = modules.find(m => m.id === 'xss_reflected')?.enabled
- //   const weakSessionVulnerable = modules.find(m => m.id === 'weak_session_tokens')?.enabled  -- placedholder awaiting merge
+ 
+    // Vulnerable module: weak session tokens
+    const weakSessionVulnerable = modules.find(m => m.id === 'weak_session_tokens')?.enabled
 
     // Educational notification state set by the reflected XSS detection effect
-    const shouldShowNotification = !!xssReflectedVulnerable && !!searchQuery && /<[^>]+>/.test(searchQuery)
     const [notificationDismissed, setNotificationDismissed] = useState(false)
+
+    // hasXSSPayload: true whenever the URL param contains HTML — drives all XSS notification scenarios
+    const hasXSSPayload = !!urlSearchQuery && /<[^>]+>/.test(urlSearchQuery)
 
     // Keep search box in sync w/URL-driven demo links, inc repeated phishing-link
     const [prevURLQuery, setPrevUrlQuery] = useState(urlSearchQuery)
@@ -75,34 +79,50 @@ export default function HistoryPage() {
 
     // Reflected XSS detection: fires when module is enabled and search query contains HTML
     const xssNotification = useMemo(() => {
-        if (!shouldShowNotification || notificationDismissed) return null
+        if (!hasXSSPayload || notificationDismissed) return null
 
+        // Scenario 1: XSS hardened: payload was rendered as literal text, attack could not execute
+        if (!xssReflectedVulnerable) {
+            return {
+                severity: 'success',
+                title: 'Reflected XSS: Attack Blocked',
+                message: 'The phishing link contained an XSS payload, but the app is hardened against Reflected XSS. The payload was rendered as literal text in the top-right of the window rather than executed.',
+            }
+        }
+
+        // XSS is vulnerable: payload executed (you see the alert()). Check for chain conditions.
         const cookie = document.cookie
         const tokenMatch = cookie.match(/token=([^;]+)/)
 
-        if (tokenMatch) {
+        // Scenario 3: Chain attack — XSS executed and the session token is JS-readable
+        if (weakSessionVulnerable && tokenMatch) {
             return {
                 severity: 'error',
-                title: 'Reflected XSS: Attack Succeeded',
-                message: `As a result of a Reflected XSS attack, your session token "${tokenMatch[1].substring(0, 25)}..." could have been sent to a third party.`,
+                title: 'Chain Attack Succeeded',
+                message: `Both Reflected XSS and Weak Session Tokens are enabled. The XSS payload executed and your session token "${tokenMatch[1].substring(0, 25)}..." is readable from JavaScript. A real attacker could exfiltrate it.`,
             }
         }
+
+        // Scenario 2: XSS succeeded, no full chain yet
         return {
-            severity: 'warning',
-            title: 'Reflected XSS: Attack Blocked',
-            message: 'A Reflected XSS attack attempted to steal your session token, but it appears as empty. You are protected by FauxVault\'s hardening on session tokens.',
+            severity: 'error',
+            title: 'Reflected XSS: Attack Succeeded',
+            message: 'The XSS payload in the URL executed as JavaScript (see the rendered alert()). Enable Weak Session Tokens alongside this module to simulate a common session-hijacking chain attack.',
         }
-    }, [shouldShowNotification, notificationDismissed])
+    }, [hasXSSPayload, notificationDismissed, xssReflectedVulnerable, weakSessionVulnerable])
 
     useEffect(() => {
-        if (!shouldShowNotification) return
+        if (!hasXSSPayload) return
         const pageEl = document.getElementById('history-page')
         if (pageEl) {
+            const color = xssReflectedVulnerable
+                ? 'rgba(231, 76, 60, 0.6)'   // red: attack succeeded
+                : 'rgba(39, 174, 96, 0.6)'    // green: attack blocked
             pageEl.style.transition = 'box-shadow 0.3s ease'
-            pageEl.style.boxShadow = 'inset 0 0 0 3px rgba(231, 76, 60, 0.6)'
+            pageEl.style.boxShadow = `inset 0 0 0 3px ${color}`
             setTimeout(() => { pageEl.style.boxShadow = 'none' }, 1500)
         }
-    }, [shouldShowNotification])
+    }, [hasXSSPayload, xssReflectedVulnerable])
 
     const typeFilter = searchParams.get('type')
 
@@ -421,7 +441,7 @@ export default function HistoryPage() {
                 onClose={() => setNotificationDismissed(true)}
                 id="xss-reflected-notification"
             >
-                <DialogTitle sx={{ color: xssNotification?.severity === 'error' ? 'error.main' : 'warning.main' }}>
+                <DialogTitle sx={{ color: xssNotification?.severity === 'error' ? 'error.main' : xssNotification?.severity === 'success' ? 'success.main' : 'warning.main' }}>
                     {xssNotification?.title}
                 </DialogTitle>
                 <DialogContent>
