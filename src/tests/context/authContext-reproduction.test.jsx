@@ -5,6 +5,11 @@ import { AuthContext } from '@/context/AuthContextObject'
 import { useContext } from 'react'
 import * as client from '@/services/client'
 
+// Mock authService.logout at the module level
+vi.mock('@/services/auth', () => ({
+    logout: vi.fn().mockResolvedValue({})
+}))
+
 // Helper to render the hook with the AuthProvider wrapper
 function renderAuthHook() {
     return renderHook(() => useContext(AuthContext), {
@@ -26,11 +31,6 @@ describe('Issue #67 Reproduction — Auth Hydration Bug', () => {
             }
             return Promise.resolve({})
         })
-
-        // Mock authService.logout
-        vi.mock('@/services/auth', () => ({
-            logout: vi.fn().mockResolvedValue({})
-        }))
 
         // 1. Mount AuthProvider
         // This should trigger one hydration call to /auth/me
@@ -59,3 +59,4 @@ describe('Issue #67 Reproduction — Auth Hydration Bug', () => {
         expect(apiFetchSpy).toHaveBeenCalledTimes(1)
     })
 })
+
