@@ -164,6 +164,14 @@ describe('SessionInspector — re-login prompt', () => {
         expect(screen.getByText(/log out and log back in/i)).toBeInTheDocument()
     })
 
+    it('shows pending login when hardened setting has a still-readable token', () => {
+        localStorage.setItem('token', 'eyJfake.token.value')
+        mockUseVulnerabilities.mockReturnValue(HARDENED_STATE)
+        render(<SessionInspector />)
+        expect(screen.getByText('PENDING LOGIN')).toBeInTheDocument()
+        expect(screen.getAllByText(/current session is still vulnerable/i)).toHaveLength(2)
+    })
+
     it('does NOT show re-login alert when hardened and localStorage is empty', () => {
         render(<SessionInspector />)
         expect(screen.queryByText(/log out and log back in/i)).not.toBeInTheDocument()

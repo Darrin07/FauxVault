@@ -53,10 +53,13 @@ export default function SessionInspector() {
         .find(c => c.startsWith('token='))
 
     const jsAccessibleToken = tokenCookie?.split('=')?.[1] || null
+    const hasJsAccessibleToken = Boolean(jsAccessibleToken || localStorageToken)
 
     // Pending: module is set to vulnerable but current session cookies are still hardened
     // (user toggled without re-logging in — cookie flags are set at login time)
-    const isPending = isVulnerable && !jsAccessibleToken && !localStorageToken
+    const pendingVulnerableLogin = isVulnerable && !hasJsAccessibleToken
+    const pendingHardenedLogin = !isVulnerable && hasJsAccessibleToken
+    const isPending = pendingVulnerableLogin || pendingHardenedLogin
 
     function handleCopy() {
         const tokenToCopy = jsAccessibleToken || localStorageToken
@@ -79,7 +82,7 @@ export default function SessionInspector() {
             label: 'HttpOnly',
             vulnerable: false,
             hardened: true,
-            description: (isVulnerable && !isPending)
+            description: hasJsAccessibleToken
                 ? 'Cookie IS accessible to JavaScript — XSS can steal it'
                 : 'Cookie is NOT accessible to JavaScript — XSS cannot steal it',
         },
@@ -87,7 +90,7 @@ export default function SessionInspector() {
             label: 'Secure',
             vulnerable: false,
             hardened: true,
-            description: (isVulnerable && !isPending)
+            description: hasJsAccessibleToken
                 ? 'Cookie sent over HTTP (unencrypted) — network sniffing possible'
                 : 'Cookie only sent over HTTPS (encrypted) — network sniffing blocked',
             note: '(relaxed to false on localhost for development)',
@@ -96,14 +99,14 @@ export default function SessionInspector() {
             label: 'SameSite',
             vulnerable: 'Lax',
             hardened: 'Strict',
-            description: (isVulnerable && !isPending)
+            description: hasJsAccessibleToken
                 ? 'Cookie sent on navigation, not cross-site POST — partial CSRF protection'
                 : 'Cookie only sent with same-site requests — CSRF blocked',
         },
     ]
 
     // isSecure drives flag display — pending sessions are still actually hardened
-    const isSecure = !isVulnerable || isPending
+    const isSecure = !hasJsAccessibleToken
 
     return (
         <Card sx={{
@@ -152,16 +155,16 @@ export default function SessionInspector() {
                 </Box>
 
                 {/* Pending: module set to vulnerable, session still hardened */}
-                {isPending && (
+                {pendingVulnerableLogin && (
                     <Alert severity="warning" sx={{ mb: 2, fontSize: '0.8rem' }}>
                         Module set to Vulnerable — log out and back in for cookie flags to change.
                     </Alert>
                 )}
 
                 {/* Pending: module set to hardened, session still vulnerable */}
-                {!isVulnerable && localStorageToken && (
-                    <Alert severity="info" sx={{ mb: 2, fontSize: '0.8rem' }}>
-                        Cookie flags are set at login time. Log out and log back in to apply hardened cookie settings.
+                {pendingHardenedLogin && (
+                    <Alert severity="warning" sx={{ mb: 2, fontSize: '0.8rem' }}>
+                        Module set to Hardened, but the current session is still vulnerable. Log out and log back in to apply hardened cookie settings.
                     </Alert>
                 )}
 
@@ -301,9 +304,11 @@ export default function SessionInspector() {
                 {/* Token storage summary */}
                 <Box sx={{ mt: 2 }}>
                     <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.68rem', lineHeight: 1.4, display: 'block' }}>
-                        {isPending
-                            ? '🕐 Cookie flags shown reflect your current session. Vulnerable flags will apply after your next login.'
-                            : isVulnerable
+                        {pendingVulnerableLogin
+                            ? 'Cookie flags shown reflect your current session. Vulnerable flags will apply after your next login.'
+                            : pendingHardenedLogin
+                                ? 'Current session is still vulnerable. Hardened flags will apply after your next login.'
+                                : hasJsAccessibleToken
                                 ? '⚠️ Token is accessible via document.cookie and localStorage. An XSS payload like document.cookie can steal this session.'
                                 : '✅ Token is stored in an HttpOnly cookie — invisible to JavaScript. XSS cannot steal this session.'
                         }

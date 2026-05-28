@@ -194,6 +194,12 @@ function TransferModal({ isOpen, onClose }) {
         const navigate = useNavigate()
         const { modules } = useVulnerabilities()
         const weakSessionActive = modules.find(m => m.id === 'weak_session_tokens')?.enabled ?? false
+        const hasJsReadableToken = document.cookie
+            .split(';')
+            .map(c => c.trim())
+            .some(c => c.startsWith('token='))
+            || Boolean(localStorage.getItem('token'))
+        const showSessionInspector = weakSessionActive || hasJsReadableToken
 
         // Fetch all three data points in parallel on mount 
         useEffect(() => { async function fetchData() { 
@@ -439,7 +445,7 @@ function TransferModal({ isOpen, onClose }) {
                 </CardContent> 
             </Card> 
             
-            {weakSessionActive && <SessionInspector />}
+            {showSessionInspector && <SessionInspector />}
 
         </Box>
         
