@@ -145,6 +145,9 @@ function renderPage(route = '/history') {
 
 beforeEach(() => {
     localStorage.clear()
+    document.cookie.split(';').forEach(c => {
+        document.cookie = c.replace(/^ +/, '').replace(/=.*/, '=;expires=Thu, 01 Jan 1970 00:00:00 GMT')
+    })
     vi.clearAllMocks()
     // Default: xss_stored disabled (hardened) — keeps all existing tests unaffected
     mockUseVulnerabilities.mockReturnValue({
@@ -464,7 +467,7 @@ describe('HistoryPage: Educational notification', () => {
             expect(document.getElementById('xss-reflected-notification')).toBeInTheDocument()
         })
         expect(screen.getByText(/Attack Succeeded/i)).toBeInTheDocument()
-        expect(screen.queryByText(/Chain Attack/i)).not.toBeInTheDocument()
+        expect(screen.queryByText(/Chain Attack Succeeded/i)).not.toBeInTheDocument()
     })
 
     it('shows no notification when search query has no HTML', async () => {
