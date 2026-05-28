@@ -61,8 +61,8 @@ export default function NavBar() {
                     variant="h6"
                     sx={{
                         fontWeight: 800,
-                        background: 'rgba(221, 236, 234, 0.87)',
-                        webkitBackgroundClip: 'text',
+                        background: 'linear-gradient(135deg, #6c5ce7, #e74c3c)',
+                        WebkitBackgroundClip: 'text',
                         WebkitTextFillColor: 'transparent',
                         mr: 3,
                     }}
