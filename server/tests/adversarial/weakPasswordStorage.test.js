@@ -38,6 +38,7 @@ describe('R2.3.1 — Dual password storage', () => {
     expect(res.body.hashInfo.plaintext).toBe('Secret123');
     expect(res.body.hashInfo.md5).toBe(md5('Secret123'));
     expect(res.body.hashInfo.bcrypt).toBeUndefined();
+    expect(res.body.user.passwordStorageStatus).toBe('weak');
   });
 
   test('hardened mode: register response does not expose hashInfo', async () => {
@@ -49,6 +50,7 @@ describe('R2.3.1 — Dual password storage', () => {
 
     expect(res.status).toBe(201);
     expect(res.body.hashInfo).toBeUndefined();
+    expect(res.body.user.passwordStorageStatus).toBe('hardened');
   });
 
   test('response never exposes raw password fields in the user object', async () => {
@@ -62,6 +64,25 @@ describe('R2.3.1 — Dual password storage', () => {
       expect(res.body.user).not.toHaveProperty('passwordMd5');
       expect(res.body.user).not.toHaveProperty('passwordPlaintext');
     }
+  });
+
+  test('auth hydration returns weak password storage status without raw password fields', async () => {
+    await updateSetting('weak_password_storage', true);
+
+    const registerRes = await request(app)
+      .post('/api/auth/register')
+      .send({ username: 'weakprofile', email: 'weakprofile@example.com', password: 'Secret123' });
+
+    const token = extractTokenFromResponse(registerRes);
+    const res = await request(app)
+      .get('/api/auth/me')
+      .set('Cookie', `token=${token}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.user.passwordStorageStatus).toBe('weak');
+    expect(res.body.user).not.toHaveProperty('passwordBcrypt');
+    expect(res.body.user).not.toHaveProperty('passwordMd5');
+    expect(res.body.user).not.toHaveProperty('passwordPlaintext');
   });
 });
 

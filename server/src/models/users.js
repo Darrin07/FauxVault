@@ -1,6 +1,13 @@
 /** User model — PostgreSQL queries replacing the in-memory mock store */
 const { pool } = require('../config/db');
 
+const PASSWORD_STORAGE_STATUS_SQL = `
+  CASE
+    WHEN password_plaintext IS NOT NULL OR password_md5 IS NOT NULL OR password_bcrypt IS NULL
+      THEN 'weak'
+    ELSE 'hardened'
+  END AS "passwordStorageStatus"`;
+
 /**
  * Creates a new user record in the database.
  * @param {Object} fields - user fields: username, email, passwordBcrypt, passwordPlaintext (optional), passwordMd5 (optional), name (optional), role
@@ -10,7 +17,8 @@ async function createUser({ username, email, passwordBcrypt, passwordPlaintext, 
   const result = await pool.query(
     `INSERT INTO users (username, email, password_bcrypt, password_plaintext, password_md5, name, role)
      VALUES ($1, $2, $3, $4, $5, $6, $7)
-     RETURNING user_id AS id, username, email, password_bcrypt AS "passwordBcrypt", name, role, created_at AS "createdAt"`,
+     RETURNING user_id AS id, username, email, password_bcrypt AS "passwordBcrypt", name, role,
+       ${PASSWORD_STORAGE_STATUS_SQL}, created_at AS "createdAt"`,
     [username, email, passwordBcrypt || null, passwordPlaintext || null, passwordMd5 || null, name || '', role || 'user']
   );
   return result.rows[0];
@@ -23,7 +31,8 @@ async function createUser({ username, email, passwordBcrypt, passwordPlaintext, 
  */
 async function findUserByEmail(email) {
   const result = await pool.query(
-    `SELECT user_id AS id, username, email, password_bcrypt AS "passwordBcrypt", name, role, created_at AS "createdAt"
+    `SELECT user_id AS id, username, email, password_bcrypt AS "passwordBcrypt", name, role,
+            ${PASSWORD_STORAGE_STATUS_SQL}, created_at AS "createdAt"
      FROM users WHERE email = $1`,
     [email]
   );
@@ -42,7 +51,7 @@ async function findUserByEmailAllHashes(email) {
             password_bcrypt AS "passwordBcrypt",
             password_md5 AS "passwordMd5",
             password_plaintext AS "passwordPlaintext",
-            name, role, created_at AS "createdAt"
+            name, role, ${PASSWORD_STORAGE_STATUS_SQL}, created_at AS "createdAt"
      FROM users WHERE email = $1`,
     [email]
   );
@@ -56,7 +65,8 @@ async function findUserByEmailAllHashes(email) {
  */
 async function findUserById(id) {
   const result = await pool.query(
-    `SELECT user_id AS id, username, email, password_bcrypt AS "passwordBcrypt", name, role, created_at AS "createdAt"
+    `SELECT user_id AS id, username, email, password_bcrypt AS "passwordBcrypt", name, role,
+            ${PASSWORD_STORAGE_STATUS_SQL}, created_at AS "createdAt"
      FROM users WHERE user_id = $1`,
     [id]
   );
@@ -70,7 +80,8 @@ async function findUserById(id) {
  */
 async function findUserByUsername(username) {
   const result = await pool.query(
-    `SELECT user_id AS id, username, email, password_bcrypt AS "passwordBcrypt", name, role, created_at AS "createdAt"
+    `SELECT user_id AS id, username, email, password_bcrypt AS "passwordBcrypt", name, role,
+            ${PASSWORD_STORAGE_STATUS_SQL}, created_at AS "createdAt"
      FROM users WHERE username = $1`,
     [username]
   );
@@ -89,7 +100,7 @@ async function findUserByUsernameAllHashes(username) {
             password_bcrypt AS "passwordBcrypt",
             password_md5 AS "passwordMd5",
             password_plaintext AS "passwordPlaintext",
-            name, role, created_at AS "createdAt"
+            name, role, ${PASSWORD_STORAGE_STATUS_SQL}, created_at AS "createdAt"
      FROM users WHERE username = $1`,
     [username]
   );
