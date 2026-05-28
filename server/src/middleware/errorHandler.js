@@ -8,43 +8,43 @@ returns hardened mode as a default fail safe. Lastly, if toggled False, then har
 returns a general response with no internal details exposed. 
 */
 async function errorHandler(err, req, res, _next) {
-    const status = err.status || 500;
-    const message = err.message || 'Internal server error';
-    const code = err.code || 'INTERNAL_ERROR';
-  
-    if (process.env.NODE_ENV !== 'test') {
-      console.error(`[${code}] ${message}`, err.stack);
-    }
-  
-    try {
-      const setting = await getSettingByModule('verbose_errors');
-      const isVulnerable = setting ? setting.is_vulnerable : false;
+  const status = err.status || 500;
+  const message = err.message || 'Internal server error';
+  const code = err.code || 'INTERNAL_ERROR';
 
-      if (isVulnerable) {
-        // VULNERABLE MODE A02:2025 Security Misconfigurations - Verbose Error Messages
-        return res.status(status).json({
-          error: {
-            status,
-            message,
-            code,
-            stack: err.stack,             // full stack trace
-            detail: err.detail || null,   // PostgreSQL error details
-            hint: err.hint || null,       // PostgreSQL error hint
-          },
-        });
-      }
-    } catch (_settingsErr) {
-      // toggle lookup failed, default to hardened mode
-    }
-
-    // HARDENED MODE
-    res.status(status).json({
-      error: {
-        status,
-        message,
-        code,
-      },
-    });
+  if (process.env.NODE_ENV !== 'test') {
+    console.error(`[${code}] ${message}`, err.stack);
   }
-  
-  module.exports = errorHandler;
+
+  try {
+    const setting = await getSettingByModule('verbose_errors');
+    const isVulnerable = setting ? setting.is_vulnerable : false;
+
+    if (isVulnerable) {
+      // VULNERABLE MODE A02:2025 Security Misconfigurations - Verbose Error Messages
+      return res.status(status).json({
+        error: {
+          status,
+          message,
+          code,
+          stack: err.stack,           // full stack trace
+          detail: err.detail || null, // PostgreSQL error details
+          hint: err.hint || null,     // PostgreSQL error hint
+        },
+      });
+    }
+  } catch (_settingsErr) {
+    // toggle lookup failed, default to hardened mode
+  }
+
+  // HARDENED MODE
+  res.status(status).json({
+    error: {
+      status,
+      message: status === 500 ? 'An unexpected error occurred' : message,
+      code: status === 500 ? 'INTERNAL_ERROR' : code,
+    },
+  });
+}
+
+module.exports = errorHandler;
