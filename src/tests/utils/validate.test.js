@@ -28,11 +28,29 @@ import { validateRegistration } from '@/utils/validate'
 
 // baseline valid form
 const VALID_FORM = {
+    name: 'John Doe',
     username: 'john_doe',
     email: 'john@example.com',
     password: 'SecurePass1',
     confirmPassword: 'SecurePass1',
 }
+
+describe('validateRegistration() — name', () => {
+    it('returns a name error when name is empty', () => {
+        const errs = validateRegistration({ ...VALID_FORM, name: '' })
+        expect(errs).toHaveProperty('name')
+    })
+
+    it('returns a name error when name is only whitespace', () => {
+        const errs = validateRegistration({ ...VALID_FORM, name: '   ' })
+        expect(errs).toHaveProperty('name')
+    })
+
+    it('accepts a name with letters and spaces', () => {
+        const errs = validateRegistration({ ...VALID_FORM, name: 'Jane Smith' })
+        expect(errs).not.toHaveProperty('name')
+    })
+})
 
 describe('validateRegistration() — username', () => {
     it('returns a username error when username is empty', () => {
