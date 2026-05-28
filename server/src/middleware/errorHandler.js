@@ -1,4 +1,4 @@
-const { getSettingByModule } = require('../models/toggleState');
+const { getSettingByModule, getUserSettingByModule } = require('../models/toggleState');
 
 /*
 error handler middleware that checks the 'verbose_errors' toggle in the db. 
@@ -17,7 +17,13 @@ async function errorHandler(err, req, res, _next) {
   }
 
   try {
-    const setting = await getSettingByModule('verbose_errors');
+    let setting;
+    if (req.user?.userId) {
+      setting = await getUserSettingByModule(req.user.userId, 'verbose_errors');
+    } else {
+      setting = await getSettingByModule('verbose_errors');
+    }
+
     const isVulnerable = setting ? setting.is_vulnerable : false;
 
     if (isVulnerable) {
