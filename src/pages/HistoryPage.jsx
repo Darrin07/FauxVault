@@ -111,20 +111,28 @@ export default function HistoryPage() {
     // When ?memo= is present, the server applies its own ILIKE filter (parameterized
     // in hardened mode; string-concatenated when sql_injection toggle is on).
     useEffect(() => {
+        // Guard against stale resolutions: if the user types a new memo (or
+        // unmounts) before the previous fetch returns, the stale flag suppresses
+        // the late setState. Avoids setTransactions on an unmounted component
+        // and avoids overwriting fresh results with an older response.
+        let stale = false
         async function fetchData() {
             setLoading(true)
             try {
                 const serverType = ['sent', 'received'].includes(typeFilter) ? typeFilter : null
                 const raw = await transfersApi.getTransfers(serverType, memoParam || null)
+                if (stale) return
                 const normalized = (raw.transactions ?? []).map(normalizeTransaction)
                 setTransactions(normalized)
             } catch (err) {
+                if (stale) return
                 console.error('Failed to load transaction history:', err)
             } finally {
-                setLoading(false)
+                if (!stale) setLoading(false)
             }
         }
         fetchData()
+        return () => { stale = true }
     }, [typeFilter, memoParam])
 
     // Debounce the server-search input → URL ?memo= so each keystroke does not fire
