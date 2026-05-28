@@ -1,12 +1,10 @@
 const request = require('supertest');
 const app = require('../../src/app');
-const { resetSettings } = require('../../src/models/toggleState');
 const { resetUsers } = require('../../src/models/users');
 const { resetAccounts } = require('../../src/models/accounts');
 const { extractTokenFromResponse } = require('../helpers/auth');
 
 beforeEach(async () => {
-    await resetSettings();
     await resetUsers();
     await resetAccounts();
 });

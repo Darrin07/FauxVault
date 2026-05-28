@@ -1,10 +1,6 @@
 const request = require('supertest');
 const app = require('../../src/app');
-const { resetSettings, updateSetting } = require('../../src/models/toggleState');
-
-beforeEach(async () => {
-    await resetSettings();
-});
+const { updateSetting } = require('../../src/models/toggleState');
 
 describe('Verbose Errors Module - A02:2025', () => {
     
