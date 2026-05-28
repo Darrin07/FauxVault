@@ -113,7 +113,11 @@ describe('SessionInspector — renders', () => {
     })
 })
 
-describe('SessionInspector — vulnerable mode', () => {
+describe('SessionInspector: vulnerable mode', () => {
+    beforeEach(() => {
+        localStorage.setItem('token', 'eyJfake.token.value')
+    })
+    
     it('shows VULNERABLE chip when weak_session_tokens is enabled', () => {
         mockUseVulnerabilities.mockReturnValue(VULNERABLE_STATE)
         render(<SessionInspector />)
