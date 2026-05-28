@@ -258,6 +258,8 @@ describe('GET /api/transfers -- vulnerable mode (SQLi)', () => {
     expect(t).toHaveProperty('memo');
     expect(t).toHaveProperty('reference');
     expect(t).toHaveProperty('createdAt');
+    expect(typeof t.createdAt).toBe('string');
+    expect(Number.isNaN(Date.parse(t.createdAt))).toBe(false);
   });
 
   test('error-based SQLi leaks role name when verbose_errors is also on', async () => {
