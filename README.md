@@ -82,6 +82,12 @@ This repo currently supports two local runtime modes:
 The detailed setup, proxy explanation, and production topology notes live in
 [`docs/development-and-production-workflows.md`](docs/development-and-production-workflows.md).
 
+The vulnerability toggle data flow is documented in
+[`docs/vulnerability-toggle-architecture.md`](docs/vulnerability-toggle-architecture.md).
+In short, `GET /api/settings` returns read only global defaults; anonymous users
+use local session overrides sent with `X-Vulnerability-Overrides`; and signed in
+users persist their own overrides through `/api/users/me/vulnerability-settings`.
+
 ### 3a. Run the full stack with Docker Compose
 
 ```bash
