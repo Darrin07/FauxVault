@@ -24,7 +24,7 @@ async function resolveCallerAccountId(userId) {
 /**
  * Transfers funds from the authenticated user's account to a destination account.
  * Validates input, resolves the sender's account from their JWT claims,
- * and delegates to the mock data layer.
+ * and delegates to the data models.
  * @param {Request} req - express request with toAccountId and amount in body
  * @param {Response} res - express response
  * @param {Function} next - express next middleware

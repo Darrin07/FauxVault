@@ -1,4 +1,4 @@
-/** Account & transaction model — PostgreSQL queries replacing the in-memory mock store */
+/** Account & transaction model — PostgreSQL queries */
 const { pool } = require('../config/db');
 
 /**

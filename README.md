@@ -54,7 +54,6 @@ Key root `.env` values:
 
 ```env
 # Frontend (Vite)
-VITE_USE_MOCK=true
 VITE_API_BASE_URL=/api
 
 # Docker / Postgres Initialization
@@ -139,7 +138,6 @@ npm run dev
 
 Vite serves the frontend on `http://localhost:5173`.
 
-> The frontend uses mock data by default (`VITE_USE_MOCK=true`). Set it to
 > `false` in the root `.env` when you want the UI talking to the real Express
 > backend through the Vite `/api` proxy.
 
