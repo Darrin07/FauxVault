@@ -57,7 +57,7 @@ async function updateSetting(module_name, is_vulnerable) {
 }
 
 /**
- * Resets all settings to vulnerable (TRUE). Used in test teardown.
+ * Resets all settings to hardened (FALSE). Used in test teardown.
  */
 async function resetSettings() {
   const client = await pool.connect();
