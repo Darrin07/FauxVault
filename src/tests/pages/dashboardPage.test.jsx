@@ -31,6 +31,10 @@ vi.mock('../../hooks/useVulnerabilities', () => ({
     useVulnerabilities: mockUseVulnerabilities,
 }))
 
+vi.mock('../../components/SessionInspector', () => ({
+    default: () => <div>Session Inspector</div>,
+}))
+
 vi.mock('@mui/material', () => ({
     Box: ({ children, component, onSubmit }) =>
         component === 'form'
@@ -149,6 +153,30 @@ async function openModal(user) {
     await user.click(await screen.findByRole('button', { name: /transfer funds/i }))
     await screen.findByRole('dialog')
 }
+
+describe('DashboardPage — SessionInspector visibility', () => {
+    it('renders the Session Inspector when weak_session_tokens is enabled', async () => {
+        mockUseVulnerabilities.mockReturnValue({
+            modules: [{ id: 'weak_session_tokens', enabled: true }],
+            toggleModule: vi.fn(),
+            notification: null,
+            closeNotification: vi.fn(),
+            isVulnerable: true,
+        })
+
+        renderPage()
+
+        expect(await screen.findByText('Session Inspector')).toBeInTheDocument()
+    })
+
+    it('keeps the Session Inspector visible when weak_session_tokens is hardened but the current token is still readable', async () => {
+        localStorage.setItem('token', 'eyJfake.token.value')
+
+        renderPage()
+
+        expect(await screen.findByText('Session Inspector')).toBeInTheDocument()
+    })
+})
 
 // Opening & Closing 
 

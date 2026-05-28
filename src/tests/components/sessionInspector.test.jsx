@@ -113,7 +113,11 @@ describe('SessionInspector — renders', () => {
     })
 })
 
-describe('SessionInspector — vulnerable mode', () => {
+describe('SessionInspector: vulnerable mode', () => {
+    beforeEach(() => {
+        localStorage.setItem('token', 'eyJfake.token.value')
+    })
+    
     it('shows VULNERABLE chip when weak_session_tokens is enabled', () => {
         mockUseVulnerabilities.mockReturnValue(VULNERABLE_STATE)
         render(<SessionInspector />)
@@ -158,6 +162,14 @@ describe('SessionInspector — re-login prompt', () => {
         mockUseVulnerabilities.mockReturnValue(HARDENED_STATE)
         render(<SessionInspector />)
         expect(screen.getByText(/log out and log back in/i)).toBeInTheDocument()
+    })
+
+    it('shows pending login when hardened setting has a still-readable token', () => {
+        localStorage.setItem('token', 'eyJfake.token.value')
+        mockUseVulnerabilities.mockReturnValue(HARDENED_STATE)
+        render(<SessionInspector />)
+        expect(screen.getByText('PENDING LOGIN')).toBeInTheDocument()
+        expect(screen.getAllByText(/current session is still vulnerable/i)).toHaveLength(2)
     })
 
     it('does NOT show re-login alert when hardened and localStorage is empty', () => {

@@ -5,6 +5,7 @@ const jwt = require('jsonwebtoken');
 const config = require('../config');
 const { createUser, findUserByEmail, findUserByEmailAllHashes, findUserById, findUserByUsername, findUserByUsernameAllHashes } = require('../models/users');
 const { createAccount } = require('../models/accounts');
+const { getUserSettingByModule } = require('../models/toggleState');
 
 const isProduction = config.nodeEnv === 'production';
 const COOKIE_MAX_AGE = 24 * 60 * 60 * 1000; // 24 hr, JWT expiresIn
@@ -213,10 +214,14 @@ async function login(req, res, next){
 
         const token = generateToken(user);
 
+        // Look up user's personal weak session token's setting - needed as default at login isn't set
+        const wstSetting = await getUserSettingByModule(user.id, 'weak_session_tokens');
+        const isWstVulnerable = wstSetting?.is_vulnerable ?? false;
+
         //vulnerability module: weak_session_tokens - set cookie w/appropriate flags
-        setSessionCookie(res, token, req.vuln_weak_session_tokens);
+        setSessionCookie(res, token, isWstVulnerable);
         const body = { user: sanitizeUser(user) };
-        if (req.vuln_weak_session_tokens) body.token = token; //vulnerable: token in body as well
+        if (isWstVulnerable) body.token = token; //vulnerable: token in body as well
         if (hashInfo) body.hashInfo = hashInfo;
 
         res.json(body);

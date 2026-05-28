@@ -53,6 +53,13 @@ export default function SessionInspector() {
         .find(c => c.startsWith('token='))
 
     const jsAccessibleToken = tokenCookie?.split('=')?.[1] || null
+    const hasJsAccessibleToken = Boolean(jsAccessibleToken || localStorageToken)
+
+    // Pending: module is set to vulnerable but current session cookies are still hardened
+    // (user toggled without re-logging in — cookie flags are set at login time)
+    const pendingVulnerableLogin = isVulnerable && !hasJsAccessibleToken
+    const pendingHardenedLogin = !isVulnerable && hasJsAccessibleToken
+    const isPending = pendingVulnerableLogin || pendingHardenedLogin
 
     function handleCopy() {
         const tokenToCopy = jsAccessibleToken || localStorageToken
@@ -75,7 +82,7 @@ export default function SessionInspector() {
             label: 'HttpOnly',
             vulnerable: false,
             hardened: true,
-            description: isVulnerable
+            description: hasJsAccessibleToken
                 ? 'Cookie IS accessible to JavaScript — XSS can steal it'
                 : 'Cookie is NOT accessible to JavaScript — XSS cannot steal it',
         },
@@ -83,7 +90,7 @@ export default function SessionInspector() {
             label: 'Secure',
             vulnerable: false,
             hardened: true,
-            description: isVulnerable
+            description: hasJsAccessibleToken
                 ? 'Cookie sent over HTTP (unencrypted) — network sniffing possible'
                 : 'Cookie only sent over HTTPS (encrypted) — network sniffing blocked',
             note: '(relaxed to false on localhost for development)',
@@ -92,20 +99,29 @@ export default function SessionInspector() {
             label: 'SameSite',
             vulnerable: 'Lax',
             hardened: 'Strict',
-            description: isVulnerable
+            description: hasJsAccessibleToken
                 ? 'Cookie sent on navigation, not cross-site POST — partial CSRF protection'
                 : 'Cookie only sent with same-site requests — CSRF blocked',
         },
     ]
 
-    const isSecure = !isVulnerable
+    // isSecure drives flag display — pending sessions are still actually hardened
+    const isSecure = !hasJsAccessibleToken
 
     return (
         <Card sx={{
             gridColumn: { md: '1 / -1' },
             border: '1px solid',
-            borderColor: isVulnerable ? 'rgba(231,76,60,0.3)' : 'rgba(39,174,96,0.3)',
-            bgcolor: isVulnerable ? 'rgba(231,76,60,0.03)' : 'rgba(39,174,96,0.03)',
+            borderColor: isPending
+                ? 'rgba(237,108,2,0.3)'
+                : isVulnerable
+                    ? 'rgba(231,76,60,0.3)'
+                    : 'rgba(39,174,96,0.3)',
+            bgcolor: isPending
+                ? 'rgba(237,108,2,0.03)'
+                : isVulnerable
+                    ? 'rgba(231,76,60,0.03)'
+                    : 'rgba(39,174,96,0.03)',
             transition: 'all 0.3s ease',
         }}>
             <CardContent sx={{ p: 3 }}>
@@ -113,19 +129,23 @@ export default function SessionInspector() {
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
                     <SecurityIcon sx={{
                         fontSize: 20,
-                        color: isVulnerable ? 'error.main' : 'success.main',
+                        color: isPending ? 'warning.main' : isVulnerable ? 'error.main' : 'success.main',
                     }} />
                     <Typography variant="h4" sx={{ fontSize: '0.9rem', fontWeight: 700 }}>
                         Session Inspector
                     </Typography>
                     <Chip
-                        label={isVulnerable ? 'VULNERABLE' : 'HARDENED'}
+                        label={isPending ? 'PENDING LOGIN' : isVulnerable ? 'VULNERABLE' : 'HARDENED'}
                         size="small"
                         sx={{
                             ml: 'auto',
                             height: 22,
-                            bgcolor: isVulnerable ? 'rgba(231,76,60,0.12)' : 'rgba(39,174,96,0.12)',
-                            color: isVulnerable ? 'error.main' : 'success.main',
+                            bgcolor: isPending
+                                ? 'rgba(237,108,2,0.12)'
+                                : isVulnerable
+                                    ? 'rgba(231,76,60,0.12)'
+                                    : 'rgba(39,174,96,0.12)',
+                            color: isPending ? 'warning.main' : isVulnerable ? 'error.main' : 'success.main',
                             fontWeight: 700,
                             fontSize: '0.625rem',
                             textTransform: 'uppercase',
@@ -134,10 +154,17 @@ export default function SessionInspector() {
                     />
                 </Box>
 
-                {/* Re-login prompt for mode mismatch */}
-                {!isVulnerable && localStorageToken && (
-                    <Alert severity="info" sx={{ mb: 2, fontSize: '0.8rem' }}>
-                        Cookie flags are set at login time. Log out and log back in to apply hardened cookie settings.
+                {/* Pending: module set to vulnerable, session still hardened */}
+                {pendingVulnerableLogin && (
+                    <Alert severity="warning" sx={{ mb: 2, fontSize: '0.8rem' }}>
+                        Module set to Vulnerable — log out and back in for cookie flags to change.
+                    </Alert>
+                )}
+
+                {/* Pending: module set to hardened, session still vulnerable */}
+                {pendingHardenedLogin && (
+                    <Alert severity="warning" sx={{ mb: 2, fontSize: '0.8rem' }}>
+                        Module set to Hardened, but the current session is still vulnerable. Log out and log back in to apply hardened cookie settings.
                     </Alert>
                 )}
 
@@ -153,7 +180,7 @@ export default function SessionInspector() {
                     mb: 2,
                 }}>
                     {flags.map((flag) => {
-                        const currentValue = isVulnerable ? flag.vulnerable : flag.hardened
+                        const currentValue = isSecure ? flag.hardened : flag.vulnerable
                         return (
                             <Box key={flag.label} sx={{
                                 p: 1.5,
@@ -277,9 +304,13 @@ export default function SessionInspector() {
                 {/* Token storage summary */}
                 <Box sx={{ mt: 2 }}>
                     <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.68rem', lineHeight: 1.4, display: 'block' }}>
-                        {isVulnerable
-                            ? '⚠️ Token is accessible via document.cookie and localStorage. An XSS payload like document.cookie can steal this session.'
-                            : '✅ Token is stored in an HttpOnly cookie — invisible to JavaScript. XSS cannot steal this session.'
+                        {pendingVulnerableLogin
+                            ? 'Cookie flags shown reflect your current session. Vulnerable flags will apply after your next login.'
+                            : pendingHardenedLogin
+                                ? 'Current session is still vulnerable. Hardened flags will apply after your next login.'
+                                : hasJsAccessibleToken
+                                ? '⚠️ Token is accessible via document.cookie and localStorage. An XSS payload like document.cookie can steal this session.'
+                                : '✅ Token is stored in an HttpOnly cookie — invisible to JavaScript. XSS cannot steal this session.'
                         }
                     </Typography>
                 </Box>
