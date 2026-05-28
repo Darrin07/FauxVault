@@ -159,7 +159,7 @@ async function getTransferHistory(req, res, next) {
                 });
             } catch (err) {
                 if (req.vuln_verbose_errors === true) {
-                    // VULNERABLE: A02:2025 Security Misconfiguration -- verbose errors
+                    // VULNERABLE: A05:2025 Security Misconfiguration -- verbose errors
                     // Composes with sql_injection per the C2 design (per-user toggle).
                     // Inline because the global errorHandler reads the global verbose_errors
                     // setting, not per-user.
