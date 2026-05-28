@@ -35,7 +35,9 @@ export default function AppLayout() {
                         maxHeight: 'calc(100vh - 104px)'
                     }}
                 >
-                    <Outlet />
+                    <Box sx={{ maxWidth: 1280, mx: 'auto' }}>
+                        <Outlet />
+                    </Box>
                 </Box>
 
                 <VulnerabilityPanel />

@@ -216,6 +216,7 @@ export default function HistoryPage() {
 
                 <TextField
                     id="transaction-search"
+                    label="Search transactions"
                     placeholder="Search by description, type, amount…"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
@@ -321,7 +322,11 @@ export default function HistoryPage() {
                     ))}
                 </Box>
 
-                /* No results */
+            ) : transactions.length === 0 ? (
+                <Box sx={{ textAlign: 'center', py: 6 }}>
+                    <Typography color="text.secondary">No transactions yet</Typography>
+                </Box>
+
             ) : filtered.length === 0 ? (
                 <Box sx={{ textAlign: 'center', py: 6 }}>
                     <Typography color="text.secondary">No matches found</Typography>
