@@ -1,4 +1,4 @@
-/** Vulnerability toggle model — PostgreSQL queries replacing the in-memory mock store */
+/** Vulnerability toggle model — PostgreSQL queries */
 const { pool } = require('../config/db');
 const MAX_ACTIVE_VULNERABILITIES = 3;
 
