@@ -36,16 +36,17 @@
  *    c. renders search query as escaped text when xss_reflected is disabled
  *    d. empty ?q= does not show "matching" label
  *
- *  8. Educational notification (xss_reflected + weak_session_tokens interaction)
- *    a. shows "Attack Succeeded" dialog when token is in document.cookie
- *    b. shows "Attack Blocked" dialog when token is not in document.cookie
- *    c. no notification when xss_reflected is disabled
- *    d. no notification when query has no HTML
- *    e. dismiss button closes the dialog
+ *  8. Educational notification: XSS phishing result scenarios
+ *    a. shows "Attack Blocked" dialog when xss reflected is hardened
+ *    b. shows "Attack Succeeded" dialog when xss reflected is enabled
+ *    c. shows "Chain Attack Succeeded" when xss reflected + weak session tokens enabled and token readable
+ *    d. shows "Attack Succeeded" (not chain) when weak session tokens on but cookie absent
+ *    e. no notification when query has no HTML
+ *    f. dismiss button closes the dialog
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import HistoryPage from '@/pages/HistoryPage'
@@ -65,7 +66,15 @@ vi.mock('@mui/material', () => ({
         dangerouslySetInnerHTML
             ? <span dangerouslySetInnerHTML={dangerouslySetInnerHTML} />
             : <span>{children}</span>,
-    TextField: (props) => <input placeholder={props.placeholder} onChange={props.onChange} value={props.value} />,
+    TextField: (props) => (
+        <input
+            type={props.type || 'text'}
+            aria-label={props.label || props['aria-label']}
+            placeholder={props.placeholder}
+            onChange={props.onChange}
+            value={props.value}
+        />
+    ),
     InputAdornment: ({ children }) => <div>{children}</div>,
     Table: ({ children }) => <table>{children}</table>,
     TableBody: ({ children }) => <tbody>{children}</tbody>,
@@ -84,10 +93,13 @@ vi.mock('@mui/material', () => ({
     Button: ({ children, onClick, disabled, type }) => (
         <button type={type} onClick={onClick} disabled={disabled}>{children}</button>
     ),
+    Collapse: ({ in: open, children }) => open ? <div>{children}</div> : null,
 }))
 
 vi.mock('@mui/icons-material', () => ({
     Search: () => <span>search</span>,
+    ExpandMore: () => <span>expand-more</span>,
+    ExpandLess: () => <span>expand-less</span>,
 }))
 
 vi.mock('@/hooks/useVulnerabilities', () => ({
@@ -133,6 +145,9 @@ function renderPage(route = '/history') {
 
 beforeEach(() => {
     localStorage.clear()
+    document.cookie.split(';').forEach(c => {
+        document.cookie = c.replace(/^ +/, '').replace(/=.*/, '=;expires=Thu, 01 Jan 1970 00:00:00 GMT')
+    })
     vi.clearAllMocks()
     // Default: xss_stored disabled (hardened) — keeps all existing tests unaffected
     mockUseVulnerabilities.mockReturnValue({
@@ -238,7 +253,7 @@ describe('HistoryPage: client-side search', () => {
         renderPage()
 
         await screen.findByRole('table')
-        await user.type(screen.getByPlaceholderText(/search/i), 'Rent')
+        await user.type(screen.getByPlaceholderText(/description, type, amount/i), 'Rent')
 
         expect(screen.getByText('Rent for May')).toBeInTheDocument()
         expect(screen.queryByText('Coffee reimbursement')).not.toBeInTheDocument()
@@ -250,7 +265,7 @@ describe('HistoryPage: client-side search', () => {
         renderPage()
 
         await screen.findByRole('table')
-        await user.type(screen.getByPlaceholderText(/search/i), 'zzzznotexist')
+        await user.type(screen.getByPlaceholderText(/description, type, amount/i), 'zzzznotexist')
 
         expect(await screen.findByText(/no matches found/i)).toBeInTheDocument()
     })
@@ -261,7 +276,7 @@ describe('HistoryPage: client-side search', () => {
         renderPage()
 
         await screen.findByRole('table')
-        await user.type(screen.getByPlaceholderText(/search/i), 'Rent')
+        await user.type(screen.getByPlaceholderText(/description, type, amount/i), 'Rent')
 
         expect(await screen.findByText(/1 transaction found/i)).toBeInTheDocument()
     })
@@ -322,7 +337,7 @@ describe('HistoryPage: Reflected XSS module (xss_reflected)', () => {
         renderPage('/history?q=Rent')
 
         await screen.findByRole('table')
-        const input = screen.getByPlaceholderText(/search/i)
+        const input = screen.getByPlaceholderText(/description, type, amount/i)
         expect(input).toHaveValue('Rent')
         expect(screen.getByText(/matching "Rent"/i)).toBeInTheDocument()
     })
@@ -365,7 +380,7 @@ describe('HistoryPage: Reflected XSS module (xss_reflected)', () => {
     })
 })    
 
-//Educational notification (xss_reflected + weak_session_tokens)
+// Educational notification: XSS phishing result scenarios
 
 describe('HistoryPage: Educational notification', () => {
     // Cookie cleanup scoped to this describe block only
@@ -375,7 +390,23 @@ describe('HistoryPage: Educational notification', () => {
         })
     })
 
-    function enableReflectedXss() {
+    // XSS vulnerable, weak session tokens OFF: attack succeeded, no chain
+    function enableReflectedXssOnly() {
+        mockUseVulnerabilities.mockReturnValue({
+            modules: [
+                { id: 'xss_stored', name: 'Stored XSS', enabled: false },
+                { id: 'xss_reflected', name: 'Reflected XSS', enabled: true },
+                { id: 'weak_session_tokens', name: 'Weak Session Tokens', enabled: false },
+            ],
+            toggleModule: vi.fn(),
+            isVulnerable: true,
+            notification: null,
+            closeNotification: vi.fn(),
+        })
+    }
+
+    // XSS vulnerable AND weak session tokens ON: chain attack conditions
+    function enableReflectedXssAndWeakSession() {
         mockUseVulnerabilities.mockReturnValue({
             modules: [
                 { id: 'xss_stored', name: 'Stored XSS', enabled: false },
@@ -389,60 +420,94 @@ describe('HistoryPage: Educational notification', () => {
         })
     }
 
-    it('shows "Attack Succeeded" dialog when token is in document.cookie', async () => {
-        enableReflectedXss()
-        document.cookie = 'token=fake-jwt-token-abc123'
+    it('shows "Attack Blocked" (success) dialog when xss_reflected is disabled (hardened)', async () => {
+        // Default beforeEach mock has xss_reflected disabled
         transfersApi.getTransfers.mockResolvedValue({ transactions: MOCK_TRANSACTIONS })
         renderPage('/history?q=<img src=x>')
 
         await waitFor(() => {
-            const dialog = document.getElementById('xss-reflected-notification')
-            expect(dialog).toBeInTheDocument()
+            expect(document.getElementById('xss-reflected-notification')).toBeInTheDocument()
         })
-        expect(screen.getByText(/Attack Succeeded/i)).toBeInTheDocument()
-        expect(screen.getByText(/session token/i)).toBeInTheDocument()
-        expect(screen.getByText(/fake-jwt-token-abc123/)).toBeInTheDocument()
+        expect(screen.getByText(/Attack Blocked/i)).toBeInTheDocument()
+        expect(screen.getByText(/hardened against Reflected XSS/i)).toBeInTheDocument()
     })
 
-    it('shows "Attack Blocked" dialog when token is not in document.cookie', async () => {
-        enableReflectedXss()
-        // Ensure no token cookie is set
+    it('shows "Attack Succeeded" dialog when xss_reflected is enabled', async () => {
+        enableReflectedXssOnly()
+        transfersApi.getTransfers.mockResolvedValue({ transactions: MOCK_TRANSACTIONS })
+        renderPage('/history?q=<img src=x>')
+
+        await waitFor(() => {
+            expect(document.getElementById('xss-reflected-notification')).toBeInTheDocument()
+        })
+        expect(screen.getByText(/Attack Succeeded/i)).toBeInTheDocument()
+        expect(screen.getByText(/see the rendered alert\(\)/i)).toBeInTheDocument()
+    })
+
+    it('shows "Chain Attack Succeeded" when xss reflected and weak session tokens are both enabled and token is readable', async () => {
+        enableReflectedXssAndWeakSession()
+        document.cookie = 'token=fake-jwt-chain-token'
+        transfersApi.getTransfers.mockResolvedValue({ transactions: MOCK_TRANSACTIONS })
+        renderPage('/history?q=<img src=x>')
+
+        await waitFor(() => {
+            expect(document.getElementById('xss-reflected-notification')).toBeInTheDocument()
+        })
+        expect(screen.getByText(/Chain Attack Succeeded/i)).toBeInTheDocument()
+        expect(screen.getByText(/fake-jwt-chain-token/)).toBeInTheDocument()
+    })
+
+    it('shows "Chain Attack Succeeded" when the current session token is still cookie-readable after hardening the module', async () => {
+        enableReflectedXssOnly()
+        document.cookie = 'token=stale-cookie-token'
+        transfersApi.getTransfers.mockResolvedValue({ transactions: MOCK_TRANSACTIONS })
+        renderPage('/history?q=<img src=x>')
+
+        await waitFor(() => {
+            expect(document.getElementById('xss-reflected-notification')).toBeInTheDocument()
+        })
+        expect(screen.getByText(/Chain Attack Succeeded/i)).toBeInTheDocument()
+        expect(screen.getByText(/stale-cookie-token/)).toBeInTheDocument()
+    })
+
+    it('shows "Chain Attack Succeeded" when the token is readable from localStorage', async () => {
+        enableReflectedXssAndWeakSession()
+        localStorage.setItem('token', 'fake-local-storage-token')
+        transfersApi.getTransfers.mockResolvedValue({ transactions: MOCK_TRANSACTIONS })
+        renderPage('/history?q=<img src=x>')
+
+        await waitFor(() => {
+            expect(document.getElementById('xss-reflected-notification')).toBeInTheDocument()
+        })
+        expect(screen.getByText(/Chain Attack Succeeded/i)).toBeInTheDocument()
+        expect(screen.getByText(/fake-local-storage-token/)).toBeInTheDocument()
+    })
+
+    it('shows "Attack Succeeded" (not chain) when weak session tokens is on but cookie is absent', async () => {
+        enableReflectedXssAndWeakSession()
         document.cookie = 'token=;expires=Thu, 01 Jan 1970 00:00:00 GMT'
         transfersApi.getTransfers.mockResolvedValue({ transactions: MOCK_TRANSACTIONS })
         renderPage('/history?q=<img src=x>')
 
         await waitFor(() => {
-            const dialog = document.getElementById('xss-reflected-notification')
-            expect(dialog).toBeInTheDocument()
+            expect(document.getElementById('xss-reflected-notification')).toBeInTheDocument()
         })
-        expect(screen.getByText(/Attack Blocked/i)).toBeInTheDocument()
-        expect(screen.getByText(/hardening on session tokens/i)).toBeInTheDocument()
-    })
-
-    it('shows no notification when xss_reflected is disabled', async () => {
-        // Default beforeEach mock has xss_reflected disabled
-        transfersApi.getTransfers.mockResolvedValue({ transactions: MOCK_TRANSACTIONS })
-        renderPage('/history?q=<img src=x>')
-
-        // Search query doesn't match any transaction, so table won't render; wait for empty state
-        await screen.findByText(/no matches found/i)
-        expect(document.getElementById('xss-reflected-notification')).not.toBeInTheDocument()
+        expect(screen.getByText(/Attack Succeeded/i)).toBeInTheDocument()
+        expect(screen.queryByText(/Chain Attack Succeeded/i)).not.toBeInTheDocument()
     })
 
     it('shows no notification when search query has no HTML', async () => {
-        enableReflectedXss()
+        enableReflectedXssOnly()
         transfersApi.getTransfers.mockResolvedValue({ transactions: MOCK_TRANSACTIONS })
         renderPage('/history?q=normaltext')
 
-        // 'normaltext' doesn't match any transaction; wait for empty state 
         await screen.findByText(/no matches found/i)
         expect(document.getElementById('xss-reflected-notification')).not.toBeInTheDocument()
     })
 
     it('dismiss button closes the notification dialog', async () => {
         const user = userEvent.setup()
-        enableReflectedXss()
-        document.cookie = 'token=fake-jwt-token-abc123'
+        enableReflectedXssOnly()
         transfersApi.getTransfers.mockResolvedValue({ transactions: MOCK_TRANSACTIONS })
         renderPage('/history?q=<img src=x>')
 
@@ -455,5 +520,149 @@ describe('HistoryPage: Educational notification', () => {
         await waitFor(() => {
             expect(document.getElementById('xss-reflected-notification')).not.toBeInTheDocument()
         })
+    })
+})
+
+// Server-side memo search (SQL injection module, a03-injection-sql)
+describe('HistoryPage -- server-side search via ?memo=', () => {
+    it('fires a server fetch with the memo value when ?memo= is in the URL', async () => {
+        transfersApi.getTransfers.mockResolvedValue({ transactions: MOCK_TRANSACTIONS })
+        renderPage('/history?memo=Rent')
+
+        await waitFor(() => {
+            expect(transfersApi.getTransfers).toHaveBeenCalledWith(null, 'Rent')
+        })
+    })
+
+    it('combines ?memo= with ?type= when both are in the URL', async () => {
+        transfersApi.getTransfers.mockResolvedValue({ transactions: MOCK_TRANSACTIONS })
+        renderPage('/history?type=sent&memo=Coffee')
+
+        await waitFor(() => {
+            expect(transfersApi.getTransfers).toHaveBeenCalledWith('sent', 'Coffee')
+        })
+    })
+
+    it('shows the server-search banner when ?memo= is set', async () => {
+        transfersApi.getTransfers.mockResolvedValue({ transactions: MOCK_TRANSACTIONS })
+        renderPage('/history?memo=Rent')
+
+        expect(await screen.findByText(/server search active for memo: "Rent"/i)).toBeInTheDocument()
+    })
+
+    it('does NOT show the banner when ?memo= is absent', async () => {
+        transfersApi.getTransfers.mockResolvedValue({ transactions: MOCK_TRANSACTIONS })
+        renderPage('/history')
+
+        await waitFor(() => expect(transfersApi.getTransfers).toHaveBeenCalled())
+        expect(screen.queryByText(/server search active/i)).not.toBeInTheDocument()
+    })
+
+    it('typing in the server-search input fires a server fetch after the debounce', async () => {
+        transfersApi.getTransfers.mockResolvedValue({ transactions: [] })
+        const user = userEvent.setup()
+        renderPage('/history')
+
+        // Wait for the initial mount fetch (no memo) so we can isolate the typing-driven call
+        await waitFor(() => expect(transfersApi.getTransfers).toHaveBeenCalledWith(null, null))
+        transfersApi.getTransfers.mockClear()
+        transfersApi.getTransfers.mockResolvedValue({ transactions: [] })
+
+        // Panel is collapsed by default when no ?memo= is in URL; expand it first.
+        await user.click(screen.getByRole('button', { name: /advanced search/i }))
+
+        await user.type(
+            screen.getByPlaceholderText(/search by memo/i),
+            'Coffee',
+        )
+
+        // Debounce is 300ms; waitFor's default 1000ms is plenty
+        await waitFor(() => {
+            expect(transfersApi.getTransfers).toHaveBeenCalledWith(null, 'Coffee')
+        })
+    })
+})
+
+// Advanced Search panel + date range filter (companion to server-side memo search)
+describe('HistoryPage -- Advanced Search panel', () => {
+    it('starts collapsed when no ?memo= is in the URL (server-search input is hidden)', async () => {
+        transfersApi.getTransfers.mockResolvedValue({ transactions: MOCK_TRANSACTIONS })
+        renderPage('/history')
+
+        await waitFor(() => expect(transfersApi.getTransfers).toHaveBeenCalled())
+        expect(screen.queryByPlaceholderText(/search by memo/i)).not.toBeInTheDocument()
+        // The button to expand the panel is present
+        expect(screen.getByRole('button', { name: /advanced search/i })).toBeInTheDocument()
+    })
+
+    it('auto-opens when ?memo= is present in the URL on mount', async () => {
+        transfersApi.getTransfers.mockResolvedValue({ transactions: MOCK_TRANSACTIONS })
+        renderPage('/history?memo=Coffee')
+
+        // The server-search input is visible without needing a click
+        expect(await screen.findByPlaceholderText(/search by memo/i)).toBeInTheDocument()
+    })
+
+    it('toggles open and closed when the Advanced Search button is clicked', async () => {
+        transfersApi.getTransfers.mockResolvedValue({ transactions: MOCK_TRANSACTIONS })
+        const user = userEvent.setup()
+        renderPage('/history')
+
+        await waitFor(() => expect(transfersApi.getTransfers).toHaveBeenCalled())
+        const button = screen.getByRole('button', { name: /advanced search/i })
+
+        await user.click(button)
+        expect(screen.getByPlaceholderText(/search by memo/i)).toBeInTheDocument()
+
+        await user.click(button)
+        expect(screen.queryByPlaceholderText(/search by memo/i)).not.toBeInTheDocument()
+    })
+})
+
+describe('HistoryPage -- Advanced Search date range filter', () => {
+    // MOCK_TRANSACTIONS has txn-001 on 2026-04-27 and txn-002 on 2026-04-28.
+    it('filters out transactions earlier than the From date', async () => {
+        transfersApi.getTransfers.mockResolvedValue({ transactions: MOCK_TRANSACTIONS })
+        const user = userEvent.setup()
+        renderPage('/history')
+
+        await waitFor(() => expect(transfersApi.getTransfers).toHaveBeenCalled())
+        await user.click(screen.getByRole('button', { name: /advanced search/i }))
+
+        const fromInput = screen.getByLabelText(/from/i)
+        fireEvent.change(fromInput, { target: { value: '2026-04-28' } })
+
+        // txn-001 (Apr 27) hidden; txn-002 (Apr 28) visible
+        expect(screen.queryByText('Rent for May')).not.toBeInTheDocument()
+        expect(screen.getByText('Coffee reimbursement')).toBeInTheDocument()
+    })
+
+    it('filters out transactions later than the To date', async () => {
+        transfersApi.getTransfers.mockResolvedValue({ transactions: MOCK_TRANSACTIONS })
+        const user = userEvent.setup()
+        renderPage('/history')
+
+        await waitFor(() => expect(transfersApi.getTransfers).toHaveBeenCalled())
+        await user.click(screen.getByRole('button', { name: /advanced search/i }))
+
+        const toInput = screen.getByLabelText(/to/i)
+        fireEvent.change(toInput, { target: { value: '2026-04-27' } })
+
+        // txn-001 (Apr 27) visible; txn-002 (Apr 28) hidden
+        expect(screen.getByText('Rent for May')).toBeInTheDocument()
+        expect(screen.queryByText('Coffee reimbursement')).not.toBeInTheDocument()
+    })
+
+    it('shows all transactions when both date inputs are empty', async () => {
+        transfersApi.getTransfers.mockResolvedValue({ transactions: MOCK_TRANSACTIONS })
+        const user = userEvent.setup()
+        renderPage('/history')
+
+        await waitFor(() => expect(transfersApi.getTransfers).toHaveBeenCalled())
+        await user.click(screen.getByRole('button', { name: /advanced search/i }))
+
+        // Both inputs untouched, both transactions render
+        expect(screen.getByText('Rent for May')).toBeInTheDocument()
+        expect(screen.getByText('Coffee reimbursement')).toBeInTheDocument()
     })
 })

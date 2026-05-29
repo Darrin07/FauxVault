@@ -1,4 +1,4 @@
-/** User model — PostgreSQL queries replacing the in-memory mock store */
+/** User model — PostgreSQL queries */
 const { pool } = require('../config/db');
 
 /**

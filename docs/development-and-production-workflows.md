@@ -94,7 +94,6 @@ npm run dev
 
 Use these values in this mode:
 
-- Root `.env`: `VITE_USE_MOCK=false`
 - Root `.env`: `VITE_API_BASE_URL=/api`
 - Root `.env`: `DB_HOST=db`
 - `server/.env`: `DB_HOST=localhost`

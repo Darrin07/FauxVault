@@ -1,4 +1,4 @@
-/** Account & transaction model — PostgreSQL queries replacing the in-memory mock store */
+/** Account & transaction model — PostgreSQL queries */
 const { pool } = require('../config/db');
 
 /**
@@ -214,6 +214,33 @@ async function getTransactions(accountId, client) {
 }
 
 /**
+ * Returns transactions for the given account whose `reference` field matches
+ * a memo substring (case-insensitive). Parameterized; safe against injection.
+ * Unbounded (no LIMIT) so combining with the controller's optional
+ * ?type=sent|received filter does not silently truncate results.
+ * @param {string} accountId - the account's UUID
+ * @param {string} memo - memo substring to match (ILIKE-wrapped in % wildcards)
+ * @param {Object} [client] - optional pg client for RLS-safe reads
+ * @returns {Array<Object>} array of normalized transaction records
+ */
+async function searchTransactions(accountId, memo, client) {
+  const queryRunner = getQueryRunner(client);
+  const result = await queryRunner.query(
+    `SELECT transaction_id AS id,
+            sender_account_id AS "fromAccountId",
+            receiver_account_id AS "toAccountId",
+            amount, reference,
+            transaction_date AS "createdAt"
+     FROM transactions
+     WHERE (sender_account_id = $1 OR receiver_account_id = $1)
+       AND reference ILIKE $2
+     ORDER BY transaction_date DESC`,
+    [accountId, '%' + memo + '%']
+  );
+  return result.rows.map(normalizeTransaction);
+}
+
+/**
  * Returns the total deposits (incoming transfers) for an account in the current month.
  * @param {string} accountId - the account's UUID
  * @param {Object} [client] - optional pg client for RLS-safe reads
@@ -265,6 +292,8 @@ module.exports = {
   getBalance,
   transfer,
   getTransactions,
+  searchTransactions,
   getDepositSummary,
   getWithdrawalSummary,
+  normalizeTransaction,
 };

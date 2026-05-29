@@ -40,7 +40,7 @@ case $SHOT in
     ;;
 
   *)
-    echo "Usage: bash nn-demo.sh [hardened|vulnerable|rls]"
+    echo "Usage: bash scripts/demo/nn-demo.sh [hardened|vulnerable|rls]"
     ;;
 
 esac

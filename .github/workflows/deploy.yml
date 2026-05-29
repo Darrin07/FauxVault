@@ -30,6 +30,11 @@ jobs:
       DB_HOST: localhost
       DB_PORT: 5432
       JWT_SECRET: ci-test-secret
+      RESTRICTED_DB_USER: fauxvault_sqli_lab
+      # CI-only placeholder. The CI Postgres is ephemeral and localhost-bound;
+      # this value is the agreement between role provisioning (below) and the
+      # restrictedPool config in tests. Not a real secret -- do not reuse anywhere.
+      RESTRICTED_DB_PASSWORD: ci_only_not_a_real_secret
     defaults:
       run:
         working-directory: ./server
@@ -57,6 +62,17 @@ jobs:
       - name: Seed database
         run: psql -h "$DB_HOST" -U "$POSTGRES_USER" -d "$POSTGRES_DB" -f
           ../database/FauxVault_Seed.sql
+        env:
+          PGPASSWORD: ${{ env.POSTGRES_PASSWORD }}
+
+      - name: Provision SQLi sandbox role
+        # Use sed (not psql -v) because :'foo' inside DO $$ ... $$ is dollar-quoted
+        # text and psql variable substitution does not enter dollar-quoted blocks.
+        # Matches the sed approach in package.json's db:init script.
+        run: |
+          set -o pipefail
+          sed "s|:'sqli_lab_password'|'$RESTRICTED_DB_PASSWORD'|g" ../database/FauxVault_SQLi_Lab_Role.sql \
+            | psql -h "$DB_HOST" -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v ON_ERROR_STOP=1
         env:
           PGPASSWORD: ${{ env.POSTGRES_PASSWORD }}
 
@@ -124,6 +140,7 @@ jobs:
               "echo ==> Rebuilding containers...",
               "export DOCKER_BUILDKIT=0",
               "docker compose down",
+              "docker system prune -f || true",
               "docker compose up -d --build",
               "echo ==> Waiting for app to start...",
               "sleep 30",

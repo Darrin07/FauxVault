@@ -35,11 +35,19 @@ export async function sendTransfer({ toAccountId, amount, memo }) {
 /**
  * GET /api/transfers
  * Function: Returns transaction history for the user
+ * Supports optional ?type=sent|received and ?memo=<substring> filters.
+ * The memo filter is server-side: hardened mode uses a parameterized ILIKE;
+ * when the sql_injection module is on, the same parameter is concatenated
+ * into the SQL string and runs on a restricted-grant DB role (the SQLi demo).
  * @param {'sent'|'received'|null} type
- * @returns {{ transactions: Array }}
+ * @param {string|null} memo - memo substring to filter on (or null/empty for no filter)
+ * @returns {{ transactions: Array, vulnerableMode?: boolean }}
  */
 
-export async function getTransfers(type = null) {
-    const query = type ? `?type=${type}` : ''
-    return await apiFetch(`/transfers${query}`)
+export async function getTransfers(type = null, memo = null) {
+    const params = new URLSearchParams()
+    if (type) params.append('type', type)
+    if (memo) params.append('memo', memo)
+    const query = params.toString()
+    return await apiFetch(`/transfers${query ? '?' + query : ''}`)
 }

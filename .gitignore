@@ -123,3 +123,4 @@ vite.config.ts.timestamp-*
 
 # Local CSS Archive Files
 _archive_styles/
+.worktrees/

