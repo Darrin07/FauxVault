@@ -457,6 +457,32 @@ describe('HistoryPage: Educational notification', () => {
         expect(screen.getByText(/fake-jwt-chain-token/)).toBeInTheDocument()
     })
 
+    it('shows "Chain Attack Succeeded" when the current session token is still cookie-readable after hardening the module', async () => {
+        enableReflectedXssOnly()
+        document.cookie = 'token=stale-cookie-token'
+        transfersApi.getTransfers.mockResolvedValue({ transactions: MOCK_TRANSACTIONS })
+        renderPage('/history?q=<img src=x>')
+
+        await waitFor(() => {
+            expect(document.getElementById('xss-reflected-notification')).toBeInTheDocument()
+        })
+        expect(screen.getByText(/Chain Attack Succeeded/i)).toBeInTheDocument()
+        expect(screen.getByText(/stale-cookie-token/)).toBeInTheDocument()
+    })
+
+    it('shows "Chain Attack Succeeded" when the token is readable from localStorage', async () => {
+        enableReflectedXssAndWeakSession()
+        localStorage.setItem('token', 'fake-local-storage-token')
+        transfersApi.getTransfers.mockResolvedValue({ transactions: MOCK_TRANSACTIONS })
+        renderPage('/history?q=<img src=x>')
+
+        await waitFor(() => {
+            expect(document.getElementById('xss-reflected-notification')).toBeInTheDocument()
+        })
+        expect(screen.getByText(/Chain Attack Succeeded/i)).toBeInTheDocument()
+        expect(screen.getByText(/fake-local-storage-token/)).toBeInTheDocument()
+    })
+
     it('shows "Attack Succeeded" (not chain) when weak session tokens is on but cookie is absent', async () => {
         enableReflectedXssAndWeakSession()
         document.cookie = 'token=;expires=Thu, 01 Jan 1970 00:00:00 GMT'

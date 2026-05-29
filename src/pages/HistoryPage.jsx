@@ -90,16 +90,26 @@ export default function HistoryPage() {
             }
         }
 
-        // XSS is vulnerable: payload executed (you see the alert()). Check for chain conditions.
-        const cookie = document.cookie
-        const tokenMatch = cookie.match(/token=([^;]+)/)
+        // XSS is vulnerable: payload executed (you see the alert()). Check what JavaScript can actually read.
+        const cookieToken = document.cookie
+            .split(';')
+            .map(c => c.trim())
+            .find(c => c.startsWith('token='))
+            ?.split('=')
+            ?.[1]
+        const localStorageToken = localStorage.getItem('token')
+        const readableToken = cookieToken || localStorageToken
 
-        // Scenario 3: Chain attack — XSS executed and the session token is JS-readable
-        if (weakSessionVulnerable && tokenMatch) {
+        // Scenario 3: Chain attack — XSS executed and the session token is JS-readable.
+        // Cookie flags are applied at login time, so actual token visibility is the source of truth.
+        if (readableToken) {
+            const chainMessage = weakSessionVulnerable
+                ? `Both Reflected XSS and Weak Session Tokens are enabled. The XSS payload executed and your session token "${readableToken.substring(0, 25)}..." is readable from JavaScript. A real attacker could exfiltrate it.`
+                : `The XSS payload executed and your current session token "${readableToken.substring(0, 25)}..." is still readable from JavaScript. Log out and back in after hardening Weak Session Tokens to apply protected cookie flags.`
             return {
                 severity: 'error',
                 title: 'Chain Attack Succeeded',
-                message: `Both Reflected XSS and Weak Session Tokens are enabled. The XSS payload executed and your session token "${tokenMatch[1].substring(0, 25)}..." is readable from JavaScript. A real attacker could exfiltrate it.`,
+                message: chainMessage,
             }
         }
 
