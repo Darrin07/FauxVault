@@ -35,7 +35,14 @@ function generateToken(user){
     * @returns {Object} user object without password fields
  */
 function sanitizeUser(user){
-    return { id: user.id, username: user.username, email: user.email, name: user.name || '', role: user.role };
+    return {
+        id: user.id,
+        username: user.username,
+        email: user.email,
+        name: user.name || '',
+        role: user.role,
+        passwordStorageStatus: user.passwordStorageStatus || (user.passwordBcrypt ? 'hardened' : 'weak'),
+    };
 }
 
 /**
@@ -82,7 +89,7 @@ function setSessionCookie(res, token, isVulnerable) {
  */
 async function register(req, res, next){
     try{
-        const { username, email, password } = req.body;
+        const { name, username, email, password } = req.body;
 
         if(!username || !email || !password){
             return res.status(400).json({
@@ -102,25 +109,23 @@ async function register(req, res, next){
             });
         }
 
-        const passwordBcrypt = await bcrypt.hash(password, config.bcryptSaltRounds);
-
         let userFields;
         let hashInfo;
 
         if (req.vuln_weak_password_storage) {
-            // VULN MODULE: weak_password_storage — store plaintext and MD5 alongside bcrypt
+            // VULN MODULE: weak_password_storage — store plaintext and MD5 only; no bcrypt
             const passwordMd5 = md5(password);
-            userFields = { username, email, passwordBcrypt, passwordPlaintext: password, passwordMd5, role: 'user' };
+            userFields = { name, username, email, passwordBcrypt: null, passwordPlaintext: password, passwordMd5, role: 'user' };
             hashInfo = {
                 vulnerableMode: true,
-                storedFormats: ['plaintext', 'md5', 'bcrypt'],
+                storedFormats: ['plaintext', 'md5'],
                 plaintext: password,
                 md5: passwordMd5,
-                bcrypt: passwordBcrypt,
             };
         } else {
-            // Hardened — bcrypt only; clear any previously stored weak hashes
-            userFields = { username, email, passwordBcrypt, passwordPlaintext: null, passwordMd5: null, role: 'user' };
+            // Hardened — bcrypt only; no plaintext or MD5
+            const passwordBcrypt = await bcrypt.hash(password, config.bcryptSaltRounds);
+            userFields = { name, username, email, passwordBcrypt, passwordPlaintext: null, passwordMd5: null, role: 'user' };
         }
 
         const user = await createUser(userFields);
@@ -203,7 +208,9 @@ async function login(req, res, next){
                 });
             }
 
-            valid = await bcrypt.compare(password, user.passwordBcrypt);
+            valid = user.passwordBcrypt
+                ? await bcrypt.compare(password, user.passwordBcrypt)
+                : false;
         }
 
         if(!valid){

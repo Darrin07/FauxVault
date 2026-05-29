@@ -16,8 +16,8 @@
  *    e. does NOT call the API when validation fails
  *
  *  3. API contract
- *    a. calls register() with { username, email, password }
- *    b. does NOT send 'name' in the request body
+ *    a. calls register() with { name, username, email, password }
+ *    b. sends 'name' in the request body
  *
  *  4. Server error handling
  *    a. shows an Alert with the server error message on failure
@@ -59,6 +59,7 @@ vi.mock('@mui/material', () => ({
 }))
 
 vi.mock('@mui/icons-material', () => ({
+    Badge: () => <span>badge-icon</span>,
     Person: () => <span>user-icon</span>,
     Email: () => <span>email-icon</span>,
     Lock: () => <span>lock-icon</span>,
@@ -90,8 +91,9 @@ function renderPage() {
     )
 }
 
-// Fills all four fields with valid values
+// Fills all five fields with valid values
 async function fillValidForm(user) {
+    await user.type(screen.getByLabelText(/full name/i), 'John Doe')
     await user.type(screen.getByLabelText(/username/i), 'john_doe')
     await user.type(screen.getByLabelText(/^email$/i), 'john@example.com')
     await user.type(screen.getByLabelText(/^password$/i, { selector: 'input' }), 'SecurePass1')
@@ -106,11 +108,10 @@ beforeEach(() => {
 // Test Form Fields
 
 describe('RegisterPage — form fields', () => {
-    it('renders a Username field, not a Name or Full Name field', () => {
+    it('renders a Full Name field and a Username field', () => {
         renderPage()
+        expect(screen.getByLabelText(/full name/i)).toBeInTheDocument()
         expect(screen.getByLabelText(/username/i)).toBeInTheDocument()
-        expect(screen.queryByLabelText(/full name/i)).not.toBeInTheDocument()
-        expect(screen.queryByLabelText(/^name$/i)).not.toBeInTheDocument()
     })
 
     it('shows minimum 8 characters as the password hint', () => {
@@ -181,11 +182,11 @@ describe('RegisterPage — client-side validation', () => {
 // API tests
 
 describe('RegisterPage — API contract', () => {
-    it('calls register() with username, email, and password on valid submit', async () => {
+    it('calls register() with name, username, email, and password on valid submit', async () => {
         const user = userEvent.setup()
         authService.register.mockResolvedValue({
             token: 'test-token',
-            user: { id: 'u1', username: 'john_doe', email: 'john@example.com', role: 'user' },
+            user: { id: 'u1', username: 'john_doe', email: 'john@example.com', name: 'John Doe', role: 'user' },
         })
 
         renderPage()
@@ -194,6 +195,7 @@ describe('RegisterPage — API contract', () => {
 
         await waitFor(() => {
             expect(authService.register).toHaveBeenCalledWith({
+                name: 'John Doe',
                 username: 'john_doe',
                 email: 'john@example.com',
                 password: 'SecurePass1',
@@ -201,11 +203,11 @@ describe('RegisterPage — API contract', () => {
         })
     })
 
-    it('does NOT send name in the request body', async () => {
+    it('sends name in the request body', async () => {
         const user = userEvent.setup()
         authService.register.mockResolvedValue({
             token: 'test-token',
-            user: { id: 'u1', username: 'john_doe', email: 'john@example.com', role: 'user' },
+            user: { id: 'u1', username: 'john_doe', email: 'john@example.com', name: 'John Doe', role: 'user' },
         })
 
         renderPage()
@@ -214,7 +216,7 @@ describe('RegisterPage — API contract', () => {
 
         await waitFor(() => {
             const payload = authService.register.mock.calls[0][0]
-            expect(payload).not.toHaveProperty('name')
+            expect(payload).toHaveProperty('name', 'John Doe')
         })
     })
 })

@@ -11,6 +11,7 @@ import {
     CircularProgress,
 } from '@mui/material'
 import {
+    Badge as NameIcon,
     Person as UserIcon,
     Email as EmailIcon,
     Lock as LockIcon,
@@ -27,6 +28,7 @@ import { validateRegistration } from '../utils/validate'
 
 export default function RegisterPage() {
     const [form, setForm] = useState({
+        name: '',
         username: '',
         email: '',
         password: '',
@@ -66,6 +68,7 @@ export default function RegisterPage() {
         setLoading(true)
         try {
             const { user, token } = await authAPI.register({
+                name: form.name,
                 username: form.username,
                 email: form.email,
                 password: form.password,
@@ -103,6 +106,26 @@ export default function RegisterPage() {
                 gap: 2,
                 mb: 3
             }}>
+                {/* Full Name */}
+                <TextField
+                    id="signup-name"
+                    label="Full Name"
+                    value={form.name}
+                    onChange={handleChange('name')}
+                    placeholder="Jane Smith"
+                    autoComplete="name"
+                    error={!!errors.name}
+                    helperText={errors.name}
+                    fullWidth
+                    InputProps={{
+                        startAdornment: (
+                            <InputAdornment position="start">
+                                <NameIcon sx={{ fontSize: 18, color: 'text.disabled' }} />
+                            </InputAdornment>
+                        )
+                    }}
+                />
+
                 {/* Username */}
                 <TextField
                     id="signup-username"

@@ -59,7 +59,7 @@ export default function HistoryPage() {
 
     // Vulnerable module: Reflected XSS — when enabled, search query renders as raw HTML
     const xssReflectedVulnerable = modules.find(m => m.id === 'xss_reflected')?.enabled
- 
+
     // Vulnerable module: weak session tokens
     const weakSessionVulnerable = modules.find(m => m.id === 'weak_session_tokens')?.enabled
 

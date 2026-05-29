@@ -59,4 +59,3 @@ describe('Issue #67 Reproduction — Auth Hydration Bug', () => {
         expect(apiFetchSpy).toHaveBeenCalledTimes(1)
     })
 })
-

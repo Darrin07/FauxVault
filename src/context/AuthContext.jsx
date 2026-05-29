@@ -115,10 +115,10 @@ export function AuthProvider({ children }) {
 
     useEffect(() => {
         if (state.isAuthenticated || hasAttemptedHydration.current) return
-        
+
         hasAttemptedHydration.current = true
         dispatch({ type: 'LOGIN_START' })
-        
+
         apiFetch('/auth/me')
             .then(data => dispatch({ type: 'HYDRATE_SUCCESS', payload: { user: data.user } }))
             .catch(() => dispatch({ type: 'LOADING_DONE' }))
@@ -170,4 +170,3 @@ export function AuthProvider({ children }) {
         </AuthContext.Provider>
     )
 }
-

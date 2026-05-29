@@ -6,7 +6,7 @@ const { resetAccounts } = require('../../src/models/accounts');
 const { getTokenCookie } = require('../helpers/auth');
 
 describe('Verbose Errors Module - A02:2025', () => {
-    
+
     describe('Hardened mode', () => {
         test('returns generic error without stack trace', async () => {
             await updateSetting('verbose_errors', false);
@@ -68,7 +68,7 @@ describe('Verbose Errors Module - A02:2025', () => {
             expect(res.body.error).toHaveProperty('hint');
         });
     });
-    
+
     describe('User session override', () => {
         beforeEach(async () => {
             await resetUsers();

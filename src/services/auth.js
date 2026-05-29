@@ -36,10 +36,10 @@ export async function login(identifier, password) {
  * @param {{ username: string, email: string, password: string }} fields
  * @returns {{ token: string, user: { id, username, email, name, role } }}
  */
-export async function register({ username, email, password }) {
+export async function register({ name, username, email, password }) {
     const data = await apiFetch('/auth/register', {
         method: 'POST',
-        body: JSON.stringify({ username, email, password }),
+        body: JSON.stringify({ name, username, email, password }),
     })
 
     if (data.token) {
