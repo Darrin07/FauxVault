@@ -140,6 +140,7 @@ jobs:
               "echo ==> Rebuilding containers...",
               "export DOCKER_BUILDKIT=0",
               "docker compose down",
+              "docker system prune -f || true",
               "docker compose up -d --build",
               "echo ==> Waiting for app to start...",
               "sleep 30",

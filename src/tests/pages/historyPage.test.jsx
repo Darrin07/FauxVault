@@ -36,12 +36,13 @@
  *    c. renders search query as escaped text when xss_reflected is disabled
  *    d. empty ?q= does not show "matching" label
  *
- *  8. Educational notification (xss_reflected + weak_session_tokens interaction)
- *    a. shows "Attack Succeeded" dialog when token is in document.cookie
- *    b. shows "Attack Blocked" dialog when token is not in document.cookie
- *    c. no notification when xss_reflected is disabled
- *    d. no notification when query has no HTML
- *    e. dismiss button closes the dialog
+ *  8. Educational notification: XSS phishing result scenarios
+ *    a. shows "Attack Blocked" dialog when xss reflected is hardened
+ *    b. shows "Attack Succeeded" dialog when xss reflected is enabled
+ *    c. shows "Chain Attack Succeeded" when xss reflected + weak session tokens enabled and token readable
+ *    d. shows "Attack Succeeded" (not chain) when weak session tokens on but cookie absent
+ *    e. no notification when query has no HTML
+ *    f. dismiss button closes the dialog
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
@@ -144,6 +145,9 @@ function renderPage(route = '/history') {
 
 beforeEach(() => {
     localStorage.clear()
+    document.cookie.split(';').forEach(c => {
+        document.cookie = c.replace(/^ +/, '').replace(/=.*/, '=;expires=Thu, 01 Jan 1970 00:00:00 GMT')
+    })
     vi.clearAllMocks()
     // Default: xss_stored disabled (hardened) — keeps all existing tests unaffected
     mockUseVulnerabilities.mockReturnValue({
@@ -376,7 +380,7 @@ describe('HistoryPage: Reflected XSS module (xss_reflected)', () => {
     })
 })    
 
-//Educational notification (xss_reflected + weak_session_tokens)
+// Educational notification: XSS phishing result scenarios
 
 describe('HistoryPage: Educational notification', () => {
     // Cookie cleanup scoped to this describe block only
@@ -386,7 +390,23 @@ describe('HistoryPage: Educational notification', () => {
         })
     })
 
-    function enableReflectedXss() {
+    // XSS vulnerable, weak session tokens OFF: attack succeeded, no chain
+    function enableReflectedXssOnly() {
+        mockUseVulnerabilities.mockReturnValue({
+            modules: [
+                { id: 'xss_stored', name: 'Stored XSS', enabled: false },
+                { id: 'xss_reflected', name: 'Reflected XSS', enabled: true },
+                { id: 'weak_session_tokens', name: 'Weak Session Tokens', enabled: false },
+            ],
+            toggleModule: vi.fn(),
+            isVulnerable: true,
+            notification: null,
+            closeNotification: vi.fn(),
+        })
+    }
+
+    // XSS vulnerable AND weak session tokens ON: chain attack conditions
+    function enableReflectedXssAndWeakSession() {
         mockUseVulnerabilities.mockReturnValue({
             modules: [
                 { id: 'xss_stored', name: 'Stored XSS', enabled: false },
@@ -400,60 +420,94 @@ describe('HistoryPage: Educational notification', () => {
         })
     }
 
-    it('shows "Attack Succeeded" dialog when token is in document.cookie', async () => {
-        enableReflectedXss()
-        document.cookie = 'token=fake-jwt-token-abc123'
+    it('shows "Attack Blocked" (success) dialog when xss_reflected is disabled (hardened)', async () => {
+        // Default beforeEach mock has xss_reflected disabled
         transfersApi.getTransfers.mockResolvedValue({ transactions: MOCK_TRANSACTIONS })
         renderPage('/history?q=<img src=x>')
 
         await waitFor(() => {
-            const dialog = document.getElementById('xss-reflected-notification')
-            expect(dialog).toBeInTheDocument()
+            expect(document.getElementById('xss-reflected-notification')).toBeInTheDocument()
         })
-        expect(screen.getByText(/Attack Succeeded/i)).toBeInTheDocument()
-        expect(screen.getByText(/session token/i)).toBeInTheDocument()
-        expect(screen.getByText(/fake-jwt-token-abc123/)).toBeInTheDocument()
+        expect(screen.getByText(/Attack Blocked/i)).toBeInTheDocument()
+        expect(screen.getByText(/hardened against Reflected XSS/i)).toBeInTheDocument()
     })
 
-    it('shows "Attack Blocked" dialog when token is not in document.cookie', async () => {
-        enableReflectedXss()
-        // Ensure no token cookie is set
+    it('shows "Attack Succeeded" dialog when xss_reflected is enabled', async () => {
+        enableReflectedXssOnly()
+        transfersApi.getTransfers.mockResolvedValue({ transactions: MOCK_TRANSACTIONS })
+        renderPage('/history?q=<img src=x>')
+
+        await waitFor(() => {
+            expect(document.getElementById('xss-reflected-notification')).toBeInTheDocument()
+        })
+        expect(screen.getByText(/Attack Succeeded/i)).toBeInTheDocument()
+        expect(screen.getByText(/see the rendered alert\(\)/i)).toBeInTheDocument()
+    })
+
+    it('shows "Chain Attack Succeeded" when xss reflected and weak session tokens are both enabled and token is readable', async () => {
+        enableReflectedXssAndWeakSession()
+        document.cookie = 'token=fake-jwt-chain-token'
+        transfersApi.getTransfers.mockResolvedValue({ transactions: MOCK_TRANSACTIONS })
+        renderPage('/history?q=<img src=x>')
+
+        await waitFor(() => {
+            expect(document.getElementById('xss-reflected-notification')).toBeInTheDocument()
+        })
+        expect(screen.getByText(/Chain Attack Succeeded/i)).toBeInTheDocument()
+        expect(screen.getByText(/fake-jwt-chain-token/)).toBeInTheDocument()
+    })
+
+    it('shows "Chain Attack Succeeded" when the current session token is still cookie-readable after hardening the module', async () => {
+        enableReflectedXssOnly()
+        document.cookie = 'token=stale-cookie-token'
+        transfersApi.getTransfers.mockResolvedValue({ transactions: MOCK_TRANSACTIONS })
+        renderPage('/history?q=<img src=x>')
+
+        await waitFor(() => {
+            expect(document.getElementById('xss-reflected-notification')).toBeInTheDocument()
+        })
+        expect(screen.getByText(/Chain Attack Succeeded/i)).toBeInTheDocument()
+        expect(screen.getByText(/stale-cookie-token/)).toBeInTheDocument()
+    })
+
+    it('shows "Chain Attack Succeeded" when the token is readable from localStorage', async () => {
+        enableReflectedXssAndWeakSession()
+        localStorage.setItem('token', 'fake-local-storage-token')
+        transfersApi.getTransfers.mockResolvedValue({ transactions: MOCK_TRANSACTIONS })
+        renderPage('/history?q=<img src=x>')
+
+        await waitFor(() => {
+            expect(document.getElementById('xss-reflected-notification')).toBeInTheDocument()
+        })
+        expect(screen.getByText(/Chain Attack Succeeded/i)).toBeInTheDocument()
+        expect(screen.getByText(/fake-local-storage-token/)).toBeInTheDocument()
+    })
+
+    it('shows "Attack Succeeded" (not chain) when weak session tokens is on but cookie is absent', async () => {
+        enableReflectedXssAndWeakSession()
         document.cookie = 'token=;expires=Thu, 01 Jan 1970 00:00:00 GMT'
         transfersApi.getTransfers.mockResolvedValue({ transactions: MOCK_TRANSACTIONS })
         renderPage('/history?q=<img src=x>')
 
         await waitFor(() => {
-            const dialog = document.getElementById('xss-reflected-notification')
-            expect(dialog).toBeInTheDocument()
+            expect(document.getElementById('xss-reflected-notification')).toBeInTheDocument()
         })
-        expect(screen.getByText(/Attack Blocked/i)).toBeInTheDocument()
-        expect(screen.getByText(/hardening on session tokens/i)).toBeInTheDocument()
-    })
-
-    it('shows no notification when xss_reflected is disabled', async () => {
-        // Default beforeEach mock has xss_reflected disabled
-        transfersApi.getTransfers.mockResolvedValue({ transactions: MOCK_TRANSACTIONS })
-        renderPage('/history?q=<img src=x>')
-
-        // Search query doesn't match any transaction, so table won't render; wait for empty state
-        await screen.findByText(/no matches found/i)
-        expect(document.getElementById('xss-reflected-notification')).not.toBeInTheDocument()
+        expect(screen.getByText(/Attack Succeeded/i)).toBeInTheDocument()
+        expect(screen.queryByText(/Chain Attack Succeeded/i)).not.toBeInTheDocument()
     })
 
     it('shows no notification when search query has no HTML', async () => {
-        enableReflectedXss()
+        enableReflectedXssOnly()
         transfersApi.getTransfers.mockResolvedValue({ transactions: MOCK_TRANSACTIONS })
         renderPage('/history?q=normaltext')
 
-        // 'normaltext' doesn't match any transaction; wait for empty state 
         await screen.findByText(/no matches found/i)
         expect(document.getElementById('xss-reflected-notification')).not.toBeInTheDocument()
     })
 
     it('dismiss button closes the notification dialog', async () => {
         const user = userEvent.setup()
-        enableReflectedXss()
-        document.cookie = 'token=fake-jwt-token-abc123'
+        enableReflectedXssOnly()
         transfersApi.getTransfers.mockResolvedValue({ transactions: MOCK_TRANSACTIONS })
         renderPage('/history?q=<img src=x>')
 

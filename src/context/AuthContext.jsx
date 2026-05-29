@@ -1,4 +1,4 @@
-import { useReducer, useCallback, useEffect } from 'react'
+import { useReducer, useCallback, useEffect, useRef } from 'react'
 import { apiFetch } from '../services/client'
 import { AuthContext } from './AuthContextObject'
 import * as authService from '../services/auth'
@@ -111,15 +111,18 @@ export function AuthProvider({ children }) {
     // The third argument: getInitialState is called once by React to set up initial state, restoring
     // the session from localStorage on a page refresh.
     const [state, dispatch] = useReducer(authReducer, undefined, getInitialState)
-    const needsHydration = !state.isAuthenticated  // snapshot at mount time
+    const hasAttemptedHydration = useRef(false)
 
     useEffect(() => {
-        if (!needsHydration) return
+        if (state.isAuthenticated || hasAttemptedHydration.current) return
+
+        hasAttemptedHydration.current = true
         dispatch({ type: 'LOGIN_START' })
+
         apiFetch('/auth/me')
             .then(data => dispatch({ type: 'HYDRATE_SUCCESS', payload: { user: data.user } }))
             .catch(() => dispatch({ type: 'LOADING_DONE' }))
-    }, [needsHydration])
+    }, [state.isAuthenticated])
 
     const login = useCallback((user, token) => {
         dispatch({ type: 'LOGIN_SUCCESS', payload: { user, token } })
