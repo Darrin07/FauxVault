@@ -161,8 +161,8 @@ async function getTransferHistory(req, res, next) {
                 if (req.vuln_verbose_errors === true) {
                     // VULNERABLE: A05:2025 Security Misconfiguration -- verbose errors
                     // Composes with sql_injection per the C2 design (per-user toggle).
-                    // Inline because the global errorHandler reads the global verbose_errors
-                    // setting, not per-user.
+                    // Inline because this catch handles the SQLi lab error before
+                    // Express reaches the global errorHandler middleware.
                     return res.status(500).json({
                         error: {
                             status: 500,
