@@ -1,4 +1,74 @@
-const { getSettingByModule, getUserSettingByModule } = require('../models/toggleState');
+const {
+  MAX_ACTIVE_VULNERABILITIES,
+  getAllSettings,
+  getSettingByModule,
+  getUserSettingByModule,
+} = require('../models/toggleState');
+
+function parseOverrideModules(rawValue) {
+  if (Array.isArray(rawValue)) {
+    return rawValue.flatMap(parseOverrideModules);
+  }
+
+  if (typeof rawValue !== 'string') {
+    return [];
+  }
+
+  return rawValue
+    .split(',')
+    .map((value) => value.trim())
+    .filter(Boolean);
+}
+
+function buildOverrideError(status, message, code) {
+  return { status, message, code };
+}
+
+async function resolveVerboseErrorsSetting(req) {
+  if (req.user?.userId) {
+    return { setting: await getUserSettingByModule(req.user.userId, 'verbose_errors') };
+  }
+
+  const setting = await getSettingByModule('verbose_errors');
+  const rawOverrides = req.headers['x-vulnerability-overrides']
+    ?? req.query.vulnerability_overrides;
+
+  if (rawOverrides === undefined) {
+    return { setting };
+  }
+
+  const overrideModules = parseOverrideModules(rawOverrides);
+  const availableSettings = await getAllSettings();
+  const knownModules = new Set(availableSettings.map((item) => item.module_name));
+  const unknownModules = overrideModules.filter((item) => !knownModules.has(item));
+
+  if (unknownModules.length > 0) {
+    return {
+      overrideError: buildOverrideError(
+        400,
+        `Unknown vulnerability override module(s): ${unknownModules.join(', ')}`,
+        'INVALID_VULNERABILITY_OVERRIDE'
+      ),
+    };
+  }
+
+  if (overrideModules.length > MAX_ACTIVE_VULNERABILITIES) {
+    return {
+      overrideError: buildOverrideError(
+        400,
+        `Anonymous overrides support at most ${MAX_ACTIVE_VULNERABILITIES} active modules`,
+        'TOO_MANY_VULNERABILITY_OVERRIDES'
+      ),
+    };
+  }
+
+  return {
+    setting: {
+      ...setting,
+      is_vulnerable: overrideModules.includes('verbose_errors'),
+    },
+  };
+}
 
 /*
 error handler middleware that checks the 'verbose_errors' toggle in the db. 
@@ -17,11 +87,10 @@ async function errorHandler(err, req, res, _next) {
   }
 
   try {
-    let setting;
-    if (req.user?.userId) {
-      setting = await getUserSettingByModule(req.user.userId, 'verbose_errors');
-    } else {
-      setting = await getSettingByModule('verbose_errors');
+    const { setting, overrideError } = await resolveVerboseErrorsSetting(req);
+
+    if (overrideError) {
+      return res.status(overrideError.status).json({ error: overrideError });
     }
 
     const isVulnerable = setting ? setting.is_vulnerable : false;

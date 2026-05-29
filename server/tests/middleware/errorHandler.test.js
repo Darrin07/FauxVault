@@ -40,6 +40,34 @@ describe('Verbose Errors Module - A02:2025', () => {
             expect(res.body.error).toHaveProperty('hint');
         });
     });
+
+    describe('Anonymous override', () => {
+        test('returns verbose error when header override includes verbose_errors', async () => {
+            await updateSetting('verbose_errors', false);
+
+            const res = await request(app)
+                .get('/api/dummy-route')
+                .set('X-Vulnerability-Overrides', 'verbose_errors');
+
+            expect(res.status).toBe(404);
+            expect(res.body.error).toHaveProperty('stack');
+            expect(res.body.error).toHaveProperty('detail');
+            expect(res.body.error).toHaveProperty('hint');
+        });
+
+        test('returns verbose error when query override includes verbose_errors', async () => {
+            await updateSetting('verbose_errors', false);
+
+            const res = await request(app)
+                .get('/api/dummy-route')
+                .query({ vulnerability_overrides: 'verbose_errors' });
+
+            expect(res.status).toBe(404);
+            expect(res.body.error).toHaveProperty('stack');
+            expect(res.body.error).toHaveProperty('detail');
+            expect(res.body.error).toHaveProperty('hint');
+        });
+    });
     
     describe('User session override', () => {
         beforeEach(async () => {
@@ -71,14 +99,18 @@ describe('Verbose Errors Module - A02:2025', () => {
         expect(res.body.error).toHaveProperty('hint');
     });
 
-    test('returns hardened error when user override is OFF and global is OFF', async () => {
+    test('returns hardened error when user override is OFF and global is ON', async () => {
         await resetAccounts();
         await resetSettings();
         const registerRes = await request(app)
             .post('/api/auth/register')
             .send({ username: 'testuser2', email: 'test2@example.com', password: 'Password123' });
 
+        const userId = registerRes.body.user.id;
         const cookie = getTokenCookie(registerRes);
+
+        await updateSetting('verbose_errors', true);
+        await updateUserSetting(userId, 'verbose_errors', false);
 
         const res = await request(app)
             .get('/api/accounts/definitely-not-a-uuid')
