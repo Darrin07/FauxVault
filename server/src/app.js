@@ -18,17 +18,31 @@ const allowedCorsOrigins = (process.env.CORS_ORIGINS || process.env.CORS_ORIGIN 
   .map((origin) => origin.trim())
   .filter(Boolean);
 
-// Middleware chain; credentials added for weak-session-tokens module
-app.use(cors({
-  origin(origin, callback) {
-    if (!origin || allowedCorsOrigins.includes(origin)) {
-      callback(null, true);
-      return;
-    }
+function getFirstHeaderValue(value) {
+  return value?.split(',')[0]?.trim();
+}
 
-    callback(new Error(`CORS origin not allowed: ${origin}`));
-  },
-  credentials: true,
+function isSameOriginRequest(req, origin) {
+  const host = getFirstHeaderValue(req.get('x-forwarded-host')) || req.get('host');
+  if (!host) return false;
+
+  const protocol = getFirstHeaderValue(req.get('x-forwarded-proto')) || req.protocol;
+  return origin === `${protocol}://${host}`;
+}
+
+// Middleware chain; credentials added for weak-session-tokens module
+app.use(cors((req, callback) => {
+  const origin = req.get('origin');
+
+  if (!origin || allowedCorsOrigins.includes(origin) || isSameOriginRequest(req, origin)) {
+    callback(null, {
+      origin: origin || false,
+      credentials: true,
+    });
+    return;
+  }
+
+  callback(new Error(`CORS origin not allowed: ${origin}`));
 }));
 app.use(cookieParser());
 app.use(express.json());
