@@ -126,16 +126,34 @@ jobs:
           aws-region: us-east-1
 
       - name: Deploy via SSM
+        env:
+          EC2_RESTRICTED_DB_PASSWORD: ${{ secrets.EC2_RESTRICTED_DB_PASSWORD }}
         run: |
-          COMMAND_ID=$(aws ssm send-command \
-            --instance-ids ${{ secrets.EC2_INSTANCE_ID }} \
-            --document-name "AWS-RunShellScript" \
-            --parameters 'commands=[
+          if [ -z "$EC2_RESTRICTED_DB_PASSWORD" ]; then
+            echo "ERROR: EC2_RESTRICTED_DB_PASSWORD repository secret is missing."
+            echo "Generate one with: openssl rand -hex 32"
+            exit 1
+          fi
+
+          case "$EC2_RESTRICTED_DB_PASSWORD" in
+            *[!A-Fa-f0-9]*)
+              echo "ERROR: EC2_RESTRICTED_DB_PASSWORD must be a hex string."
+              echo "Generate one with: openssl rand -hex 32"
+              exit 1
+              ;;
+          esac
+
+          SSM_PARAMETERS=$(jq -n \
+            --arg app_dir "${{ secrets.EC2_APP_DIR }}" \
+            --arg restricted_db_password "$EC2_RESTRICTED_DB_PASSWORD" \
+            '{commands: [
               "set -e",
               "echo ==> Checking .env exists...",
-              "if [ ! -f ${{ secrets.EC2_APP_DIR }}/.env ]; then echo ERROR: .env missing; exit 1; fi",
+              "if [ ! -f \($app_dir)/.env ]; then echo ERROR: .env missing; exit 1; fi",
+              "cd \($app_dir)",
+              "echo ==> Syncing restricted DB password...",
+              "grep -v \"^RESTRICTED_DB_PASSWORD=\" .env > .env.tmp || true; echo >> .env.tmp; echo \"RESTRICTED_DB_PASSWORD=\($restricted_db_password)\" >> .env.tmp; mv .env.tmp .env",
               "echo ==> Pulling latest code...",
-              "cd ${{ secrets.EC2_APP_DIR }}",
               "git pull origin main",
               "echo ==> Rebuilding containers...",
               "export DOCKER_BUILDKIT=0",
@@ -148,7 +166,12 @@ jobs:
               "npm run db:init",
               "echo ==> Health check...",
               "curl -f http://localhost/api/settings || (echo ERROR: Health check failed && exit 1)"
-            ]' \
+            ]}')
+
+          COMMAND_ID=$(aws ssm send-command \
+            --instance-ids ${{ secrets.EC2_INSTANCE_ID }} \
+            --document-name "AWS-RunShellScript" \
+            --parameters "$SSM_PARAMETERS" \
             --query "Command.CommandId" \
             --output text)
 
